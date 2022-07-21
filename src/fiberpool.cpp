@@ -51,7 +51,7 @@ void FiberPool::NotifyAll() {
 }
 
 FiberPool::FiberController FiberPool::Run(std::function<void()> func, int thread_id, bool circular) {
-    Task::ptr ptr(new Task({std::make_shared<Fiber>(func), thread_id, circular, false}));
+    Task::ptr ptr(new Task({std::make_shared<Fiber>(func), thread_id, circular, false, 0}));
     {
         std::unique_lock<std::shared_mutex> lock(_tasks_mutex);
         _tasks.push_back(ptr);
@@ -115,6 +115,7 @@ void FiberPool::MainLoop(int thread_id) {
             }
             if(tsk_ptr->fiber->GetStatus() == Fiber::TERMINAL){
                 if(tsk_ptr->circular) {
+                    ++tsk_ptr->circular_count;
                     // 等待下次被调度
                 }else{
                     // 协程执行完成，从任务队列中删除
