@@ -33,6 +33,7 @@ namespace myrpc {
 
         /**
          *@brief 阻塞当前协程，直至被事件唤醒，必须由协程调用
+         *@note 该方法必须在协程池中调用，否则会永远阻塞
          */
          static void Block();
 
@@ -79,7 +80,7 @@ namespace myrpc {
         // 需要执行的函数
         std::function<void()> _func;
         // 协程，使用boost coroutine2实现
-        pull_type* func_pull_type;
+        pull_type* func_pull_type = nullptr;
         push_type* func_push_type = nullptr;
 
         // 协程的主函数
