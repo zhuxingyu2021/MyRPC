@@ -42,12 +42,15 @@ namespace MyRPC{
         struct Task{
             using ptr = std::shared_ptr<Task>;
 
-            Task(std::function<void()> func):fiber(new Fiber(func)){}
-            Fiber::ptr fiber; // 协程指针
-            int thread_id = -1; // 线程ID
-            std::atomic<bool> circular {false}; // 任务是否循环执行
-            std::atomic<bool> stopped {false}; // 任务是否已停止
+            Task(std::function<void()> func, int tid, bool _circular):fiber(new Fiber(func)), thread_id(tid),
+                circular(_circular){}
+            Task() = delete;
 
+            Fiber::ptr fiber; // 协程指针
+            int thread_id; // 线程ID
+            std::atomic<bool> circular ; // 任务是否循环执行
+
+            std::atomic<bool> stopped {false}; // 任务是否已停止
             std::atomic<uint32_t> circular_count {0}; //循环执行计数
         };
         std::list<Task::ptr> _tasks; // 任务队列

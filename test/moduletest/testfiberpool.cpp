@@ -6,16 +6,18 @@
 
 using namespace MyRPC;
 
+#define NUM_THREADS 8
+
 int main(){
-    FiberPool fp(8);
+    FiberPool fp(NUM_THREADS);
     fp.Start();
 
     std::vector<FiberPool::FiberController> v;
 
-    for(int i = 0; i < 50; i++){
+    for(int i = 1; i <= 1000; i++){
         v.push_back(fp.Run([](){
-            Logger::info("Hello World! From fiber {}", Fiber::GetCurrentId());
-        }));
+            Logger::info("Hello World! From thread {}, fiber {}", FiberPool::GetCurrentThreadId(),Fiber::GetCurrentId());
+        }, i%NUM_THREADS));
     }
 
     for(auto &f : v){

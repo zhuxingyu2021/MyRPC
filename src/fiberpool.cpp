@@ -10,7 +10,7 @@ using namespace MyRPC;
 static thread_local FiberPool* p_fiber_pool = nullptr;
 
 // 当前线程id
-thread_local int now_thread_id = -2;
+static thread_local int now_thread_id = -2;
 
 FiberPool::FiberPool(int thread_num) :n_threads(thread_num){
     _threads_context_ptr.reserve(thread_num);
@@ -58,7 +58,7 @@ void FiberPool::NotifyAll() {
 }
 
 FiberPool::FiberController FiberPool::Run(std::function<void()> func, int thread_id, bool circular) {
-    Task::ptr ptr(new Task(func));
+    Task::ptr ptr(new Task(func, thread_id, circular));
     {
         std::lock_guard<SpinLock> lock(_tasks_lock);
         _tasks.push_back(ptr);
@@ -88,7 +88,6 @@ int FiberPool::MainLoop(int thread_id) {
     now_thread_id = thread_id;
     p_fiber_pool = this;
 
-
     auto context_ptr = _threads_context_ptr[thread_id];
 
     while(true){
@@ -103,6 +102,7 @@ int FiberPool::MainLoop(int thread_id) {
                     context_ptr->my_tasks[tsk_ptr->fiber->GetId()] = tsk_ptr;
                     iter = _tasks.erase(iter);
                 }else{
+                    NotifyAll(); // 告诉其他线程有新的任务要处理
                     iter++;
                 }
             }
