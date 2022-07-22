@@ -1,6 +1,7 @@
 #include "fiber.h"
 #include "logger.h"
 #include "macro.h"
+#include "hook.h"
 
 using namespace MyRPC;
 
@@ -9,8 +10,12 @@ std::atomic<int64_t> fiber_count = 0;
 // 当前线程中的活动协程
 static thread_local Fiber* p_fiber = nullptr;
 
-#define SET_THIS() p_fiber=this
-#define UNSET_THIS() p_fiber=nullptr
+#define SWAP_IN() {p_fiber=this; \
+    enable_hook = true;}
+
+#define SWAP_OUT() {p_fiber=nullptr; \
+    enable_hook = false;}
+
 #define GET_THIS() p_fiber
 
 Fiber::Fiber(std::function<void()> func):fiber_id(++fiber_count){
@@ -31,7 +36,7 @@ void Fiber::Suspend() {
         ptr->_status = READY;
 
         MYRPC_ASSERT(ptr->func_push_type != nullptr);
-        UNSET_THIS();
+        SWAP_OUT();
         // 切换上下文
         (*(ptr->func_push_type))(0);
     }
@@ -43,7 +48,7 @@ void Fiber::Block(){
         ptr->_status = BLOCKED;
 
         MYRPC_ASSERT(ptr->func_push_type != nullptr);
-        UNSET_THIS();
+        SWAP_OUT();
         // 切换上下文
         (*(ptr->func_push_type))(0);
     }
@@ -55,7 +60,7 @@ void Fiber::Exit() {
         ptr->_status = TERMINAL;
 
         MYRPC_ASSERT(ptr->func_push_type != nullptr);
-        UNSET_THIS();
+        SWAP_OUT();
         // 切换上下文
         (*(ptr->func_push_type))(0);
     }
@@ -63,7 +68,7 @@ void Fiber::Exit() {
 
 void Fiber::Resume() {
     if(_status==READY || _status==BLOCKED) {
-        SET_THIS();
+        SWAP_IN();
         _status = EXEC;
         if(!func_pull_type) {
             func_pull_type = new pull_type(Main);
