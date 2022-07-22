@@ -3,11 +3,11 @@
 #include <cstring>
 #include "fiber.h"
 
-using namespace myrpc;
+using namespace MyRPC;
 
 EventManager::EventManager() {
     // 初始化epoll
-    epoll_fd = epoll_create(5000);
+    epoll_fd = epoll_create(1);
     MYRPC_SYS_ASSERT(epoll_fd != -1);
 }
 
@@ -23,7 +23,7 @@ void EventManager::AddIOEvent(int fd, EventType event) {
     {
         // event已存在，则修改event
         EventType new_event = (EventType)(iter->second.second | event);
-        _fd_event_map[fd] = std::make_pair(Fiber::GetThis(),new_event);
+        _fd_event_map[fd] = std::make_pair(Fiber::GetCurrentId(),new_event);
 
         event_epoll.events = EPOLLET | new_event;
         event_epoll.data.fd = fd;
@@ -32,7 +32,7 @@ void EventManager::AddIOEvent(int fd, EventType event) {
     }
     else{
         // event不存在，创建event
-        _fd_event_map[fd] = std::make_pair(Fiber::GetThis(),event);
+        _fd_event_map[fd] = std::make_pair(Fiber::GetCurrentId(),event);
         event_epoll.events = EPOLLET | event;
         event_epoll.data.fd = fd;
 
@@ -56,7 +56,7 @@ void EventManager::AddIOFunc(int fd, EventType event, std::function<void()> func
     {
         // event已存在，则修改event
         EventType new_event = (EventType)(iter->second.second | event);
-        _fd_event_map[fd] = std::make_pair(nullptr,new_event);
+        _fd_event_map[fd] = std::make_pair(-1,new_event);
 
         event_epoll.events = EPOLLET | new_event;
         event_epoll.data.fd = fd;
@@ -65,7 +65,7 @@ void EventManager::AddIOFunc(int fd, EventType event, std::function<void()> func
     }
     else{
         // event不存在，创建event
-        _fd_event_map[fd] = std::make_pair(nullptr,event);
+        _fd_event_map[fd] = std::make_pair(-1,event);
         event_epoll.events = EPOLLET | event;
         event_epoll.data.fd = fd;
 
@@ -81,28 +81,25 @@ void EventManager::AddIOFunc(int fd, EventType event, std::function<void()> func
 
 void EventManager::WaitEvent() {
     auto n = epoll_wait(epoll_fd, _events, MAX_EVENTS, TIMEOUT);
-    MYRPC_SYS_ASSERT(n>=0);
     for(int i=0;i<n;i++){
-        auto now_event = _events[i].events;
+        auto happened_event = _events[i].events;
         auto fd = _events[i].data.fd;
 
-        auto fiber_event = _fd_event_map[fd];
-        auto fiber = fiber_event.first;
-        auto set_event = fiber_event.second;
+        auto[fiber_id, fiber_event] = _fd_event_map[fd];
 
-        if(fiber == nullptr){ // 函数事件
+        if(fiber_id == -1){ // 函数事件
             (_fd_func_map[fd])();
             continue;
         }
 
-        if (now_event & (EPOLLERR | EPOLLHUP)){
-            now_event |= ((EPOLLIN | EPOLLOUT) & set_event);
+        if (happened_event & (EPOLLERR | EPOLLHUP)){
+            happened_event |= ((EPOLLIN | EPOLLOUT) & fiber_event);
         }
-        int now_rw_event = now_event & (EPOLLIN | EPOLLOUT);
-        if(now_rw_event & set_event == 0) continue;
+        int now_rw_event = happened_event & (EPOLLIN | EPOLLOUT);
+        if(now_rw_event & fiber_event == 0) continue;
 
         // 获取还未触发的event，并重新注册。若event全部被触发，则删除。
-        int left_event = set_event & (~now_rw_event);
+        int left_event = fiber_event & (~now_rw_event);
         int op = left_event?EPOLL_CTL_MOD: EPOLL_CTL_DEL;
         if(!left_event) { // 若event全部被触发，则删除相应的event
             --event_count;
@@ -114,7 +111,12 @@ void EventManager::WaitEvent() {
 
         if((now_rw_event & READ) | (now_rw_event & WRITE)){
             // 恢复协程执行
-            fiber->Resume();
+            resume(fiber_id);
         }
     }
+}
+
+void EventManager::resume(int64_t fiber_id) {
+    Logger::critical("No Implementation Error! In file {}, line: {}", __FILE__, __LINE__);
+    exit(-1);
 }

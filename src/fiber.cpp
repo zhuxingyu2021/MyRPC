@@ -1,10 +1,10 @@
 #include "fiber.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 #include "macro.h"
 
-using namespace myrpc;
+using namespace MyRPC;
 
-std::atomic<uint64_t> fiber_count = 0;
+std::atomic<int64_t> fiber_count = 0;
 
 // 当前线程中的活动协程
 static thread_local Fiber* p_fiber = nullptr;
@@ -20,7 +20,7 @@ Fiber::Fiber(std::function<void()> func):fiber_id(++fiber_count){
 
 Fiber::~Fiber() {
     if(_status != TERMINAL){
-        spdlog::warn("Fiber{} exited abnormally!", fiber_id);
+        Logger::warn("Fiber{} exited abnormally!", fiber_id);
     }
     delete func_pull_type;
 }
@@ -73,15 +73,11 @@ void Fiber::Resume() {
         }
     }
     else if(_status==EXEC){
-        spdlog::warn("Trying to resume fiber{} which is in execution!", fiber_id);
+        Logger::warn("Trying to resume fiber{} which is in execution!", fiber_id);
     }
     else{
-        spdlog::warn("Trying to resume fiber{} which is not in ready!", fiber_id);
+        Logger::warn("Trying to resume fiber{} which is not in ready!", fiber_id);
     }
-}
-
-Fiber *Fiber::GetThis() {
-    return GET_THIS();
 }
 
 Fiber::status Fiber::GetCurrentStatus() {
@@ -92,7 +88,7 @@ Fiber::status Fiber::GetCurrentStatus() {
     return ERROR;
 }
 
-uint64_t Fiber::GetCurrentId() {
+int64_t Fiber::GetCurrentId() {
     auto ptr = GET_THIS();
     if(ptr) {
         return ptr->fiber_id;
@@ -106,10 +102,10 @@ void Fiber::Main(push_type &p) {
         GET_THIS()->_func();
     }
     catch(std::exception& e){
-        spdlog::warn("Fiber id:{} throws an exception {}.", GET_THIS()->fiber_id, e.what());
+        Logger::warn("Fiber id:{} throws an exception {}.", GET_THIS()->fiber_id, e.what());
     }
     catch(...){
-        spdlog::warn("Fiber id:{} throws an exception.", GET_THIS()->fiber_id);
+        Logger::warn("Fiber id:{} throws an exception.", GET_THIS()->fiber_id);
     }
     GET_THIS()->_status = TERMINAL;
 }

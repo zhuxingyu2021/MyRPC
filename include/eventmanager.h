@@ -7,7 +7,7 @@
 #include <functional>
 #include "fiber.h"
 
-namespace myrpc{
+namespace MyRPC{
 
     class EventManager : std::enable_shared_from_this<EventManager> {
     public:
@@ -49,15 +49,21 @@ namespace myrpc{
          */
          int GetNumEvents(){return event_count;}
 
+    protected:
+        // 恢复执行协程ID为fiber_id的协程
+        // Note: 该方法没有实现，必须被子类重写
+        virtual void resume(int64_t fiber_id);
+
     private:
         int epoll_fd;
         int event_count = 0;
         epoll_event _events[MAX_EVENTS];
 
-        // fd -> (Fiber, Event)
+        // fd -> (Fiber Id, Event)
         // 可以根据文件描述符查到谁添加了这个IO事件，以及IO事件的事件类型
-        std::unordered_map<int, std::pair<Fiber*,EventType>> _fd_event_map;
+        std::unordered_map<int, std::pair<int64_t ,EventType>> _fd_event_map;
 
+        // fd -> function
         // 可以根据文件描述符查到AddIOFunc添加的函数
         std::unordered_map<int, std::function<void()>> _fd_func_map;
     };

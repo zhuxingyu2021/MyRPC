@@ -5,6 +5,6 @@ aux_source_directory(${PROJECT_SOURCE_DIR}/src SRCDIR)
 find_package(Boost COMPONENTS coroutine REQUIRED)
 find_package(Threads REQUIRED)
 
-add_library(myrpc STATIC ${SRCDIR})
+add_library(MyRPC STATIC ${SRCDIR})
 
-target_link_libraries(myrpc  spdlog ${Boost_LIBRARIES})
+target_link_libraries(MyRPC  spdlog ${Boost_LIBRARIES})

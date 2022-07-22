@@ -2,16 +2,16 @@
 #define MYRPC_FIBERPOOL_H
 
 #include "fiber.h"
-#include <thread>
+#include <future>
 #include <list>
-#include <mutex>
-#include <shared_mutex>
 #include <unordered_map>
 #include <atomic>
 
+#include "macro.h"
+#include "spinlock.h"
 #include "eventmanager.h"
 
-namespace myrpc{
+namespace MyRPC{
     class FiberPool: public std::enable_shared_from_this<FiberPool> {
     public:
         using ptr = std::shared_ptr<FiberPool>;
@@ -41,15 +41,17 @@ namespace myrpc{
     private:
         struct Task{
             using ptr = std::shared_ptr<Task>;
-            Fiber::ptr fiber = nullptr; // 协程指针
-            int thread_id = -1; // 线程ID
-            volatile bool circular = false; // 任务是否循环执行
-            volatile bool joinable = false; // 任务是否可以被join
 
-            uint32_t circular_count = 0; //循环执行计数
+            Task(std::function<void()> func):fiber(new Fiber(func)){}
+            Fiber::ptr fiber; // 协程指针
+            int thread_id = -1; // 线程ID
+            std::atomic<bool> circular {false}; // 任务是否循环执行
+            std::atomic<bool> stopped {false}; // 任务是否已停止
+
+            std::atomic<uint32_t> circular_count {0}; //循环执行计数
         };
         std::list<Task::ptr> _tasks; // 任务队列
-        mutable std::shared_mutex _tasks_mutex; // 任务队列的互斥锁
+        SpinLock _tasks_lock; // 任务队列锁
     public:
 
         class FiberController{
@@ -58,20 +60,20 @@ namespace myrpc{
             FiberController(Task::ptr _ptr): _task_ptr(_ptr){}
 
             /**
-             * @brief 判断协程是否可以被Join（已执行完成）
-             * @return true表示协程可以被Join（已执行完成）， false表示协程不能被Join（未执行完成）
-             */
-            bool Joinable() { return _task_ptr->joinable; }
-
-            /**
              * @brief Join协程和主线程
              * @note 若协程不可被Join，那么等待至协程能被Join为止
              */
             void Join() {
-                while(_task_ptr->joinable){
-                    usleep(1000);
+                while(!_task_ptr->stopped){
+                    MYRPC_SYS_ASSERT(sched_yield()==0);
                 }
             }
+
+            /**
+             * @brief 获取协程ID
+             * @return 协程ID
+             */
+            int64_t GetId(){return _task_ptr->fiber->GetId();}
 
             /**
              * @brief 获得当前任务已循环执行的次数
@@ -112,32 +114,35 @@ namespace myrpc{
          * 获得当前线程的事件管理器，该方法只能由协程池中的协程调用
          * @return 当前协程的事件管理器
          */
-        static EventManager* GetEventManager();
+        static EventManager::ptr GetEventManager();
 
     private:
         int n_threads; // 线程数量
 
-        struct ThreadContext{
+        class ThreadContext:public EventManager{
         public:
-            ThreadContext():_manager(){}
+            using ptr = std::shared_ptr<ThreadContext>;
+            ThreadContext():EventManager(){}
 
-            EventManager _manager; // 线程的事件管理器
-
-            std::list<Task::ptr> my_tasks; // 线程的任务队列
+            // Fiber Id -> Task
+            // 线程的任务队列
+            std::unordered_map<int64_t, Task::ptr> my_tasks;
+        protected:
+            void resume(int64_t fiber_id) override;
         };
 
-        std::vector<ThreadContext> _threads_context;
+        std::vector<ThreadContext::ptr> _threads_context_ptr;
 
-        std::vector<std::thread*> _threads_ptr;
+        std::vector<std::shared_future<int>> _threads_future;
 
         // 协程池主循环
-        void MainLoop(int thread_id);
+        int MainLoop(int thread_id);
 
         // 当有新的任务到来时，可以往pipe中写数据来唤醒线程池中的线程
         int pipe_fd[2];
 
         // 用以强制关闭协程池
-        volatile bool stopping;
+        std::atomic<bool> stopping{false};
     };
 
 }

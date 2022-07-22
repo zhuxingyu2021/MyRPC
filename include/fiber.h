@@ -5,7 +5,7 @@
 #include <functional>
 #include <boost/coroutine2/coroutine.hpp>
 
-namespace myrpc {
+namespace MyRPC {
     class Fiber : public std::enable_shared_from_this<Fiber> {
     public:
         using ptr = std::shared_ptr<Fiber>;
@@ -48,11 +48,6 @@ namespace myrpc {
         void Resume();
 
         /**
-         * @brief 获得当前协程类的this指针，必须由协程调用
-         */
-         static Fiber* GetThis();
-
-        /**
          * @brief 获得协程的状态
          */
         status GetStatus(){return _status;}
@@ -60,7 +55,7 @@ namespace myrpc {
         /**
          * @brief 获得协程的ID
          */
-        uint64_t GetId(){return fiber_id;}
+        int64_t GetId(){return fiber_id;}
 
         /**
          * @brief 获得当前协程状态，必须由协程调用
@@ -70,11 +65,11 @@ namespace myrpc {
         /**
          * @breif 获得当前协程ID，必须由协程调用
          */
-         static uint64_t GetCurrentId();
+         static int64_t GetCurrentId();
 
     private:
         // 协程id
-        uint64_t fiber_id = 0;
+        int64_t fiber_id = 0;
         // 当前执行状态
         status _status;
         // 需要执行的函数
