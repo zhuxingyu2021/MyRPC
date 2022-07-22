@@ -33,7 +33,7 @@ namespace MyRPC {
 
         /**
          *@brief 阻塞当前协程，直至被事件唤醒，必须由协程调用
-         *@note 该方法必须在协程池中调用，否则会永远阻塞
+         *@note 该方法必须由协程池中的协程调用，否则会永远阻塞
          */
          static void Block();
 
@@ -46,6 +46,12 @@ namespace MyRPC {
          * @brief 恢复协程的CPU控制权
          */
         void Resume();
+
+        /**
+         * @brief 重置协程的状态
+         * @note 该方法不会发生上下文切换
+         */
+        void Reset();
 
         /**
          * @brief 获得协程的状态

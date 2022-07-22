@@ -114,15 +114,29 @@ int FiberPool::MainLoop(int thread_id) {
             MYRPC_ASSERT(tsk_ptr->fiber->GetStatus() != Fiber::ERROR);
             tsk_ptr->thread_id = thread_id;
             if(tsk_ptr->fiber->GetStatus() == Fiber::READY){ // 如果任务已就绪，那么执行任务
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
+                Logger::debug("Thread: {}, Fiber: {} is ready to run", thread_id,tsk_ptr->fiber->GetId());
+#endif
+                // 任务已就绪，恢复任务执行
                 tsk_ptr->fiber->Resume();
-                if((tsk_ptr->fiber->GetStatus() == Fiber::READY) || (tsk_ptr->fiber->GetStatus() == Fiber::BLOCKED)){
-                    // 任务让出CPU，等待下次被调度
-                }
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
+                Logger::debug("Thread: {}, Fiber: {} is swapped out", thread_id,tsk_ptr->fiber->GetId());
+#endif
+                // 任务让出CPU，等待下次被调度
             }
-            if(tsk_ptr->fiber->GetStatus() == Fiber::TERMINAL){
+            else if(tsk_ptr->fiber->GetStatus() == Fiber::TERMINAL){
                 if(tsk_ptr->circular) {
                     ++tsk_ptr->circular_count;
-                    // 等待下次被调度
+                    tsk_ptr->fiber->Reset();
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
+                    Logger::debug("Thread: {}, Fiber: {} has been reseted", thread_id,tsk_ptr->fiber->GetId());
+                    Logger::debug("Thread: {}, Fiber: {} is ready to run", thread_id,tsk_ptr->fiber->GetId());
+#endif
+                    // 任务已就绪，恢复任务执行
+                    tsk_ptr->fiber->Resume();
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
+                    Logger::debug("Thread: {}, Fiber: {} is swapped out", thread_id,tsk_ptr->fiber->GetId());
+#endif
                 }else{
                     // 协程执行完成，从任务队列中删除
                     tsk_ptr->stopped = true; // 执行完成

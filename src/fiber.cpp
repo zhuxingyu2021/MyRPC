@@ -62,7 +62,7 @@ void Fiber::Exit() {
 }
 
 void Fiber::Resume() {
-    if(_status==READY) {
+    if(_status==READY || _status==BLOCKED) {
         SET_THIS();
         _status = EXEC;
         if(!func_pull_type) {
@@ -77,6 +77,18 @@ void Fiber::Resume() {
     }
     else{
         Logger::warn("Trying to resume fiber{} which is not in ready!", fiber_id);
+    }
+}
+
+void Fiber::Reset(){
+    if(_status==TERMINAL || _status==BLOCKED){
+        _status = READY;
+        delete func_pull_type;
+        func_pull_type = nullptr;
+        func_push_type = nullptr;
+    }
+    else{
+        Logger::warn("Trying to reset fiber{} which is not terminated or blocked!", fiber_id);
     }
 }
 

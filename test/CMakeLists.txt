@@ -5,3 +5,7 @@ target_link_libraries(testfiber MyRPC)
 
 add_executable(testfiberpool moduletest/testfiberpool.cpp)
 target_link_libraries(testfiberpool MyRPC)
+
+add_executable(testtimer moduletest/testtimer.cpp)
+target_link_libraries(testtimer MyRPC)
+
