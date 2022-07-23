@@ -54,7 +54,7 @@ namespace MyRPC{
             std::atomic<uint32_t> circular_count {0}; //循环执行计数
         };
         std::list<Task::ptr> _tasks; // 任务队列
-        SpinLock _tasks_lock; // 任务队列锁
+        ThreadLevelSpinLock _tasks_lock; // 任务队列锁
     public:
 
         class FiberController{
@@ -68,7 +68,9 @@ namespace MyRPC{
              */
             void Join() {
                 while(!_task_ptr->stopped){
+#ifndef MYRPC_DEBUG_SYS_CALL
                     MYRPC_SYS_ASSERT(sched_yield()==0);
+#endif
                 }
             }
 

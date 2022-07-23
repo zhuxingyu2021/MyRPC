@@ -6,6 +6,8 @@ target_link_libraries(testfiber MyRPC)
 add_executable(testfiberpool moduletest/testfiberpool.cpp)
 target_link_libraries(testfiberpool MyRPC)
 
-add_executable(testtimer moduletest/testtimer.cpp)
-target_link_libraries(testtimer MyRPC)
+add_executable(testhooksleep moduletest/testhooksleep.cpp)
+target_link_libraries(testhooksleep MyRPC)
 
+add_executable(testhookio moduletest/testhookio.cpp)
+target_link_libraries(testhookio MyRPC -static-libgcc -static-libstdc++)

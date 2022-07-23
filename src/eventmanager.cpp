@@ -2,6 +2,7 @@
 #include "macro.h"
 #include <cstring>
 #include "fiber.h"
+#include "hookio.h"
 
 using namespace MyRPC;
 
@@ -11,7 +12,7 @@ EventManager::EventManager() {
     MYRPC_SYS_ASSERT(epoll_fd != -1);
 }
 
-void EventManager::AddIOEvent(int fd, EventType event) {
+int EventManager::AddIOEvent(int fd, EventType event) {
     epoll_event event_epoll; // epoll_ctl 的4个参数
     memset(&event_epoll, 0, sizeof(epoll_event));
 
@@ -41,10 +42,10 @@ void EventManager::AddIOEvent(int fd, EventType event) {
     }
 
     // 调用epoll_ctl
-    MYRPC_SYS_ASSERT(epoll_ctl(epoll_fd, op, fd, &event_epoll)==0);
+    return epoll_ctl(epoll_fd, op, fd, &event_epoll);
 }
 
-void EventManager::AddIOFunc(int fd, EventType event, std::function<void()> func) {
+int EventManager::AddIOFunc(int fd, EventType event, std::function<void()> func) {
     epoll_event event_epoll; // epoll_ctl 的4个参数
     memset(&event_epoll, 0, sizeof(epoll_event));
 
@@ -76,7 +77,7 @@ void EventManager::AddIOFunc(int fd, EventType event, std::function<void()> func
     _fd_func_map[fd] = func;
 
     // 调用epoll_ctl
-    MYRPC_SYS_ASSERT(epoll_ctl(epoll_fd, op, fd, &event_epoll)==0);
+    return epoll_ctl(epoll_fd, op, fd, &event_epoll);
 }
 
 void EventManager::WaitEvent() {
@@ -91,7 +92,10 @@ void EventManager::WaitEvent() {
         auto[fiber_id, fiber_event] = _fd_event_map[fd];
 
         if(fiber_id == -1){ // 函数事件
+            auto tmp = enable_hook;
+            enable_hook = false;
             (_fd_func_map[fd])();
+            enable_hook = tmp;
             continue;
         }
 

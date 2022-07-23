@@ -13,7 +13,7 @@ namespace MyRPC{
     public:
         using ptr = std::shared_ptr<EventManager>;
         static const int MAX_EVENTS = 300;
-        static const int TIMEOUT = 1000;
+        static const int TIMEOUT = 5000;
 
         EventManager();
 
@@ -27,8 +27,9 @@ namespace MyRPC{
          * @brief 添加IO事件，该方法必须由协程调用
          * @param fd[in] 文件描述符
          * @param event[in] IO事件类型
+         * @return 0表示成功, -1表示失败
          */
-        void AddIOEvent(int fd, EventType event);
+        int AddIOEvent(int fd, EventType event);
 
         /**
          * @brief 将IO事件与函数绑定，当IO事件到来，执行相应函数
@@ -36,8 +37,9 @@ namespace MyRPC{
          * @param event[in] IO事件类型
          * @param func[in] IO事件完成之后，执行的函数
          * @note 函数function内部不能有阻塞系统调用
+         * @return 0表示成功, -1表示失败
          */
-        void AddIOFunc(int fd, EventType event, std::function<void()> func);
+        int AddIOFunc(int fd, EventType event, std::function<void()> func);
 
         /**
          * @brief 处理Epoll事件
