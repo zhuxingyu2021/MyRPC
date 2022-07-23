@@ -4,10 +4,11 @@
 #include "logger.h"
 
 #define MYRPC_DEBUG_ON_LEVEL 1
+#define MYRPC_DEBUG_HOOK_LEVEL 3
 #define MYRPC_DEBUG_FIBER_POOL_LEVEL 4
 
 // 设置调试级别
-#define MYRPC_DEBUG_LEVEL 3
+#define MYRPC_DEBUG_LEVEL MYRPC_DEBUG_HOOK_LEVEL
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_ON_LEVEL
 #define MYRPC_ASSERT(x) if(!(x)) { \
@@ -27,8 +28,8 @@ namespace MyRPC::Initializer {
 }
 
 #else
-#define MYRPC_ASSERT(x)
-#define MYRPC_SYS_ASSERT(x)
+#define MYRPC_ASSERT(x) {x;}
+#define MYRPC_SYS_ASSERT(x) {x;}
 #endif
 
 #endif //MYRPC_MACRO_H

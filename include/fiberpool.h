@@ -144,6 +144,9 @@ namespace MyRPC{
         // 当有新的任务到来时，可以往pipe中写数据来唤醒线程池中的线程
         int pipe_fd[2];
 
+        // 判断协程池是否有线程在运行
+        std::atomic<bool> running {false};
+
         // 用以强制关闭协程池
         std::atomic<bool> stopping{false};
     };

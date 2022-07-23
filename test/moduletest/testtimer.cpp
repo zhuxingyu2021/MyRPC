@@ -1,37 +1,68 @@
 # include "fiberpool.h"
 # include "logger.h"
-# include "eventmanager.h"
-# include <sys/timerfd.h>
-# include <cstring>
-# include <iostream>
 
 using namespace MyRPC;
 
 #define NUM_THREADS 1
+#define MAX_CIRCULAR_COUNT 4
 
 int main(){
-
     FiberPool fp(NUM_THREADS);
+    Logger::info("sleep Test Start!");
+    Logger::info("Syscall sleep({}) started!", 1);
+    sleep(1);
+    Logger::info("Syscall sleep({}) finished!", 1);
+
     fp.Start();
-
     auto f = fp.Run([](){
-        auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
-
-        struct itimerspec its;
-        memset(&its, 0, sizeof(its));
-        its.it_value.tv_sec = 1;
-        MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
-
-        FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
-
-        Fiber::Block();
-
-        close(timer_fd);
+        sleep(2);
 
         Logger::info("Timer expired!");
     }, 0, true);
 
+    while(f.GetCircularCount() < MAX_CIRCULAR_COUNT){
+        sched_yield();
+    }
+    f.UnsetCircular();
     f.Join();
+
+    Logger::info("usleep Test Start!");
+    Logger::info("Syscall usleep({}) started!", 10000);
+    usleep(10000);
+    Logger::info("Syscall usleep({}) finished!", 10000);
+
+    auto g = fp.Run([](){
+        usleep(20000);
+
+        Logger::info("Timer expired!");
+    }, 0, true);
+
+    while(g.GetCircularCount() < MAX_CIRCULAR_COUNT){
+        sched_yield();
+    }
+    g.UnsetCircular();
+    g.Join();
+
+
+    Logger::info("usleep Test Start!");
+    Logger::info("Syscall nanosleep({}) started!", 100000000);
+    struct timespec ts = {0, 100000000};
+    nanosleep(&ts, NULL);
+    Logger::info("Syscall nanosleep({}) finished!", 100000000);
+
+    auto h = fp.Run([](){
+        struct timespec ts = {0, 200000000};
+        nanosleep(&ts, NULL);
+
+        Logger::info("Timer expired!");
+    }, 0, true);
+
+    while(h.GetCircularCount() < MAX_CIRCULAR_COUNT){
+        sched_yield();
+    }
+    h.UnsetCircular();
+    h.Join();
+
     fp.Stop();
 
     return 0;

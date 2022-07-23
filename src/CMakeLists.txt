@@ -7,4 +7,4 @@ find_package(Threads REQUIRED)
 
 add_library(MyRPC STATIC ${SRCDIR})
 
-target_link_libraries(MyRPC  spdlog ${Boost_LIBRARIES})
+target_link_libraries(MyRPC  spdlog ${Boost_LIBRARIES} dl)

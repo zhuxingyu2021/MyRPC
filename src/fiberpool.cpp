@@ -23,7 +23,7 @@ FiberPool::FiberPool(int thread_num) :n_threads(thread_num){
 }
 
 FiberPool::~FiberPool() {
-    Stop();
+    if(running) Stop();
     close(pipe_fd[0]);
     close(pipe_fd[1]);
 }
@@ -36,8 +36,9 @@ void FiberPool::Start() {
             uint8_t dummy[256];
             while(read(this->pipe_fd[0], dummy, sizeof(dummy)) > 0);
         });
-        _threads_future.emplace_back(std::async(std::launch::async, &FiberPool::MainLoop, this, i));
+        _threads_future.push_back(std::async(std::launch::async, &FiberPool::MainLoop, this, i));
     }
+    running = true;
 }
 
 void FiberPool::Stop() {
@@ -51,6 +52,9 @@ void FiberPool::Stop() {
         }
         MYRPC_ASSERT(_threads_future[i].get() == 0);
     }
+    _threads_context_ptr.clear();
+    _threads_future.clear();
+    running = false;
 }
 
 void FiberPool::NotifyAll() {
