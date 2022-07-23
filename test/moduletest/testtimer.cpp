@@ -8,12 +8,13 @@ using namespace MyRPC;
 
 int main(){
     FiberPool fp(NUM_THREADS);
+    fp.Start();
+
     Logger::info("sleep Test Start!");
     Logger::info("Syscall sleep({}) started!", 1);
     sleep(1);
     Logger::info("Syscall sleep({}) finished!", 1);
 
-    fp.Start();
     auto f = fp.Run([](){
         sleep(2);
 

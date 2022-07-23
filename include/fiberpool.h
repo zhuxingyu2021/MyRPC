@@ -141,8 +141,8 @@ namespace MyRPC{
         // 协程池主循环
         int MainLoop(int thread_id);
 
-        // 当有新的任务到来时，可以往pipe中写数据来唤醒线程池中的线程
-        int pipe_fd[2];
+        // 当有新的任务到来时，可以通过event_fd来唤醒协程池中的主协程
+        int event_fd;
 
         // 判断协程池是否有线程在运行
         std::atomic<bool> running {false};

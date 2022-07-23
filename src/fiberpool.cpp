@@ -4,6 +4,8 @@
 #include <chrono>
 #include <mutex>
 
+#include <sys/eventfd.h>
+
 using namespace MyRPC;
 
 // 当前线程的协程池
@@ -16,25 +18,23 @@ FiberPool::FiberPool(int thread_num) :n_threads(thread_num){
     _threads_context_ptr.reserve(thread_num);
     _threads_future.reserve(thread_num);
 
-    // 打开pipe
-    MYRPC_SYS_ASSERT(pipe(pipe_fd) == 0);
-    // 将读pipe设定为非阻塞IO
-    MYRPC_SYS_ASSERT(fcntl(pipe_fd[0],F_SETFL,O_NONBLOCK)==0);
+    // 创建event_fd
+    event_fd = eventfd(0, EFD_NONBLOCK);
+    MYRPC_ASSERT(event_fd > 0);
 }
 
 FiberPool::~FiberPool() {
     if(running) Stop();
-    close(pipe_fd[0]);
-    close(pipe_fd[1]);
+    MYRPC_SYS_ASSERT(close(event_fd)==0);
 }
 
 void FiberPool::Start() {
     for(int i=0; i<n_threads; i++){
         _threads_context_ptr.emplace_back(new ThreadContext);
         // 添加读pipe事件，用以唤醒线程
-        _threads_context_ptr[i]->AddIOFunc(pipe_fd[0], EventManager::READ, [this](){
-            uint8_t dummy[256];
-            while(read(this->pipe_fd[0], dummy, sizeof(dummy)) > 0);
+        _threads_context_ptr[i]->AddIOFunc(event_fd, EventManager::READ, [this](){
+            uint64_t val;
+            MYRPC_SYS_ASSERT(read(event_fd, &val, sizeof(val))==sizeof(val));
         });
         _threads_future.push_back(std::async(std::launch::async, &FiberPool::MainLoop, this, i));
     }
@@ -58,7 +58,8 @@ void FiberPool::Stop() {
 }
 
 void FiberPool::NotifyAll() {
-    MYRPC_SYS_ASSERT(write(pipe_fd[1], "N", 1) == 1);
+    uint64_t val = 1;
+    MYRPC_SYS_ASSERT(write(event_fd, &val, sizeof(uint64_t)) == sizeof(uint64_t));
 }
 
 FiberPool::FiberController FiberPool::Run(std::function<void()> func, int thread_id, bool circular) {
