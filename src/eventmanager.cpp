@@ -12,6 +12,10 @@ EventManager::EventManager() {
     MYRPC_SYS_ASSERT(epoll_fd != -1);
 }
 
+EventManager::~EventManager() {
+    MYRPC_SYS_ASSERT(close(epoll_fd) == 0);
+}
+
 int EventManager::AddIOEvent(int fd, EventType event) {
     epoll_event event_epoll; // epoll_ctl 的4个参数
     memset(&event_epoll, 0, sizeof(epoll_event));

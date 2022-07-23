@@ -42,9 +42,9 @@ namespace MyRPC{
         struct Task{
             using ptr = std::shared_ptr<Task>;
 
-            Task(std::function<void()> func, int tid, bool _circular):fiber(new Fiber(func)), thread_id(tid),
-                circular(_circular){}
+            Task(std::function<void()> func, int tid, bool _circular);
             Task() = delete;
+            ~Task();
 
             Fiber::ptr fiber; // 协程指针
             int thread_id; // 线程ID
@@ -52,6 +52,8 @@ namespace MyRPC{
 
             std::atomic<bool> stopped {false}; // 任务是否已停止
             std::atomic<uint32_t> circular_count {0}; //循环执行计数
+
+            int event_fd;
         };
         std::list<Task::ptr> _tasks; // 任务队列
         ThreadLevelSpinLock _tasks_lock; // 任务队列锁
@@ -59,20 +61,24 @@ namespace MyRPC{
 
         class FiberController{
         public:
+            using ptr = std::shared_ptr<FiberController>;
+
             friend FiberPool;
-            FiberController(Task::ptr _ptr): _task_ptr(_ptr){}
+            FiberController(Task::ptr _ptr):_task_ptr(_ptr){}
+
+            /**
+             * @brief 判断协程是否已停止
+             * @return 若协程已停止，返回true，否则返回false
+             */
+            bool IsStopped() {
+                return _task_ptr->stopped;
+            }
 
             /**
              * @brief Join协程和主线程
              * @note 若协程不可被Join，那么等待至协程能被Join为止
              */
-            void Join() {
-                while(!_task_ptr->stopped){
-#ifndef MYRPC_DEBUG_SYS_CALL
-                    MYRPC_SYS_ASSERT(sched_yield()==0);
-#endif
-                }
-            }
+            void Join();
 
             /**
              * @brief 获取协程ID
@@ -101,7 +107,7 @@ namespace MyRPC{
          * @param circular true表示任务会被循环执行，false表示任务只执行一次
          * @return
          */
-        FiberController Run(std::function<void()> func, int thread_id = -1, bool circular = false);
+        FiberController::ptr Run(std::function<void()> func, int thread_id = -1, bool circular = false);
 
         /**
          * 获得当前线程Id，该方法只能由协程池中的线程调用

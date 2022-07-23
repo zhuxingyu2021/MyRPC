@@ -6,35 +6,37 @@
 
 #include <sys/eventfd.h>
 
-using namespace MyRPC;
+#undef MYRPC_JOIN_EVENT_FD
+
+namespace MyRPC {
 
 // 当前线程的协程池
-static thread_local FiberPool* p_fiber_pool = nullptr;
+static thread_local FiberPool *p_fiber_pool = nullptr;
 
 // 当前线程id
 static thread_local int now_thread_id = -2;
 
-FiberPool::FiberPool(int thread_num) :n_threads(thread_num){
+FiberPool::FiberPool(int thread_num) : n_threads(thread_num) {
     _threads_context_ptr.reserve(thread_num);
     _threads_future.reserve(thread_num);
 
     // 创建event_fd
-    event_fd = eventfd(0, EFD_NONBLOCK);
+    event_fd = eventfd(0, O_NONBLOCK);
     MYRPC_ASSERT(event_fd > 0);
 }
 
 FiberPool::~FiberPool() {
-    if(running) Stop();
-    MYRPC_SYS_ASSERT(close(event_fd)==0);
+    if (running) Stop();
+    MYRPC_SYS_ASSERT(close(event_fd) == 0);
 }
 
 void FiberPool::Start() {
-    for(int i=0; i<n_threads; i++){
+    for (int i = 0; i < n_threads; i++) {
         _threads_context_ptr.emplace_back(new ThreadContext);
         // 添加读pipe事件，用以唤醒线程
-        _threads_context_ptr[i]->AddIOFunc(event_fd, EventManager::READ, [this](){
+        _threads_context_ptr[i]->AddIOFunc(event_fd, EventManager::READ, [this]() {
             uint64_t val;
-            read(event_fd, &val, sizeof(val));
+            read(this->event_fd, &val, sizeof(val));
         });
         _threads_future.push_back(std::async(std::launch::async, &FiberPool::MainLoop, this, i));
     }
@@ -43,10 +45,10 @@ void FiberPool::Start() {
 
 void FiberPool::Stop() {
     stopping = true;
-    for(int i=0; i<n_threads; i++){
+    for (int i = 0; i < n_threads; i++) {
         NotifyAll();
         auto status = _threads_future[i].wait_for(std::chrono::nanoseconds(1));
-        while(status != std::future_status::ready){
+        while (status != std::future_status::ready) {
             NotifyAll();
             status = _threads_future[i].wait_for(std::chrono::nanoseconds(1));
         }
@@ -62,16 +64,49 @@ void FiberPool::NotifyAll() {
     MYRPC_SYS_ASSERT(write(event_fd, &val, sizeof(uint64_t)) == sizeof(uint64_t));
 }
 
-FiberPool::FiberController FiberPool::Run(std::function<void()> func, int thread_id, bool circular) {
+#ifdef MYRPC_JOIN_EVENT_FD
+FiberPool::Task::Task(std::function<void()> func, int tid, bool _circular):fiber(new Fiber(func)), thread_id(tid),
+    circular(_circular) {
+    // 创建event_fd
+    event_fd = eventfd(0, 0);
+    MYRPC_ASSERT(event_fd > 0);
+}
+
+FiberPool::Task::~Task() {
+    MYRPC_SYS_ASSERT(close(event_fd) == 0);
+}
+#else
+
+FiberPool::Task::Task(std::function<void()> func, int tid, bool _circular):fiber(new Fiber(func)), thread_id(tid),
+    circular(_circular) {}
+
+FiberPool::Task::~Task() {}
+#endif
+
+FiberPool::FiberController::ptr FiberPool::Run(std::function<void()> func, int thread_id, bool circular) {
     Task::ptr ptr(new Task(func, thread_id, circular));
     {
         std::lock_guard<ThreadLevelSpinLock> lock(_tasks_lock);
         _tasks.push_back(ptr);
     }
     NotifyAll();
-    FiberController j(ptr);
-    return j;
+    return std::make_shared<FiberPool::FiberController>(ptr);
 }
+
+#ifdef MYRPC_JOIN_EVENT_FD
+void FiberPool::FiberController::Join() {
+    uint64_t buf;
+    if(!_task_ptr->stopped){
+        read(_task_ptr->event_fd, &buf, sizeof(buf));
+    }
+}
+#else
+
+void FiberPool::FiberController::Join() {
+    while(!_task_ptr->stopped){
+    }
+}
+#endif
 
 int FiberPool::GetCurrentThreadId() {
     return now_thread_id;
@@ -82,7 +117,7 @@ FiberPool *FiberPool::GetThis() {
 }
 
 EventManager::ptr FiberPool::GetEventManager() {
-    if(now_thread_id>=0) {
+    if (now_thread_id >= 0) {
         MYRPC_ASSERT(p_fiber_pool);
         return static_cast<EventManager::ptr>(p_fiber_pool->_threads_context_ptr[now_thread_id]);
     }
@@ -95,18 +130,18 @@ int FiberPool::MainLoop(int thread_id) {
 
     auto context_ptr = _threads_context_ptr[thread_id];
 
-    while(true){
-        if(stopping) return 0;
+    while (true) {
+        if (stopping) return 0;
 
         // 1. 读取消息队列中的任务
         {
             std::lock_guard<ThreadLevelSpinLock> lock(_tasks_lock);
-            for(auto iter = _tasks.begin(); iter != _tasks.end();){
+            for (auto iter = _tasks.begin(); iter != _tasks.end();) {
                 auto tsk_ptr = *iter;
-                if(tsk_ptr->thread_id == thread_id || tsk_ptr->thread_id == -1){
+                if (tsk_ptr->thread_id == thread_id || tsk_ptr->thread_id == -1) {
                     context_ptr->my_tasks[tsk_ptr->fiber->GetId()] = tsk_ptr;
                     iter = _tasks.erase(iter);
-                }else{
+                } else {
                     NotifyAll(); // 告诉其他线程有新的任务要处理
                     iter++;
                 }
@@ -114,38 +149,42 @@ int FiberPool::MainLoop(int thread_id) {
         }
 
         // 2. 调度线程的所有协程
-        for(auto iter = context_ptr->my_tasks.begin(); iter != context_ptr->my_tasks.end();){
-            auto [fiber_id, tsk_ptr] = *iter;
+        for (auto iter = context_ptr->my_tasks.begin(); iter != context_ptr->my_tasks.end();) {
+            auto[fiber_id, tsk_ptr] = *iter;
             MYRPC_ASSERT(tsk_ptr->fiber->GetStatus() != Fiber::ERROR);
             tsk_ptr->thread_id = thread_id;
-            if(tsk_ptr->fiber->GetStatus() == Fiber::READY){ // 如果任务已就绪，那么执行任务
+            if (tsk_ptr->fiber->GetStatus() == Fiber::READY) { // 如果任务已就绪，那么执行任务
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
-                Logger::debug("Thread: {}, Fiber: {} is ready to run", thread_id,tsk_ptr->fiber->GetId());
+                Logger::debug("Thread: {}, Fiber: {} is ready to run #1", thread_id, tsk_ptr->fiber->GetId());
 #endif
                 // 任务已就绪，恢复任务执行
                 tsk_ptr->fiber->Resume();
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
-                Logger::debug("Thread: {}, Fiber: {} is swapped out", thread_id,tsk_ptr->fiber->GetId());
+                Logger::debug("Thread: {}, Fiber: {} is swapped out #1", thread_id, tsk_ptr->fiber->GetId());
 #endif
                 // 任务让出CPU，等待下次被调度
-            }
-            else if(tsk_ptr->fiber->GetStatus() == Fiber::TERMINAL){
-                if(tsk_ptr->circular) {
+            } else if (tsk_ptr->fiber->GetStatus() == Fiber::TERMINAL) {
+                if (tsk_ptr->circular) {
                     ++tsk_ptr->circular_count;
                     tsk_ptr->fiber->Reset();
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
-                    Logger::debug("Thread: {}, Fiber: {} has been reseted", thread_id,tsk_ptr->fiber->GetId());
-                    Logger::debug("Thread: {}, Fiber: {} is ready to run", thread_id,tsk_ptr->fiber->GetId());
+                    Logger::debug("Thread: {}, Fiber: {} has been reseted #2", thread_id, tsk_ptr->fiber->GetId());
+                    Logger::debug("Thread: {}, Fiber: {} is ready to run #2", thread_id, tsk_ptr->fiber->GetId());
 #endif
                     // 任务已就绪，恢复任务执行
                     tsk_ptr->fiber->Resume();
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
-                    Logger::debug("Thread: {}, Fiber: {} is swapped out", thread_id,tsk_ptr->fiber->GetId());
+                    Logger::debug("Thread: {}, Fiber: {} is swapped out #2", thread_id, tsk_ptr->fiber->GetId());
 #endif
-                }else{
+                } else {
                     // 协程执行完成，从任务队列中删除
-                    tsk_ptr->stopped = true; // 执行完成
-                    context_ptr->my_tasks.erase(iter++); continue;
+#ifdef MYRPC_JOIN_EVENT_FD
+                    uint64_t buf = 999;
+                    write(tsk_ptr->event_fd, &buf, sizeof(buf));
+#endif
+                    tsk_ptr->stopped = true;
+                    context_ptr->my_tasks.erase(iter++);
+                    continue;
                 }
             }
             ++iter;
@@ -158,16 +197,19 @@ int FiberPool::MainLoop(int thread_id) {
 
 void FiberPool::ThreadContext::resume(int64_t fiber_id) {
     auto iter = my_tasks.find(fiber_id);
-    if(iter!=my_tasks.end()) {
+    if (iter != my_tasks.end()) {
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
-        Logger::debug("Thread: {}, Fiber: {} is ready to run from the blocked status", FiberPool::GetCurrentThreadId(),iter->second->fiber->GetId());
+        Logger::debug("Thread: {}, Fiber: {} is ready to run from the blocked status #3",
+                      FiberPool::GetCurrentThreadId(), iter->second->fiber->GetId());
 #endif
         (*iter).second->fiber->Resume();
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
-        Logger::debug("Thread: {}, Fiber: {} is swapped out", FiberPool::GetCurrentThreadId(),iter->second->fiber->GetId());
+        Logger::debug("Thread: {}, Fiber: {} is swapped out #3", FiberPool::GetCurrentThreadId(),
+                      iter->second->fiber->GetId());
 #endif
-    }
-    else{
+    } else {
         Logger::warn("Attempt to resume a fiber which has been erased!");
     }
+}
+
 }

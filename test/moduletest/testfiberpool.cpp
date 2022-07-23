@@ -1,6 +1,6 @@
 #include "fiberpool.h"
 #include "fiber.h"
-#include <iostream>
+#include <thread>
 #include <vector>
 #include "logger.h"
 
@@ -12,7 +12,7 @@ int main(){
     FiberPool fp(NUM_THREADS);
     fp.Start();
 
-    std::vector<FiberPool::FiberController> v;
+    std::vector<FiberPool::FiberController::ptr> v;
 
     for(int i = 1; i <= 1000; i++){
         v.push_back(fp.Run([](){
@@ -20,11 +20,12 @@ int main(){
         }, i%NUM_THREADS));
     }
 
-    for(auto &f : v){
-        f.Join();
+    for(int i=0; i<v.size();i++){
+        v[i]->Join();
     }
 
     fp.Stop();
+
     return 0;
 }
 

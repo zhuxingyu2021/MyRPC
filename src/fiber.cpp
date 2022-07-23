@@ -125,6 +125,7 @@ void Fiber::Main(push_type &p) {
         Logger::warn("Fiber id:{} throws an exception.", GET_THIS()->fiber_id);
     }
     GET_THIS()->_status = TERMINAL;
+    SWAP_OUT();
 }
 
 }

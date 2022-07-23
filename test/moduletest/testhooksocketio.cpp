@@ -40,13 +40,16 @@ int main()
             return;
         }
         Logger::info("connect success");
-        char buf[1024] = {0};
         while(true){
             int read_cnt = 0;
-            int input_size = read(STDIN_FILENO, s, sizeof(s));
-            while(input_size> 0){
-                if(s[read_cnt]=='\n') break;
-                read_cnt++;
+            while(true) {
+                int input_size = read(STDIN_FILENO, &s[read_cnt], sizeof(s)-read_cnt);
+                while (input_size > 0) {
+                    if (s[read_cnt] == '\n') break;
+                    read_cnt++;
+                    input_size--;
+                }
+                if(s[read_cnt] == '\n') break;
             }
             s[++read_cnt] = '\0';
             send(sockfd, s, read_cnt, 0);
@@ -79,21 +82,16 @@ int main()
             return;
         }
         Logger::info("accept success");
-        char buf[1024] = {0};
+        char buf[1024];
+        memset(buf, 0, sizeof(buf));
         while(true){
-            int read_cnt = 0;
             int input_size = recv(new_sockfd, buf, sizeof(buf), 0);
-            while(input_size> 0){
-                if(buf[read_cnt]=='\n') break;
-                read_cnt++;
-            }
-            buf[++read_cnt] = '\0';
-            write(STDOUT_FILENO, buf, read_cnt);
+            write(STDOUT_FILENO, buf, input_size);
         }
     }, 0);
 
-    client.Join();
-    server.Join();
+    client->Join();
+    server->Join();
 
     fp.Stop();
 }

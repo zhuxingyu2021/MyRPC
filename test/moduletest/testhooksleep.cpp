@@ -21,11 +21,11 @@ int main(){
         Logger::info("Timer expired!");
     }, 0, true);
 
-    while(f.GetCircularCount() < MAX_CIRCULAR_COUNT){
+    while(f->GetCircularCount() < MAX_CIRCULAR_COUNT){
         sched_yield();
     }
-    f.UnsetCircular();
-    f.Join();
+    f->UnsetCircular();
+    f->Join();
 
     Logger::info("usleep Test Start!");
     Logger::info("Syscall usleep({}) started!", 10000);
@@ -38,11 +38,11 @@ int main(){
         Logger::info("Timer expired!");
     }, 0, true);
 
-    while(g.GetCircularCount() < MAX_CIRCULAR_COUNT){
+    while(g->GetCircularCount() < MAX_CIRCULAR_COUNT){
         sched_yield();
     }
-    g.UnsetCircular();
-    g.Join();
+    g->UnsetCircular();
+    g->Join();
 
 
     Logger::info("usleep Test Start!");
@@ -58,11 +58,11 @@ int main(){
         Logger::info("Timer expired!");
     }, 0, true);
 
-    while(h.GetCircularCount() < MAX_CIRCULAR_COUNT){
+    while(h->GetCircularCount() < MAX_CIRCULAR_COUNT){
         sched_yield();
     }
-    h.UnsetCircular();
-    h.Join();
+    h->UnsetCircular();
+    h->Join();
 
     fp.Stop();
 

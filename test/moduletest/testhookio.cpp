@@ -19,16 +19,20 @@ int main()
 
     auto f = fp.Run([&s](){
         int read_cnt = 0;
-        int input_size = read(STDIN_FILENO, s, sizeof(s));
-        while(input_size> 0){
-            if(s[read_cnt]=='\n') break;
-            read_cnt++;
+        while(true) {
+            int input_size = read(STDIN_FILENO, &s[read_cnt], sizeof(s)-read_cnt);
+            while (input_size > 0) {
+                if (s[read_cnt] == '\n') break;
+                read_cnt++;
+                input_size--;
+            }
+            if(s[read_cnt] == '\n') break;
         }
         s[++read_cnt] = '\0';
         write(STDOUT_FILENO, s, read_cnt);
     }, 0, false);
 
-    f.Join();
+    f->Join();
     fp.Stop();
 }
 
