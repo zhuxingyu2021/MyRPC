@@ -7,6 +7,7 @@ set(SRCFILE
         fiber/fiber.cpp
         fiber/eventmanager.cpp
         fiber/fiberpool.cpp
+        utils.cpp
 )
 
 find_package(Boost COMPONENTS coroutine REQUIRED)

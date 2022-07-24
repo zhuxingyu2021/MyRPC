@@ -8,7 +8,7 @@
 #include <atomic>
 
 #include "macro.h"
-#include "spinlock.h"
+#include "lock.h"
 #include "fiber/eventmanager.h"
 
 namespace MyRPC{

@@ -1,5 +1,5 @@
-#ifndef MYRPC_SPINLOCK_H
-#define MYRPC_SPINLOCK_H
+#ifndef MYRPC_LOCK_H
+#define MYRPC_LOCK_H
 
 #include <atomic>
 
@@ -24,4 +24,4 @@ private:
     std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
 };
 
-#endif //MYRPC_SPINLOCK_H
+#endif //MYRPC_LOCK_H
