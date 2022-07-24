@@ -1,7 +1,7 @@
 #ifndef MYRPC_FIBERPOOL_H
 #define MYRPC_FIBERPOOL_H
 
-#include "fiber.h"
+#include "fiber/fiber.h"
 #include <future>
 #include <list>
 #include <unordered_map>
@@ -9,7 +9,7 @@
 
 #include "macro.h"
 #include "spinlock.h"
-#include "eventmanager.h"
+#include "fiber/eventmanager.h"
 
 namespace MyRPC{
     class FiberPool: public std::enable_shared_from_this<FiberPool> {

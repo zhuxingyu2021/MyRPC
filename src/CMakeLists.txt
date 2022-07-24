@@ -1,12 +1,12 @@
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 set(SRCFILE
-        hookio.cpp
-        hooksleep.cpp
+        fiber/hookio.cpp
+        fiber/hooksleep.cpp
         macro.cpp
-        fiber.cpp
-        eventmanager.cpp
-        fiberpool.cpp
+        fiber/fiber.cpp
+        fiber/eventmanager.cpp
+        fiber/fiberpool.cpp
 )
 
 find_package(Boost COMPONENTS coroutine REQUIRED)

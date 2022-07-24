@@ -1,6 +1,6 @@
-#include "hooksleep.h"
+#include "fiber/hooksleep.h"
 #include "logger.h"
-#include "fiberpool.h"
+#include "fiber/fiberpool.h"
 #include "macro.h"
 
 #include <unistd.h>
@@ -30,9 +30,8 @@ namespace MyRPC{
 using namespace MyRPC;
 
 
-extern "C"{
 // 覆盖glibc的sleep函数
-unsigned int sleep (unsigned int __seconds) {
+extern "C" unsigned int sleep (unsigned int __seconds) {
     if (enable_hook) {
         enable_hook = false;
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
@@ -59,7 +58,7 @@ unsigned int sleep (unsigned int __seconds) {
 }
 
 //覆盖glibc的usleep函数
-int usleep (__useconds_t __useconds) {
+extern "C" int usleep (__useconds_t __useconds) {
     if (enable_hook) {
         enable_hook = false;
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
@@ -86,7 +85,7 @@ int usleep (__useconds_t __useconds) {
 }
 
 //覆盖glibc的nanosleep函数
-int nanosleep (const struct timespec *__req, struct timespec *__rem) {
+extern "C" int nanosleep (const struct timespec *__req, struct timespec *__rem) {
     if (enable_hook) {
         enable_hook = false;
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
@@ -113,7 +112,4 @@ int nanosleep (const struct timespec *__req, struct timespec *__rem) {
         return 0;
     }
     return MyRPC::sys_nanosleep(__req, __rem);
-}
-
-
 }

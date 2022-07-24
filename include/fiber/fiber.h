@@ -9,8 +9,8 @@ namespace MyRPC {
     class Fiber : public std::enable_shared_from_this<Fiber> {
     public:
         using ptr = std::shared_ptr<Fiber>;
-        using pull_type = boost::coroutines2::coroutine<int>::pull_type;
-        using push_type = boost::coroutines2::coroutine<int>::push_type;
+        using pull_type = boost::coroutines2::coroutine<int64_t>::pull_type;
+        using push_type = boost::coroutines2::coroutine<int64_t>::push_type;
 
         enum status{
             READY = 1,

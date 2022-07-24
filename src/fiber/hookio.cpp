@@ -1,12 +1,10 @@
-#include "hookio.h"
+#include "fiber/hookio.h"
 #include "logger.h"
-#include "fiberpool.h"
+#include "fiber/fiberpool.h"
 #include "macro.h"
 
 #include <unistd.h>
 #include <dlfcn.h>
-#include <sys/epoll.h>
-#include <sys/socket.h>
 
 namespace MyRPC{
     // 原始的系统调用入口
@@ -38,10 +36,8 @@ namespace MyRPC{
 
 using namespace MyRPC;
 
-extern "C"{
-
 // 覆盖posix read函数
-ssize_t read(int fd, void *buf, size_t count) {
+extern "C" ssize_t read(int fd, void *buf, size_t count) {
     if (enable_hook) {
         enable_hook = false;
 
@@ -72,7 +68,7 @@ ssize_t read(int fd, void *buf, size_t count) {
 }
 
 // 覆盖posix write函数
-ssize_t write(int fd, const void *buf, size_t count) {
+extern "C" ssize_t write(int fd, const void *buf, size_t count) {
     if (enable_hook) {
         enable_hook = false;
 
@@ -103,12 +99,12 @@ ssize_t write(int fd, const void *buf, size_t count) {
 }
 
 // 覆盖posix close函数
-int close(int fd) {
+extern "C" int close(int fd) {
     return sys_close(fd);
 }
 
 // 覆盖posix accept函数
-int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
+extern "C" int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
     if (enable_hook) {
         enable_hook = false;
 
@@ -131,7 +127,7 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
 }
 
 // 覆盖posix connect函数
-int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+extern "C" int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
     if (enable_hook) {
         enable_hook = false;
 
@@ -155,7 +151,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 }
 
 // 覆盖posix recv函数
-ssize_t recv(int sockfd, void *buf, size_t len, int flags) {
+extern "C" ssize_t recv(int sockfd, void *buf, size_t len, int flags) {
     if (enable_hook) {
         enable_hook = false;
 
@@ -179,7 +175,7 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags) {
 }
 
 // 覆盖posix send函数
-ssize_t send(int sockfd, const void *buf, size_t len, int flags) {
+extern "C" ssize_t send(int sockfd, const void *buf, size_t len, int flags) {
     if (enable_hook) {
         enable_hook = false;
 
@@ -201,6 +197,3 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags) {
     }
     return sys_send(sockfd, buf, len, flags);
 }
-
-
-}// extern "C"

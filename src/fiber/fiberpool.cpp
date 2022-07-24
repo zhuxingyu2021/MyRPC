@@ -1,4 +1,4 @@
-#include "fiberpool.h"
+#include "fiber/fiberpool.h"
 #include "macro.h"
 #include <fcntl.h>
 #include <chrono>
@@ -33,7 +33,7 @@ FiberPool::~FiberPool() {
 void FiberPool::Start() {
     for (int i = 0; i < n_threads; i++) {
         _threads_context_ptr.emplace_back(new ThreadContext);
-        // 添加读pipe事件，用以唤醒线程
+        // 添加读eventfd事件，用以唤醒线程
         _threads_context_ptr[i]->AddIOFunc(event_fd, EventManager::READ, [this]() {
             uint64_t val;
             read(this->event_fd, &val, sizeof(val));
@@ -104,6 +104,7 @@ void FiberPool::FiberController::Join() {
 
 void FiberPool::FiberController::Join() {
     while(!_task_ptr->stopped){
+        sleep(1);
     }
 }
 #endif
