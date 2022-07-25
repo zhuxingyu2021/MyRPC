@@ -13,4 +13,5 @@ make_test(module_fiber_test test_hookio)
 make_test(module_fiber_test test_hooksocketio)
 
 make_test(module_net_test test_serializer)
+make_test(module_net_test test_deserializer)
 make_test(module_net_test test_utils_byteorder)

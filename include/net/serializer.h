@@ -16,6 +16,7 @@
 #include <unordered_set>
 #include <tuple>
 #include <string>
+#include <string_view>
 #include <map>
 #include <unordered_map>
 #include <optional>
@@ -29,7 +30,8 @@ namespace MyRPC {
  *        目前支持以下STL容器类型：
  *        vector, deque, list, forward_list
  *        set, unordered_set, tuple
- *        string, map, unordered_map, optional
+ *        map, unordered_map, optional
+ *        string
  *        不支持裸指针，但支持以下智能指针：
  *        shared_ptr, unique_ptr
  * @note 用法如下：
@@ -42,6 +44,10 @@ namespace MyRPC {
 class JsonSerializer {
 public:
     JsonSerializer(rapidjson::StringBuffer& s):writer(s){}
+
+    void Reset(rapidjson::StringBuffer& s){
+        writer.Reset(s);
+    }
 
     template<class T, class U>
     using arithmetic_type =  typename std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>,U>;
@@ -69,8 +75,8 @@ public:
     /**
      * @brief 模板函数的递归终点，序列化一个字符串
      */
-    JsonSerializer& operator<<(const std::string& s){
-        writer.String(s.c_str());
+    JsonSerializer& operator<<(const std::string_view s){
+        writer.String(s.data());
         return (*this);
     }
 
@@ -86,16 +92,18 @@ private:
         writer.EndArray();
     }
 
+    template<class T>
+    using isnot_string_type =  typename std::enable_if_t<(!std::is_same_v<std::decay_t<T>, std::string>)&&
+                                                         (!std::is_same_v<std::decay_t<T>, std::string_view>)&&
+                                                         (!std::is_same_v<std::decay_t<T>, std::wstring>)&&
+                                                         (!std::is_same_v<std::decay_t<T>, std::wstring_view>),void>;
+
     /**
      * @brief 生成json对象的key-value对
      */
     template<class Tkey, class Tval>
-    inline void serialize_key_val_impl_(const Tkey& key, const Tval& value){
-        if constexpr(std::is_same_v<std::decay_t<decltype(key)>, std::string>){
-            // Key是字符串
-            writer.Key(key.c_str());
-        }
-        else if constexpr(std::is_arithmetic_v<std::decay_t<decltype(key)>>){
+    inline isnot_string_type<Tkey> serialize_key_val_impl_(const Tkey& key, const Tval& value){
+        if constexpr(std::is_arithmetic_v<std::decay_t<decltype(key)>>){
             // Key是算术类型
             writer.Key(std::to_string(key).c_str()); // std::to_string转化为字符串后写入json
         }
@@ -109,9 +117,18 @@ private:
     }
 
     /**
+     * @brief 生成json对象的key-value对（使用c++17 string_view）
+     */
+    template<class Tval>
+    inline void serialize_key_val_impl_(const std::string_view key, const Tval& value){
+        writer.Key(key.data());
+        (*this) << value;
+    }
+
+    /**
      * @brief 生成json对象，用于序列化map, unordered_map等类型
      */
-    template<class Tkey, class T>
+    template<class T>
     inline void serialize_like_map_impl_(const T& t){
         writer.StartObject();
 
@@ -187,13 +204,13 @@ public:
 
     template<class Tkey, class Tval>
     JsonSerializer& operator<<(const std::map<Tkey, Tval>& t){
-        serialize_like_map_impl_<Tkey>(t);
+        serialize_like_map_impl_(t);
         return (*this);
     }
 
     template<class Tkey, class Tval>
     JsonSerializer& operator<<(const std::unordered_map<Tkey, Tval>& t){
-        serialize_like_map_impl_<Tkey>(t);
+        serialize_like_map_impl_(t);
         return (*this);
     }
 

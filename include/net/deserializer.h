@@ -4,7 +4,7 @@
 #define Deserializer JsonDeserializer
 
 #include <type_traits>
-#include <rapidjson/writer.h>
+#include <rapidjson/reader.h>
 #include <rapidjson/stringbuffer.h>
 
 #include <array>
@@ -27,6 +27,9 @@ namespace MyRPC{
 class JsonDeserializer{
 public:
 
+    JsonDeserializer& operator>>(std::string& s){
+
+    }
 };
 }
 
