@@ -4,8 +4,7 @@
 #define Serializer JsonSerializer
 
 #include <type_traits>
-#include <rapidjson/writer.h>
-#include <rapidjson/stringbuffer.h>
+#include "stringbuffer.h"
 
 #include <array>
 #include <vector>
@@ -43,11 +42,7 @@ namespace MyRPC {
  */
 class JsonSerializer {
 public:
-    JsonSerializer(rapidjson::StringBuffer& s):writer(s){}
-
-    void Reset(rapidjson::StringBuffer& s){
-        writer.Reset(s);
-    }
+    JsonSerializer(StringBuffer& s):buffer(s){}
 
     template<class T, class U>
     using arithmetic_type =  typename std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>,U>;
@@ -57,18 +52,7 @@ public:
      */
     template<class T>
     arithmetic_type<T,JsonSerializer&> operator<<(const T& t){
-        if constexpr(std::is_same_v<std::decay_t<T>, float> || std::is_same_v<std::decay_t<T>, double>){
-            // 浮点类型
-            writer.Double(t);
-        }else if constexpr(sizeof(std::decay_t<T>) <= 4){
-            // 8, 16, 32位类型
-            if constexpr(std::is_unsigned_v<std::decay_t<T>>) writer.Uint(t); // 无符号类型
-            else writer.Int(t); //有符号类型
-        }else{
-            // 64位类型
-            if constexpr(std::is_unsigned_v<std::decay_t<T>>) writer.Uint64(t); // 无符号类型
-            else writer.Int64(t); //有符号类型
-        }
+        buffer << std::to_string(t);
         return (*this);
     }
 
@@ -76,7 +60,7 @@ public:
      * @brief 模板函数的递归终点，序列化一个字符串
      */
     JsonSerializer& operator<<(const std::string_view s){
-        writer.String(s.data());
+        buffer << "\"" << s << "\"";
         return (*this);
     }
 
@@ -86,10 +70,14 @@ private:
      */
     template<class T>
     inline void serialize_like_vector_impl_(const T& t){
-        writer.StartArray();
-        for(const auto& element:t)
+        buffer << "[";
+        for(const auto& element:t) {
             (*this) << element;
-        writer.EndArray();
+            buffer << ",";
+        }
+        if(!t.empty())
+            buffer.RollbackWritePointer(1); // 删除最后一个逗号
+        buffer << "]";
     }
 
     template<class T>
@@ -105,13 +93,12 @@ private:
     inline isnot_string_type<Tkey> serialize_key_val_impl_(const Tkey& key, const Tval& value){
         if constexpr(std::is_arithmetic_v<std::decay_t<decltype(key)>>){
             // Key是算术类型
-            writer.Key(std::to_string(key).c_str()); // std::to_string转化为字符串后写入json
+            buffer << "\"" << std::to_string(key) << "\":";
         }
         else{
-            rapidjson::StringBuffer s;
-            JsonSerializer m(s);
-            m << key;
-            writer.Key(s.GetString());
+            buffer << "\"";
+            (*this) << key;
+            buffer << "\":";
         }
         (*this) << value;
     }
@@ -121,7 +108,7 @@ private:
      */
     template<class Tval>
     inline void serialize_key_val_impl_(const std::string_view key, const Tval& value){
-        writer.Key(key.data());
+        buffer << "\"" << key << "\":";
         (*this) << value;
     }
 
@@ -130,13 +117,15 @@ private:
      */
     template<class T>
     inline void serialize_like_map_impl_(const T& t){
-        writer.StartObject();
+        buffer << "{";
 
         for(const auto& [key, value]:t) {
             serialize_key_val_impl_(key, value);
+            buffer << ",";
         }
-
-        writer.EndObject();
+        if(!t.empty())
+            buffer.RollbackWritePointer(1); // 删除最后一个逗号
+        buffer << "}";
     }
 
     /**
@@ -144,9 +133,10 @@ private:
      */
     template<class Tuple, std::size_t... Is>
     inline void serialize_tuple_impl_(const Tuple& t,std::index_sequence<Is...>){
-        writer.StartArray();
-        (((*this) << std::get<Is>(t)), ...);
-        writer.EndArray();
+        buffer << "[";
+        (((*this) << std::get<Is>(t), buffer<<","), ...);
+        buffer.RollbackWritePointer(1); // 删除最后一个逗号
+        buffer << "]";
     }
 
 public:
@@ -216,11 +206,11 @@ public:
 
     template<class Tkey, class Tval>
     JsonSerializer& operator<<(const std::pair<Tkey, Tval>& t){
-        writer.StartObject();
+        buffer << "{";
         const auto& [key,value] = t;
         serialize_key_val_impl_(key, value);
 
-        writer.EndObject();
+        buffer << "}";
         return (*this);
     }
 
@@ -229,7 +219,7 @@ public:
         if(t)
             (*this) << *t;
         else
-            writer.Null();
+            buffer << "null";
         return (*this);
     }
 
@@ -238,7 +228,7 @@ public:
         if(t)
             (*this) << *t;
         else
-            writer.Null();
+            buffer << "null";
         return (*this);
     }
 
@@ -247,13 +237,13 @@ public:
         if(t)
             (*this) << *t;
         else
-            writer.Null();
+            buffer << "null";
         return (*this);
     }
 
 private:
 
-    rapidjson::Writer<rapidjson::StringBuffer> writer;
+    StringBuffer& buffer;
 };
 }
 

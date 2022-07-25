@@ -4,8 +4,6 @@
 #define Deserializer JsonDeserializer
 
 #include <type_traits>
-#include <rapidjson/reader.h>
-#include <rapidjson/stringbuffer.h>
 
 #include <array>
 #include <vector>
@@ -22,14 +20,242 @@
 #include <memory>
 
 #include "utils.h"
+#include "macro.h"
+#include "stringbuffer.h"
 
 namespace MyRPC{
 class JsonDeserializer{
 public:
+    JsonDeserializer(StringBuffer& s):buffer(s){}
+
+    template<class T, class U>
+    using arithmetic_type =  typename std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>,U>;
+
+    template<class T>
+    arithmetic_type<T,JsonDeserializer&> operator>>(const T& t){
+        if constexpr(std::is_same_v<std::decay_t<T>, float> || std::is_same_v<std::decay_t<T>, double>) {
+            // 浮点类型
+            t = std::stod(buffer.ReadUntil<',', '}', ']'>());
+        }
+        else if constexpr(std::is_unsigned_v<std::decay_t<T>>) {
+            // 无符号类型
+            t = std::stoll(buffer.ReadUntil<',', '}', ']'>());
+        }
+        else{
+            // 有符号类型
+            t = std::stoull(buffer.ReadUntil<',', '}', ']'>());
+        }
+        return (*this);
+    }
 
     JsonDeserializer& operator>>(std::string& s){
-
+        MYRPC_ASSERT(buffer.GetChar() == '\"');
+        s = std::move(buffer.ReadUntil<'\"', '\"', '\"'>());
+        MYRPC_ASSERT(buffer.GetChar() == '\"');
+        return *this;
     }
+
+private:
+    /**
+     * @brief 读取json数组，用于反序列化vector, list, set等类型
+     */
+    template<class T>
+    inline void deserialize_like_vector_impl_(T& t){
+        MYRPC_ASSERT(buffer.GetChar() == '[');
+        while(buffer.PeekChar()!=']'){
+            T elem;
+            (*this) >> elem;
+            t.emplace_back(std::move(elem));
+            if(buffer.PeekChar() == ','){
+                buffer.GetChar();
+            }
+        }
+        MYRPC_ASSERT(buffer.GetChar() == ']');
+    }
+
+    template<class T>
+    using isnot_string_type =  typename std::enable_if_t<(!std::is_same_v<std::decay_t<T>, std::string>)&&
+                                                         (!std::is_same_v<std::decay_t<T>, std::string_view>)&&
+                                                         (!std::is_same_v<std::decay_t<T>, std::wstring>)&&
+                                                         (!std::is_same_v<std::decay_t<T>, std::wstring_view>),void>;
+
+    /**
+     * @brief 读取json对象的key-value对
+     */
+    template<class Tkey, class Tval>
+    inline isnot_string_type<Tkey> serialize_key_val_impl_(Tkey& key, Tval& value){
+        if constexpr(std::is_arithmetic_v<std::decay_t<decltype(key)>>){
+            // Key是算术类型
+            MYRPC_ASSERT(buffer.GetChar() == '\"');
+            if constexpr(std::is_same_v<std::decay_t<decltype(key)>, float> || std::is_same_v<std::decay_t<decltype(key)>, double>) {
+                // 浮点类型
+                key = std::stod(buffer.ReadUntil<'\"', '\"', '\"'>());
+            }
+            else if constexpr(std::is_unsigned_v<std::decay_t<decltype(key)>>) {
+                // 无符号类型
+                key = std::stoll(buffer.ReadUntil<'\"', '\"', '\"'>());
+            }
+            else{
+                // 有符号类型
+                key = std::stoull(buffer.ReadUntil<'\"', '\"', '\"'>());
+            }
+            MYRPC_ASSERT(buffer.GetChar() == '\"');
+            MYRPC_ASSERT(buffer.GetChar() == ':');
+        }
+        else{
+            MYRPC_ASSERT(buffer.GetChar() == '\"');
+            (*this) >> key;
+            MYRPC_ASSERT(buffer.GetChar() == '\"');
+            MYRPC_ASSERT(buffer.GetChar() == ':');
+        }
+        (*this) >> value;
+    }
+
+    /**
+     * @brief 读取json对象的key-value对（使用c++17 string_view）
+     */
+    template<class Tval>
+    inline void serialize_key_val_impl_(std::string& key, Tval& value){
+        (*this) >> key;
+        MYRPC_ASSERT(buffer.GetChar() == ':');
+        (*this) >> value;
+    }
+
+    /**
+     * @brief 读取json对象，用于反序列化map, unordered_map等类型
+     */
+    template<class T, class Tkey, class Tval>
+    inline void serialize_like_map_impl_(T& t){
+        MYRPC_ASSERT(buffer.GetChar() == '{');
+
+        while(buffer.PeekChar()!='}'){
+            Tkey key;
+            Tval val;
+            serialize_key_val_impl_(key, val);
+            t.emplace(std::move(key), std::move(val));
+            if(buffer.PeekChar() == ','){
+                buffer.GetChar();
+            }
+        }
+
+        MYRPC_ASSERT(buffer.GetChar() == '}');
+    }
+
+public:
+    /**
+     * 以下是反序列化各种STL容器类型/智能指针的模板函数
+     */
+
+    template<class T, size_t Num>
+    JsonDeserializer& operator>>(std::array<T, Num>& t){
+        deserialize_like_vector_impl_(t);
+        return (*this);
+    }
+
+    template<class T>
+    JsonDeserializer& operator>>(std::vector<T>& t){
+        deserialize_like_vector_impl_(t);
+        return (*this);
+    }
+
+    template<class T>
+    JsonDeserializer& operator>>(std::deque<T>& t){
+        deserialize_like_vector_impl_(t);
+        return (*this);
+    }
+
+    template<class T>
+    JsonDeserializer& operator>>(std::list<T>& t){
+        deserialize_like_vector_impl_(t);
+        return (*this);
+    }
+
+    template<class T>
+    JsonDeserializer& operator>>(std::forward_list<T>& t){
+        deserialize_like_vector_impl_(t);
+        return (*this);
+    }
+
+    template<class T>
+    JsonDeserializer& operator>>(std::set<T>& t){
+        deserialize_like_vector_impl_(t);
+        return (*this);
+    }
+
+    template<class T>
+    JsonDeserializer& operator>>(std::unordered_set<T>& t){
+        deserialize_like_vector_impl_(t);
+        return (*this);
+    }
+
+    template<class Tkey, class Tval>
+    JsonDeserializer& operator>>(std::map<Tkey, Tval>& t){
+        deserialize_like_map_impl_(t);
+        return (*this);
+    }
+
+    template<class Tkey, class Tval>
+    JsonDeserializer& operator>>(std::unordered_map<Tkey, Tval>& t){
+        deserialize_like_map_impl_(t);
+        return (*this);
+    }
+
+    template<class Tkey, class Tval>
+    JsonDeserializer& operator>>(std::pair<Tkey, Tval>& t){
+        MYRPC_ASSERT(buffer.GetChar() == '{');
+
+        Tkey key;
+        Tval val;
+        deserialize_like_vector_impl_(key, val);
+        t.first = std::move(key);
+        t.second = std::move(val);
+
+        MYRPC_ASSERT(buffer.GetChar() == '}');
+        return (*this);
+    }
+
+    template<class T>
+    JsonDeserializer& operator>>(std::optional<T>& t){
+        if(buffer.PeekString(4) == "null"){
+            buffer.ForwardReadPointer(4);
+            t = std::nullopt;
+        }
+        else{
+            (*this) >> t.value();
+        }
+        return (*this);
+    }
+
+    template<class T>
+    JsonDeserializer& operator>>(std::shared_ptr<T>& t){
+        if(buffer.PeekString(4) == "null"){
+            buffer.ForwardReadPointer(4);
+            t = std::move(std::make_shared<T>());
+        }
+        else{
+            T* ptr = new T();
+            (*this) >> *ptr;
+            t = std::move(std::make_shared<T>(ptr));
+        }
+        return (*this);
+    }
+
+    template<class T>
+    JsonDeserializer& operator>>(const std::unique_ptr<T>& t){
+        if(buffer.PeekString(4) == "null"){
+            buffer.ForwardReadPointer(4);
+            t = std::move(std::make_shared<T>());
+        }
+        else{
+            T* ptr = new T();
+            (*this) >> *ptr;
+            t = std::move(std::make_shared<T>(ptr));
+        }
+        return (*this);
+    }
+
+private:
+    StringBuffer& buffer;
 };
 }
 
