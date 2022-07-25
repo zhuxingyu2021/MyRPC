@@ -1,19 +1,21 @@
 #ifndef MYRPC_UTILS_H
 #define MYRPC_UTILS_H
 
+#include <type_traits>
 #include <arpa/inet.h>
 #include <logger.h>
 
 namespace MyRPC{
     extern bool IS_SMALL_ENDIAN;
 
-#define MYRPC_ENABLE_IF(size) typename std::enable_if<sizeof(T)==size,T>::type
+    template<class T,size_t size>
+    using byteorder_convert_type =  typename std::enable_if_t<sizeof(std::decay_t<T>)==size,std::decay_t<T>>;
 
     /*
      * @brief 将一个8位变量从本地字节序转化为网络字节序
      */
     template <class T>
-    inline MYRPC_ENABLE_IF(1) hton(T t){
+    inline byteorder_convert_type<T,1> hton(T t){
         return t;
     }
 
@@ -21,7 +23,7 @@ namespace MyRPC{
      * @brief 将一个16位变量从本地字节序转化为网络字节序
      */
     template <class T>
-    inline MYRPC_ENABLE_IF(2) hton(T t){
+    inline byteorder_convert_type<T,2> hton(T t){
         uint16_t u = htons(*(reinterpret_cast<uint16_t*>(&t)));
         return *(reinterpret_cast<T*>(&u));
     }
@@ -30,7 +32,7 @@ namespace MyRPC{
      * @brief 将一个32位变量从本地字节序转化为网络字节序
      */
     template <class T>
-    inline MYRPC_ENABLE_IF(4) hton(T t){
+    inline byteorder_convert_type<T,4> hton(T t){
         uint32_t u = htonl(*(reinterpret_cast<uint32_t*>(&t)));
         return *(reinterpret_cast<T*>(&u));
     }
@@ -39,7 +41,7 @@ namespace MyRPC{
      * @brief 将一个64位变量从本地字节序转化为网络字节序
      */
     template <class T>
-    inline MYRPC_ENABLE_IF(8) hton(T t){
+    inline byteorder_convert_type<T,8> hton(T t){
         if(IS_SMALL_ENDIAN) {
             // 转化成网络字节序（大端）
             auto u = *(reinterpret_cast<uint64_t *>(&t));
@@ -56,7 +58,7 @@ namespace MyRPC{
      * @brief 将一个8位变量从网络字节序转化为本地字节序
      */
     template <class T>
-    inline MYRPC_ENABLE_IF(1) ntoh(T t){
+    inline byteorder_convert_type<T,1> ntoh(T t){
         return t;
     }
 
@@ -64,7 +66,7 @@ namespace MyRPC{
      * @brief 将一个16位变量从网络字节序转化为本地字节序
      */
     template <class T>
-    inline MYRPC_ENABLE_IF(2) ntoh(T t){
+    inline byteorder_convert_type<T,2> ntoh(T t){
         uint16_t u = ntohs(*(reinterpret_cast<uint16_t*>(&t)));
         return *(reinterpret_cast<T*>(&u));
     }
@@ -73,7 +75,7 @@ namespace MyRPC{
      * @brief 将一个32位变量从网络字节序转化为本地字节序
      */
     template <class T>
-    inline MYRPC_ENABLE_IF(4) ntoh(T t){
+    inline byteorder_convert_type<T,4> ntoh(T t){
         uint32_t u = ntohl(*(reinterpret_cast<uint32_t*>(&t)));
         return *(reinterpret_cast<T*>(&u));
     }
@@ -82,7 +84,7 @@ namespace MyRPC{
      * @brief 将一个64位变量从网络字节序转化为本地字节序
      */
     template <class T>
-    inline MYRPC_ENABLE_IF(8) ntoh(T t){
+    inline byteorder_convert_type<T,8> ntoh(T t){
         if(IS_SMALL_ENDIAN) {
             // 转化成本地字节序（小端）
             auto u = *(reinterpret_cast<uint64_t *>(&t));

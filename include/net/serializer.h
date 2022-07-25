@@ -3,12 +3,173 @@
 
 #define Serializer JsonSerializer
 
-#include <rapidjson/document.h>
+#include <type_traits>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
+
+#include <array>
+#include <vector>
+#include <deque>
+#include <list>
+#include <forward_list>
+#include <set>
+#include <unordered_set>
+#include <tuple>
+#include <string>
+#include <map>
+#include <unordered_map>
+
+#include "utils.h"
 
 namespace MyRPC {
 class JsonSerializer {
 public:
+    JsonSerializer(rapidjson::StringBuffer& s):writer(s){}
 
+    template<class T, class U>
+    using arithmetic_type =  typename std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>,U>;
+
+    template<class T>
+    arithmetic_type<T,JsonSerializer&> operator<<(const T& t){
+        if constexpr(std::is_same_v<std::decay_t<T>, float> || std::is_same_v<std::decay_t<T>, double>){
+            // 浮点类型
+            writer.Double(t);
+        }else if constexpr(sizeof(std::decay_t<T>) <= 4){
+            // 8, 16, 32位类型
+            if constexpr(std::is_unsigned_v<std::decay_t<T>>) writer.Uint(t); // 无符号类型
+            else writer.Int(t); //有符号类型
+        }else{
+            // 64位类型
+            if constexpr(std::is_unsigned_v<std::decay_t<T>>) writer.Uint64(t); // 无符号类型
+            else writer.Int64(t); //有符号类型
+        }
+        return (*this);
+    }
+
+    JsonSerializer& operator<<(const std::string& s){
+        writer.String(s.c_str());
+        return (*this);
+    }
+
+private:
+    template<class T>
+    inline void serialize_like_vector_impl_(const T& t){
+        writer.StartArray();
+        for(const auto& element:t)
+            (*this) << element;
+        writer.EndArray();
+    }
+
+    template<class Tkey, class Tval>
+    inline void serialize_key_val_impl_(const Tkey& key, const Tval& value){
+        if constexpr(std::is_same_v<std::decay_t<decltype(key)>, std::string>){
+            // Key是字符串
+            writer.Key(key.c_str());
+        }
+        else if constexpr(std::is_arithmetic_v<std::decay_t<decltype(key)>>){
+            // Key是算术类型
+            writer.Key(std::to_string(key).c_str()); // std::to_string转化为字符串后写入json
+        }
+        else{
+            rapidjson::StringBuffer s;
+            JsonSerializer m(s);
+            m << key;
+            writer.Key(s.GetString());
+        }
+        (*this) << value;
+    }
+
+    template<class Tkey, class T>
+    inline void serialize_like_map_impl_(const T& t){
+        writer.StartObject();
+
+        for(const auto& [key, value]:t) {
+            serialize_key_val_impl_(key, value);
+        }
+
+        writer.EndObject();
+    }
+
+    template<class Tuple, std::size_t... Is>
+    inline void serialize_tuple_impl_(const Tuple& t,std::index_sequence<Is...>){
+        writer.StartArray();
+        (((*this) << std::get<Is>(t)), ...);
+        writer.EndArray();
+    }
+
+public:
+    template<class T, size_t Num>
+    JsonSerializer& operator<<(const std::array<T, Num>& t){
+        serialize_like_vector_impl_(t);
+        return (*this);
+    }
+
+    template<class T>
+    JsonSerializer& operator<<(const std::vector<T>& t){
+        serialize_like_vector_impl_(t);
+        return (*this);
+    }
+
+    template<class T>
+    JsonSerializer& operator<<(const std::deque<T>& t){
+        serialize_like_vector_impl_(t);
+        return (*this);
+    }
+
+    template<class T>
+    JsonSerializer& operator<<(const std::list<T>& t){
+        serialize_like_vector_impl_(t);
+        return (*this);
+    }
+
+    template<class T>
+    JsonSerializer& operator<<(const std::forward_list<T>& t){
+        serialize_like_vector_impl_(t);
+        return (*this);
+    }
+
+    template<class T>
+    JsonSerializer& operator<<(const std::set<T>& t){
+        serialize_like_vector_impl_(t);
+        return (*this);
+    }
+
+    template<class T>
+    JsonSerializer& operator<<(const std::unordered_set<T>& t){
+        serialize_like_vector_impl_(t);
+        return (*this);
+    }
+
+    template<class ...Args>
+    JsonSerializer& operator<<(const std::tuple<Args...>& t){
+        serialize_tuple_impl_(t, std::index_sequence_for<Args...>{});
+        return (*this);
+    }
+
+    template<class Tkey, class Tval>
+    JsonSerializer& operator<<(const std::map<Tkey, Tval>& t){
+        serialize_like_map_impl_<Tkey>(t);
+        return (*this);
+    }
+
+    template<class Tkey, class Tval>
+    JsonSerializer& operator<<(const std::unordered_map<Tkey, Tval>& t){
+        serialize_like_map_impl_<Tkey>(t);
+        return (*this);
+    }
+
+    template<class Tkey, class Tval>
+    JsonSerializer& operator<<(const std::pair<Tkey, Tval>& t){
+        writer.StartObject();
+        const auto& [key,value] = t;
+        serialize_key_val_impl_(key, value);
+
+        writer.EndObject();
+        return (*this);
+    }
+
+
+    rapidjson::Writer<rapidjson::StringBuffer> writer;
 };
 }
 
