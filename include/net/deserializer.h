@@ -32,7 +32,7 @@ public:
     using arithmetic_type =  typename std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>,U>;
 
     template<class T>
-    arithmetic_type<T,JsonDeserializer&> operator>>(const T& t){
+    arithmetic_type<T,JsonDeserializer&> operator>>(T& t){
         if constexpr(std::is_same_v<std::decay_t<T>, float> || std::is_same_v<std::decay_t<T>, double>) {
             // 浮点类型
             t = std::stod(buffer.ReadUntil<',', '}', ']'>());
@@ -59,11 +59,11 @@ private:
     /**
      * @brief 读取json数组，用于反序列化vector, list, set等类型
      */
-    template<class T>
+    template<class Tval, class T>
     inline void deserialize_like_vector_impl_(T& t){
         MYRPC_ASSERT(buffer.GetChar() == '[');
         while(buffer.PeekChar()!=']'){
-            T elem;
+            Tval elem;
             (*this) >> elem;
             t.emplace_back(std::move(elem));
             if(buffer.PeekChar() == ','){
@@ -83,7 +83,7 @@ private:
      * @brief 读取json对象的key-value对
      */
     template<class Tkey, class Tval>
-    inline isnot_string_type<Tkey> serialize_key_val_impl_(Tkey& key, Tval& value){
+    inline isnot_string_type<Tkey> deserialize_key_val_impl_(Tkey& key, Tval& value){
         if constexpr(std::is_arithmetic_v<std::decay_t<decltype(key)>>){
             // Key是算术类型
             MYRPC_ASSERT(buffer.GetChar() == '\"');
@@ -115,7 +115,7 @@ private:
      * @brief 读取json对象的key-value对（使用c++17 string_view）
      */
     template<class Tval>
-    inline void serialize_key_val_impl_(std::string& key, Tval& value){
+    inline void deserialize_key_val_impl_(std::string& key, Tval& value){
         (*this) >> key;
         MYRPC_ASSERT(buffer.GetChar() == ':');
         (*this) >> value;
@@ -124,14 +124,14 @@ private:
     /**
      * @brief 读取json对象，用于反序列化map, unordered_map等类型
      */
-    template<class T, class Tkey, class Tval>
-    inline void serialize_like_map_impl_(T& t){
+    template<class Tkey, class Tval, class T>
+    inline void deserialize_like_map_impl_(T& t){
         MYRPC_ASSERT(buffer.GetChar() == '{');
 
         while(buffer.PeekChar()!='}'){
             Tkey key;
             Tval val;
-            serialize_key_val_impl_(key, val);
+            deserialize_key_val_impl_(key, val);
             t.emplace(std::move(key), std::move(val));
             if(buffer.PeekChar() == ','){
                 buffer.GetChar();
@@ -148,55 +148,55 @@ public:
 
     template<class T, size_t Num>
     JsonDeserializer& operator>>(std::array<T, Num>& t){
-        deserialize_like_vector_impl_(t);
+        deserialize_like_vector_impl_<T>(t);
         return (*this);
     }
 
     template<class T>
     JsonDeserializer& operator>>(std::vector<T>& t){
-        deserialize_like_vector_impl_(t);
+        deserialize_like_vector_impl_<T>(t);
         return (*this);
     }
 
     template<class T>
     JsonDeserializer& operator>>(std::deque<T>& t){
-        deserialize_like_vector_impl_(t);
+        deserialize_like_vector_impl_<T>(t);
         return (*this);
     }
 
     template<class T>
     JsonDeserializer& operator>>(std::list<T>& t){
-        deserialize_like_vector_impl_(t);
+        deserialize_like_vector_impl_<T>(t);
         return (*this);
     }
 
     template<class T>
     JsonDeserializer& operator>>(std::forward_list<T>& t){
-        deserialize_like_vector_impl_(t);
+        deserialize_like_vector_impl_<T>(t);
         return (*this);
     }
 
     template<class T>
     JsonDeserializer& operator>>(std::set<T>& t){
-        deserialize_like_vector_impl_(t);
+        deserialize_like_vector_impl_<T>(t);
         return (*this);
     }
 
     template<class T>
     JsonDeserializer& operator>>(std::unordered_set<T>& t){
-        deserialize_like_vector_impl_(t);
+        deserialize_like_vector_impl_<T>(t);
         return (*this);
     }
 
     template<class Tkey, class Tval>
     JsonDeserializer& operator>>(std::map<Tkey, Tval>& t){
-        deserialize_like_map_impl_(t);
+        deserialize_like_map_impl_<Tkey, Tval>(t);
         return (*this);
     }
 
     template<class Tkey, class Tval>
     JsonDeserializer& operator>>(std::unordered_map<Tkey, Tval>& t){
-        deserialize_like_map_impl_(t);
+        deserialize_like_map_impl_<Tkey, Tval>(t);
         return (*this);
     }
 
@@ -206,7 +206,7 @@ public:
 
         Tkey key;
         Tval val;
-        deserialize_like_vector_impl_(key, val);
+        deserialize_key_val_impl_(key, val);
         t.first = std::move(key);
         t.second = std::move(val);
 
@@ -221,36 +221,30 @@ public:
             t = std::nullopt;
         }
         else{
-            (*this) >> t.value();
+            T val;
+            (*this) >> val;
+            t.emplace(std::move(val));
         }
         return (*this);
     }
 
     template<class T>
     JsonDeserializer& operator>>(std::shared_ptr<T>& t){
-        if(buffer.PeekString(4) == "null"){
+        t = std::move(std::make_shared<T>());
+        if(buffer.PeekString(4) == "null")
             buffer.ForwardReadPointer(4);
-            t = std::move(std::make_shared<T>());
-        }
-        else{
-            T* ptr = new T();
-            (*this) >> *ptr;
-            t = std::move(std::make_shared<T>(ptr));
-        }
+        else
+            (*this) >> *t;
         return (*this);
     }
 
     template<class T>
-    JsonDeserializer& operator>>(const std::unique_ptr<T>& t){
-        if(buffer.PeekString(4) == "null"){
+    JsonDeserializer& operator>>(std::unique_ptr<T>& t){
+        t = std::move(std::make_unique<T>());
+        if(buffer.PeekString(4) == "null")
             buffer.ForwardReadPointer(4);
-            t = std::move(std::make_shared<T>());
-        }
-        else{
-            T* ptr = new T();
-            (*this) >> *ptr;
-            t = std::move(std::make_shared<T>(ptr));
-        }
+        else
+            (*this) >> *t;
         return (*this);
     }
 

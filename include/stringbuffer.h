@@ -91,7 +91,7 @@ namespace MyRPC{
 
     public:
         /**
-         * @brief 获得从当前读指针到字符c1、c2和c3之前的所有字符，并移动读指针
+         * @brief 获得从当前读指针到字符c1或c2或c3之前的所有字符，并移动读指针
          */
         template<char c1, char c2, char c3>
         std::string ReadUntil(){

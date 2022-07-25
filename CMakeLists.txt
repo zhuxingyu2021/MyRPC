@@ -6,7 +6,6 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 add_subdirectory(3rdparty/spdlog)
 
-include_directories(3rdparty/rapidjson/include)
 include_directories(3rdparty/include)
 
 add_subdirectory(src)

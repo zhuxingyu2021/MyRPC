@@ -26,16 +26,19 @@ StringBuffer::~StringBuffer() {
 }
 
 StringBuffer &StringBuffer::operator<<(std::string_view str) {
-    int append_sz = str.size();
-    int new_offset = write_offset + append_sz;
-    total_size += append_sz;
-    if(new_offset <= buf_sz){
-        memcpy(write_pos->data + write_offset, str.data(), append_sz);
-        write_offset = new_offset;
-    }else{
-        memcpy(write_pos->data, str.data(), buf_sz - write_offset);
-        const char* str_data_offset = str.data() + buf_sz - write_offset; // 剩余字节的起始地址
-        append_sz = append_sz - buf_sz + write_offset; // 剩余字节的长度
+    int size = str.size(); // 未写入的字符串大小
+    const char* data = str.data(); // 未写入的字符串数据地址
+
+    int new_offset = write_offset + size; // 新的写指针偏移量（相对于链表表头）
+    total_size += size;
+    while(new_offset > buf_sz){
+        auto sz_to_write = buf_sz - write_offset; // 本次写入的长度
+        memcpy(write_pos->data + write_offset, data, sz_to_write);
+        data = data + sz_to_write;
+
+        size -= sz_to_write;
+        new_offset -= buf_sz;
+
         // 分配新的缓冲区
         Node* new_node = new Node;
         new_node->data = new char[buf_sz];
@@ -43,21 +46,24 @@ StringBuffer &StringBuffer::operator<<(std::string_view str) {
         new_node->prev = write_pos;
         write_pos->next = new_node;
         write_pos = new_node;
-        memcpy(write_pos->data, str_data_offset, append_sz);
-        write_offset = append_sz;
+        write_offset = 0;
     }
+    memcpy(write_pos->data + write_offset, data, size);
+    write_offset = new_offset;
     return *this;
 }
 
 void StringBuffer::Write(const char* data, size_t size) {
-    int new_offset = write_offset + size;
-    if(new_offset <= buf_sz){
-        memcpy(write_pos->data + write_offset, data, size);
-        write_offset = new_offset;
-    }else{
-        memcpy(write_pos->data, data, buf_sz - write_offset);
-        const char* str_data_offset = data + buf_sz - write_offset; // 剩余字节的起始地址
-        size = size - buf_sz + write_offset; // 剩余字节的长度
+    int new_offset = write_offset + size; // 新的写指针偏移量（相对于链表表头）
+    total_size += size;
+    while(new_offset > buf_sz){
+        auto sz_to_write = buf_sz - write_offset; // 本次写入的长度
+        memcpy(write_pos->data + write_offset, data, sz_to_write);
+        data = data + sz_to_write;
+
+        size -= sz_to_write;
+        new_offset -= buf_sz;
+
         // 分配新的缓冲区
         Node* new_node = new Node;
         new_node->data = new char[buf_sz];
@@ -65,10 +71,10 @@ void StringBuffer::Write(const char* data, size_t size) {
         new_node->prev = write_pos;
         write_pos->next = new_node;
         write_pos = new_node;
-        memcpy(write_pos->data, str_data_offset, size);
-        write_offset = size;
+        write_offset = 0;
     }
-    total_size += size;
+    memcpy(write_pos->data + write_offset, data, size);
+    write_offset = new_offset;
 }
 
 void StringBuffer::RollbackWritePointer(size_t size) {
@@ -101,9 +107,14 @@ void StringBuffer::Clear() {
     write_pos = head;
     write_offset = 0;
     total_size = 0;
+
+    read_pos = head;
+    read_offset = 0;
+    total_read_size = 0;
 }
 
 void StringBuffer::RollbackReadPointer(size_t size) {
+    // TODO: 但是不急
     Logger::error("No Implementation! In file: {}, line:{}", __FILE__, __LINE__);
 }
 
