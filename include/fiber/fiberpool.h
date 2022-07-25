@@ -46,7 +46,7 @@ namespace MyRPC{
             Task() = delete;
             ~Task();
 
-            Fiber::ptr fiber; // 协程指针
+            Fiber::unique_ptr fiber; // 协程指针
             int thread_id; // 线程ID
             std::atomic<bool> circular ; // 任务是否循环执行
 

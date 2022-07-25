@@ -1,4 +1,5 @@
 #include "net/serializer.h"
+#include "net/deserializer.h"
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
@@ -17,6 +18,7 @@ int main() {
         vector<int> vec1 = {32, 901, 12, 29, -323};
         serializer << vec1;
         std::cout << s.GetString() << std::endl;
+        std::cout << "==========================================================" << std::endl;
     }
     {
         rapidjson::StringBuffer s;
@@ -25,6 +27,7 @@ int main() {
         array<string, 3> array1 = {"12o", "hELLO!", "Yeah!"};
         serializer << array1;
         std::cout << s.GetString() << std::endl;
+        std::cout << "==========================================================" << std::endl;
     }
     {
         rapidjson::StringBuffer s;
@@ -34,6 +37,7 @@ int main() {
                                                   {68.238, std::to_string(3.192)}};
         serializer << map1;
         std::cout << s.GetString() << std::endl;
+        std::cout << "==========================================================" << std::endl;
     }
     {
         rapidjson::StringBuffer s;
@@ -51,6 +55,7 @@ int main() {
 
         serializer<<pair1;
         std::cout << s.GetString() << std::endl;
+        std::cout << "==========================================================" << std::endl;
     }
     {
         rapidjson::StringBuffer s;
@@ -60,6 +65,7 @@ int main() {
         tuple<double, int, vector<int>, string> tuple1 = std::make_tuple(232.111, 19, std::move(vec1), std::move(hello));
         serializer<<tuple1;
         std::cout << s.GetString() << std::endl;
+        std::cout << "==========================================================" << std::endl;
     }
     {
         rapidjson::StringBuffer s;
@@ -67,6 +73,32 @@ int main() {
         set<string> set1= {"323", "dqwd", "ca", "ld"};
         serializer<<set1;
         std::cout << s.GetString() << std::endl;
+        std::cout << "==========================================================" << std::endl;
+    }
+
+    std::map<string, vector<int>> map2 = {{"789WW", {29, 892, -12, 81}},
+                                          {"EWSW", {212023, -19}},
+                                          {"2os2", {5076, -1, -293, -923, 1817}}};
+    std::map<string, vector<int>> map3 = {{"32dw", {39, -9, -12, -29}},
+                                          {"cef3d", {-2938422, -9, -12, -29}}};
+    {
+        rapidjson::StringBuffer s;
+        JsonSerializer serializer(s);
+        serializer << map2;
+        std::cout << s.GetString() << std::endl;
+        std::cout << "==========================================================" << std::endl;
+    }
+    {
+        rapidjson::StringBuffer s;
+        JsonSerializer serializer(s);
+        vector<optional<std::shared_ptr<std::map<std::string, vector<int>>>>> vec2;
+
+        vec2.emplace_back(new std::map<std::string, vector<int>>(map2));
+        vec2.push_back(nullopt);
+        vec2.emplace_back(new std::map<std::string, vector<int>>(map3));
+        serializer << vec2;
+        std::cout << s.GetString() << std::endl;
+        std::cout << "==========================================================" << std::endl;
     }
 
 
