@@ -19,8 +19,9 @@ int main() {
     serializer << map1;
     buffer2.WriteFile(STDOUT_FILENO);
     buffer1.Clear();
+    deserializer.Reset();
     buffer2.Clear();
-    std::cout << "==========================================================" << std::endl;
+    std::cout << std::endl <<"==========================================================" << std::endl;
 
     std::string str2 = "[{\"firstName\":\"Brett\",\"email\":\"brett@newInstance.com\"},{\"firstName\":\"Jason\",\"email\":\"jason@servlets.com\"}]";
     buffer1.Write(str2.c_str(), str2.size());
@@ -30,11 +31,12 @@ int main() {
     serializer << vec;
     buffer2.WriteFile(STDOUT_FILENO);
     buffer1.Clear();
+    deserializer.Reset();
     buffer2.Clear();
 
-    std::cout << "==========================================================" << std::endl;
+    std::cout << std::endl <<"==========================================================" << std::endl;
 
-    std::string str3 = "{\"[12,13,2,6]\":[11,8,9,0]}";
+    std::string str3 = "[{\"key\":[12,13,2,6],\"value\":[11,8,9,0]}]";
     buffer1.Write(str3.c_str(), str3.size());
 
     std::pair<vector<int>, vector<int>> pair1;
@@ -42,21 +44,34 @@ int main() {
     serializer << pair1;
     buffer2.WriteFile(STDOUT_FILENO);
     buffer1.Clear();
+    deserializer.Reset();
     buffer2.Clear();
 
-    std::cout << "==========================================================" << std::endl;
+    std::cout << std::endl <<"==========================================================" << std::endl;
 
-    std::string str4 = "[{\"\"2os2\"\":[5076,-1,-293,-923,1817],\"\"A\"\":[212023,-19],\"\"你好\"\":[29,892,-12,81]},null,{\"\"32dw\"\":[39,-9,-12,-29],\"\"！No\"\":[-2938422,-9,-12,-29]}]";
+    std::string str4 = "[{\"2os2\":[5076,-1,-293,-923,1817],\"A\":[212023,-19],\"你好\":[29,892,-12,81]},null,{\"32dw\":[39,-9,-12,-29],\"！No\":[-2938422,-9,-12,-29]}]";
     buffer1.Write(str4.c_str(), str4.size());
 
-    std::vector<std::optional<shared_ptr<std::map<std::shared_ptr<std::string>, vector<int>>>>> vec2;
+    std::vector<std::optional<shared_ptr<std::map<std::string, vector<int>>>>> vec2;
     deserializer >> vec2;
     serializer << vec2;
     buffer2.WriteFile(STDOUT_FILENO);
     buffer1.Clear();
+    deserializer.Reset();
     buffer2.Clear();
 
-    std::cout << "==========================================================" << std::endl;
+    std::cout << std::endl <<"==========================================================" << std::endl;
+
+    std::string str5 = "[232.111000,19,[32,901,12,29,-323],\"Hello!\"]";
+    buffer1.Write(str5.c_str(), str5.size());
+
+    tuple<double, int, vector<int>, string> tuple1;
+    deserializer >> tuple1;
+    serializer << tuple1;
+    buffer2.WriteFile(STDOUT_FILENO);
+    buffer1.Clear();
+    deserializer.Reset();
+    buffer2.Clear();
 
     return 0;
 }

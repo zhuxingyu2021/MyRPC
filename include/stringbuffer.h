@@ -3,6 +3,7 @@
 
 #include <string_view>
 #include <string>
+#include <memory>
 
 namespace MyRPC{
 
@@ -16,6 +17,8 @@ namespace MyRPC{
         };
         Node* head = nullptr;
     public:
+        using ptr = std::shared_ptr<StringBuffer>;
+
         /**
          * @param buffer_size[in] 字符缓冲区链表每个节点的大小
          */
@@ -38,34 +41,15 @@ namespace MyRPC{
         StringBuffer& operator<<(std::string_view str);
 
         /**
+         * @brief 向字符缓冲区中添加字符数据
+         * @param str 要添加的字符串
+         */
+        StringBuffer& operator<<(char c);
+
+        /**
          * @brief 写入指针回退size个字符
          */
         void RollbackWritePointer(size_t size);
-
-        /**
-         * @brief 获得下一个字符，并将读指针向后移动一个字符
-         */
-        char GetChar();
-
-        /**
-         * @brief 读指针前进size个字符
-         */
-        void ForwardReadPointer(size_t size);
-
-        /**
-         * @brief 读指针回退size个字符
-         */
-        void RollbackReadPointer(size_t size);
-
-        /**
-         * @brief 获得下一个字符，但不移动读指针
-         */
-         char PeekChar() const;
-
-        /**
-        * @brief 获得之后的N个字符，但不移动读指针
-        */
-        std::string PeekString(size_t N) const;
 
         /**
          * @brief 清除字符缓冲区
@@ -80,38 +64,80 @@ namespace MyRPC{
 
     private:
         int total_size = 0; // 字符缓冲区总大小
-        int total_read_size = 0; // 已读取的字符数量sss
 
         const size_t buf_sz; // 字符缓冲区链表每个节点的大小
         Node* write_pos; // 当前链表节点（写入）
         int write_offset = 0; // 当前字符缓冲区链表节点的偏移量（写入）
 
-        Node* read_pos; // 当前链表节点（读取）
-        int read_offset = 0; // 当前字符缓冲区链表节点的偏移量（读取）
 
     public:
-        /**
-         * @brief 获得从当前读指针到字符c1或c2或c3之前的所有字符，并移动读指针
-         */
-        template<char c1, char c2, char c3>
-        std::string ReadUntil(){
-            std::string str;
-            str.reserve(20);
-            while(total_read_size < total_size) {
-                char t = read_pos->data[read_offset];
-                if(t == c1 || t == c2 || t == c3){
-                    break;
+        class StringBufferReader {
+        public:
+            StringBufferReader(const StringBuffer& buffer) : buffer(buffer),read_pos(buffer.head) {}
+
+            /**
+             * @brief 获得下一个字符，并将读指针向后移动一个字符
+             */
+            char GetChar();
+
+            /**
+             * @brief 读指针前进size个字符
+             */
+            void ForwardReadPointer(size_t size);
+
+            /**
+             * @brief 读指针回退size个字符
+             */
+            void RollbackReadPointer(size_t size);
+
+            /**
+             * @brief 获得下一个字符，但不移动读指针
+             */
+            char PeekChar() const;
+
+            /**
+            * @brief 获得之后的N个字符，但不移动读指针
+            */
+            std::string PeekString(size_t N) const;
+
+            /**
+             * @brief 获得从当前读指针到字符c之前的所有字符，并移动读指针
+             */
+            template<char ...c>
+            std::string ReadUntil() {
+                std::string str;
+                str.reserve(20);
+                while (total_read_size < buffer.total_size) {
+                    char t = read_pos->data[read_offset];
+                    if (((c == t) || ...)) {
+                        break;
+                    }
+                    total_read_size++;
+                    read_offset++;
+                    if (read_offset == buffer.buf_sz) {
+                        read_pos = read_pos->next;
+                        read_offset = 0;
+                    }
+                    str.push_back(t);
                 }
-                total_read_size++;
-                read_offset++;
-                if(read_offset == buf_sz){
-                    read_pos = read_pos->next;
-                    read_offset = 0;
-                }
-                str.push_back(t);
+                return str;
             }
-            return str;
-        }
+
+            /**
+             * @brief 重置读指针
+             */
+            void Reset();
+
+        private:
+            int total_read_size = 0; // 已读取的字符数量
+
+            Node* read_pos; // 当前链表节点（读取）
+            int read_offset = 0; // 当前字符缓冲区链表节点的偏移量（读取）
+
+            const StringBuffer& buffer;
+        };
+
+        StringBufferReader GetStringBufferReader() const{return StringBufferReader(*this);}
     };
 }
 

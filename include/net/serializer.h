@@ -60,7 +60,7 @@ public:
      * @brief 模板函数的递归终点，序列化一个字符串
      */
     JsonSerializer& operator<<(const std::string_view s){
-        buffer << "\"" << s << "\"";
+        buffer << '\"' << s << '\"';
         return (*this);
     }
 
@@ -70,37 +70,32 @@ private:
      */
     template<class T>
     inline void serialize_like_vector_impl_(const T& t){
-        buffer << "[";
+        buffer << '[';
         for(const auto& element:t) {
             (*this) << element;
-            buffer << ",";
+            buffer << ',';
         }
         if(!t.empty())
             buffer.RollbackWritePointer(1); // 删除最后一个逗号
-        buffer << "]";
+        buffer << ']';
     }
 
     template<class T>
     using isnot_string_type =  typename std::enable_if_t<(!std::is_same_v<std::decay_t<T>, std::string>)&&
-                                                         (!std::is_same_v<std::decay_t<T>, std::string_view>)&&
-                                                         (!std::is_same_v<std::decay_t<T>, std::wstring>)&&
-                                                         (!std::is_same_v<std::decay_t<T>, std::wstring_view>),void>;
+                                                         (!std::is_same_v<std::decay_t<T>, std::string_view>), void>;
 
     /**
      * @brief 生成json对象的key-value对
+     * @note 若可以是字符串类型，对应的json对象为："key":value
+     *       否则，对应的json对象为：{"key":key,"value":value}
      */
     template<class Tkey, class Tval>
     inline isnot_string_type<Tkey> serialize_key_val_impl_(const Tkey& key, const Tval& value){
-        if constexpr(std::is_arithmetic_v<std::decay_t<decltype(key)>>){
-            // Key是算术类型
-            buffer << "\"" << std::to_string(key) << "\":";
-        }
-        else{
-            buffer << "\"";
-            (*this) << key;
-            buffer << "\":";
-        }
+        buffer << "{\"key\":";
+        (*this) << key;
+        buffer << ",\"value\":";
         (*this) << value;
+        buffer << '}';
     }
 
     /**
@@ -108,35 +103,51 @@ private:
      */
     template<class Tval>
     inline void serialize_key_val_impl_(const std::string_view key, const Tval& value){
-        buffer << "\"" << key << "\":";
+        buffer << '\"' << key << "\":";
         (*this) << value;
     }
 
     /**
      * @brief 生成json对象，用于序列化map, unordered_map等类型
      */
-    template<class T>
+    template<class Tkey, class Tval, class T>
     inline void serialize_like_map_impl_(const T& t){
-        buffer << "{";
-
-        for(const auto& [key, value]:t) {
-            serialize_key_val_impl_(key, value);
-            buffer << ",";
+        constexpr bool is_string = (std::is_same_v<std::decay_t<Tkey>, std::string>)||
+                                   (std::is_same_v<std::decay_t<Tkey>, std::string_view>);
+        if constexpr(is_string){
+            buffer << '{';
+            for(const auto& [key, value]:t) {
+                buffer << '\"' << key << "\":";
+                (*this) << value;
+                buffer << ',';
+            }
+            if(!t.empty())
+                buffer.RollbackWritePointer(1); // 删除最后一个逗号
+            buffer << '}';
+        }else{
+            buffer << '[';
+            for(const auto& [key, value]:t) {
+                buffer << "{\"key\":";
+                (*this) << key;
+                buffer << ",\"value\":";
+                (*this) << value;
+                buffer << "},";
+            }
+            if(!t.empty())
+                buffer.RollbackWritePointer(1); // 删除最后一个逗号
+            buffer << ']';
         }
-        if(!t.empty())
-            buffer.RollbackWritePointer(1); // 删除最后一个逗号
-        buffer << "}";
     }
 
     /**
      * @brief 生成json数组，用于序列化tuple类型
      */
-    template<class Tuple, std::size_t... Is>
+    template<class Tuple, size_t... Is>
     inline void serialize_tuple_impl_(const Tuple& t,std::index_sequence<Is...>){
-        buffer << "[";
-        (((*this) << std::get<Is>(t), buffer<<","), ...);
+        buffer << '[';
+        (((*this) << std::get<Is>(t), buffer<<','), ...);
         buffer.RollbackWritePointer(1); // 删除最后一个逗号
-        buffer << "]";
+        buffer << ']';
     }
 
 public:
@@ -176,6 +187,10 @@ public:
 
     template<class T>
     JsonSerializer& operator<<(const std::set<T>& t){
+        if constexpr((std::is_same_v<std::decay_t<T>, std::string>)||
+                     (std::is_same_v<std::decay_t<T>, std::string_view>)){
+
+        }
         serialize_like_vector_impl_(t);
         return (*this);
     }
@@ -194,23 +209,35 @@ public:
 
     template<class Tkey, class Tval>
     JsonSerializer& operator<<(const std::map<Tkey, Tval>& t){
-        serialize_like_map_impl_(t);
+        serialize_like_map_impl_<Tkey,Tval>(t);
         return (*this);
     }
 
     template<class Tkey, class Tval>
     JsonSerializer& operator<<(const std::unordered_map<Tkey, Tval>& t){
-        serialize_like_map_impl_(t);
+        serialize_like_map_impl_<Tkey,Tval>(t);
         return (*this);
     }
 
     template<class Tkey, class Tval>
     JsonSerializer& operator<<(const std::pair<Tkey, Tval>& t){
-        buffer << "{";
+        constexpr bool is_string = (std::is_same_v<std::decay_t<Tkey>, std::string>)||
+                                   (std::is_same_v<std::decay_t<Tkey>, std::string_view>);
+        if constexpr(is_string){
+            //key是字符串类型
+            buffer << '{';
+        }else{
+            buffer << '[';
+        }
         const auto& [key,value] = t;
         serialize_key_val_impl_(key, value);
 
-        buffer << "}";
+        if constexpr(is_string){
+            //key是字符串类型
+            buffer << '}';
+        }else{
+            buffer << ']';
+        }
         return (*this);
     }
 

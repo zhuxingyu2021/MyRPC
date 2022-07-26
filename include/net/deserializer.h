@@ -26,7 +26,14 @@
 namespace MyRPC{
 class JsonDeserializer{
 public:
-    JsonDeserializer(StringBuffer& s):buffer(s){}
+    JsonDeserializer(StringBuffer& s): buffer_reader(s.GetStringBufferReader()){}
+
+    /**
+     * @brief 从字符串缓冲区的起始位置开始重新反序列化
+     */
+    void Reset(){
+        buffer_reader.Reset();
+    }
 
     template<class T, class U>
     using arithmetic_type =  typename std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>,U>;
@@ -35,23 +42,23 @@ public:
     arithmetic_type<T,JsonDeserializer&> operator>>(T& t){
         if constexpr(std::is_same_v<std::decay_t<T>, float> || std::is_same_v<std::decay_t<T>, double>) {
             // 浮点类型
-            t = std::stod(buffer.ReadUntil<',', '}', ']'>());
+            t = std::stod(buffer_reader.ReadUntil<',', '}', ']'>());
         }
         else if constexpr(std::is_unsigned_v<std::decay_t<T>>) {
             // 无符号类型
-            t = std::stoll(buffer.ReadUntil<',', '}', ']'>());
+            t = std::stoll(buffer_reader.ReadUntil<',', '}', ']'>());
         }
         else{
             // 有符号类型
-            t = std::stoull(buffer.ReadUntil<',', '}', ']'>());
+            t = std::stoull(buffer_reader.ReadUntil<',', '}', ']'>());
         }
         return (*this);
     }
 
     JsonDeserializer& operator>>(std::string& s){
-        MYRPC_ASSERT(buffer.GetChar() == '\"');
-        s = std::move(buffer.ReadUntil<'\"', '\"', '\"'>());
-        MYRPC_ASSERT(buffer.GetChar() == '\"');
+        MYRPC_ASSERT(buffer_reader.GetChar() == '\"');
+        s = std::move(buffer_reader.ReadUntil<'\"'>());
+        MYRPC_ASSERT(buffer_reader.GetChar() == '\"');
         return *this;
     }
 
@@ -61,16 +68,16 @@ private:
      */
     template<class Tval, class T>
     inline void deserialize_like_vector_impl_(T& t){
-        MYRPC_ASSERT(buffer.GetChar() == '[');
-        while(buffer.PeekChar()!=']'){
+        MYRPC_ASSERT(buffer_reader.GetChar() == '[');
+        while(buffer_reader.PeekChar()!=']'){
             Tval elem;
             (*this) >> elem;
             t.emplace_back(std::move(elem));
-            if(buffer.PeekChar() == ','){
-                buffer.GetChar();
+            if(buffer_reader.PeekChar() == ','){
+                buffer_reader.GetChar();
             }
         }
-        MYRPC_ASSERT(buffer.GetChar() == ']');
+        MYRPC_ASSERT(buffer_reader.GetChar() == ']');
     }
 
     template<class T>
@@ -84,40 +91,22 @@ private:
      */
     template<class Tkey, class Tval>
     inline isnot_string_type<Tkey> deserialize_key_val_impl_(Tkey& key, Tval& value){
-        if constexpr(std::is_arithmetic_v<std::decay_t<decltype(key)>>){
-            // Key是算术类型
-            MYRPC_ASSERT(buffer.GetChar() == '\"');
-            if constexpr(std::is_same_v<std::decay_t<decltype(key)>, float> || std::is_same_v<std::decay_t<decltype(key)>, double>) {
-                // 浮点类型
-                key = std::stod(buffer.ReadUntil<'\"', '\"', '\"'>());
-            }
-            else if constexpr(std::is_unsigned_v<std::decay_t<decltype(key)>>) {
-                // 无符号类型
-                key = std::stoll(buffer.ReadUntil<'\"', '\"', '\"'>());
-            }
-            else{
-                // 有符号类型
-                key = std::stoull(buffer.ReadUntil<'\"', '\"', '\"'>());
-            }
-            MYRPC_ASSERT(buffer.GetChar() == '\"');
-            MYRPC_ASSERT(buffer.GetChar() == ':');
-        }
-        else{
-            MYRPC_ASSERT(buffer.GetChar() == '\"');
-            (*this) >> key;
-            MYRPC_ASSERT(buffer.GetChar() == '\"');
-            MYRPC_ASSERT(buffer.GetChar() == ':');
-        }
+        MYRPC_ASSERT(buffer_reader.PeekString(7) == "{\"key\":");
+        buffer_reader.ForwardReadPointer(7);
+        (*this) >> key;
+        MYRPC_ASSERT(buffer_reader.PeekString(9) == ",\"value\":");
+        buffer_reader.ForwardReadPointer(9);
         (*this) >> value;
+        MYRPC_ASSERT(buffer_reader.GetChar() == '}');
     }
 
     /**
-     * @brief 读取json对象的key-value对（使用c++17 string_view）
+     * @brief 读取json对象的key-value对（当key为string）
      */
     template<class Tval>
     inline void deserialize_key_val_impl_(std::string& key, Tval& value){
         (*this) >> key;
-        MYRPC_ASSERT(buffer.GetChar() == ':');
+        MYRPC_ASSERT(buffer_reader.GetChar() == ':');
         (*this) >> value;
     }
 
@@ -126,19 +115,43 @@ private:
      */
     template<class Tkey, class Tval, class T>
     inline void deserialize_like_map_impl_(T& t){
-        MYRPC_ASSERT(buffer.GetChar() == '{');
+        auto c1 = buffer_reader.GetChar();
+        MYRPC_ASSERT(c1 == '{' || c1 == '[');
 
-        while(buffer.PeekChar()!='}'){
+        char c2 = buffer_reader.PeekChar();
+        while(c2 != '}' && c2 != ']'){
             Tkey key;
             Tval val;
             deserialize_key_val_impl_(key, val);
             t.emplace(std::move(key), std::move(val));
-            if(buffer.PeekChar() == ','){
-                buffer.GetChar();
+            if(buffer_reader.PeekChar() == ','){
+                buffer_reader.GetChar();
             }
+            c2 = buffer_reader.PeekChar();
         }
 
-        MYRPC_ASSERT(buffer.GetChar() == '}');
+        auto c3 = buffer_reader.GetChar();
+        MYRPC_ASSERT(c3 == '}' || c3 == ']');
+    }
+
+    /**
+     * @brief 构造tuple的各个元素
+     */
+    template<class T>
+    inline T make_tuple_internal_(){
+        T t;
+        (*this) >> t;
+        buffer_reader.GetChar();
+        return t;
+    }
+
+    /**
+     * @brief 读取json对象，用于反序列化tuple类型
+     */
+    template<class Tuple, size_t... Is>
+    inline void deserialize_tuple_impl_(Tuple& t,std::index_sequence<Is...>){
+        MYRPC_ASSERT(buffer_reader.GetChar() == '[');
+        ((std::get<Is>(t) = std::move(make_tuple_internal_<std::tuple_element_t<Is, Tuple>>())), ...);
     }
 
 public:
@@ -188,6 +201,12 @@ public:
         return (*this);
     }
 
+    template<class ...Args>
+    JsonDeserializer& operator>>(std::tuple<Args...>& t){
+        deserialize_tuple_impl_(t, std::index_sequence_for<Args...>{});
+        return (*this);
+    }
+
     template<class Tkey, class Tval>
     JsonDeserializer& operator>>(std::map<Tkey, Tval>& t){
         deserialize_like_map_impl_<Tkey, Tval>(t);
@@ -202,7 +221,8 @@ public:
 
     template<class Tkey, class Tval>
     JsonDeserializer& operator>>(std::pair<Tkey, Tval>& t){
-        MYRPC_ASSERT(buffer.GetChar() == '{');
+        char c1 = buffer_reader.GetChar();
+        MYRPC_ASSERT(c1 == '{' || c1 == '[');
 
         Tkey key;
         Tval val;
@@ -210,14 +230,15 @@ public:
         t.first = std::move(key);
         t.second = std::move(val);
 
-        MYRPC_ASSERT(buffer.GetChar() == '}');
+        char c3 = buffer_reader.GetChar();
+        MYRPC_ASSERT(c3 == '}' || c3 == ']');
         return (*this);
     }
 
     template<class T>
     JsonDeserializer& operator>>(std::optional<T>& t){
-        if(buffer.PeekString(4) == "null"){
-            buffer.ForwardReadPointer(4);
+        if(buffer_reader.PeekString(4) == "null"){
+            buffer_reader.ForwardReadPointer(4);
             t = std::nullopt;
         }
         else{
@@ -231,8 +252,8 @@ public:
     template<class T>
     JsonDeserializer& operator>>(std::shared_ptr<T>& t){
         t = std::move(std::make_shared<T>());
-        if(buffer.PeekString(4) == "null")
-            buffer.ForwardReadPointer(4);
+        if(buffer_reader.PeekString(4) == "null")
+            buffer_reader.ForwardReadPointer(4);
         else
             (*this) >> *t;
         return (*this);
@@ -241,15 +262,15 @@ public:
     template<class T>
     JsonDeserializer& operator>>(std::unique_ptr<T>& t){
         t = std::move(std::make_unique<T>());
-        if(buffer.PeekString(4) == "null")
-            buffer.ForwardReadPointer(4);
+        if(buffer_reader.PeekString(4) == "null")
+            buffer_reader.ForwardReadPointer(4);
         else
             (*this) >> *t;
         return (*this);
     }
 
 private:
-    StringBuffer& buffer;
+    StringBuffer::StringBufferReader buffer_reader;
 };
 }
 

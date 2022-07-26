@@ -13,14 +13,14 @@ int main() {
     vector<int> vec1 = {32, 901, 12, 29, -323};
     serializer << vec1;
     s.WriteFile(STDIN_FILENO);
-    std::cout << "==========================================================" << std::endl;
+    std::cout << std::endl <<"==========================================================" << std::endl;
 
     s.Clear();
 
     array<string, 3> array1 = {"12o", "hELLO!", "Yeah!"};
     serializer << array1;
     s.WriteFile(STDIN_FILENO);
-    std::cout << "==========================================================" << std::endl;
+    std::cout << std::endl <<"==========================================================" << std::endl;
 
     s.Clear();
 
@@ -29,7 +29,7 @@ int main() {
                                               {68.238, std::to_string(3.192)}};
     serializer << map1;
     s.WriteFile(STDIN_FILENO);
-    std::cout << "==========================================================" << std::endl;
+    std::cout << std::endl <<"==========================================================" << std::endl;
 
     s.Clear();
 
@@ -45,7 +45,7 @@ int main() {
 
     serializer<<pair1;
     s.WriteFile(STDIN_FILENO);
-    std::cout << "==========================================================" << std::endl;
+    std::cout << std::endl <<"==========================================================" << std::endl;
 
     s.Clear();
 
@@ -53,14 +53,14 @@ int main() {
     tuple<double, int, vector<int>, string> tuple1 = std::make_tuple(232.111, 19, std::move(vec1), std::move(hello));
     serializer<<tuple1;
     s.WriteFile(STDIN_FILENO);
-    std::cout << "==========================================================" << std::endl;
+    std::cout << std::endl <<"==========================================================" << std::endl;
 
     s.Clear();
 
     set<string> set1= {"323", "dqwd", "ca", "ld"};
     serializer<<set1;
     s.WriteFile(STDIN_FILENO);
-    std::cout << "==========================================================" << std::endl;
+    std::cout << std::endl <<"==========================================================" << std::endl;
 
     s.Clear();
 
@@ -74,7 +74,7 @@ int main() {
 
     serializer << map2;
     s.WriteFile(STDIN_FILENO);
-    std::cout << "==========================================================" << std::endl;
+    std::cout << std::endl <<"==========================================================" << std::endl;
 
     s.Clear();
 
@@ -85,6 +85,6 @@ int main() {
     vec2.emplace_back(new std::map<std::string, vector<int>>(map3));
     serializer << vec2;
     s.WriteFile(STDIN_FILENO);
-    std::cout << "==========================================================" << std::endl;
+    std::cout << std::endl <<"==========================================================" << std::endl;
 
 }
