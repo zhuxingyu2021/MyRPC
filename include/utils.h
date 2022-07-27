@@ -97,6 +97,28 @@ namespace MyRPC{
         return t;
     }
 
+
+    /**
+     * 删除字符串的空白字符
+     * @tparam write_space 空白字符 比如' ','\t','\n','\r'
+     * @param str 字符数组
+     * @param size 字符数组的大小
+     * @return 删去字符串中的空白字符之后，字符串的字符数量
+     */
+    template <char... write_space>
+    size_t strtrim(char* str, size_t size){
+        size_t write_pos=0;
+        for(size_t read_pos=0;read_pos<size;++read_pos){
+            char c = str[read_pos];
+            if(((c == write_space) || ...)){
+                // skip
+            }else{
+                str[write_pos++] = str[read_pos];
+            }
+        }
+        return write_pos;
+    }
+
 #undef MYRPC_ENABLE_IF
 
     static bool _my_util_initializer = IS_SMALL_ENDIAN;
