@@ -90,7 +90,7 @@ void StringBuffer::Write(const char* data, size_t size) {
     write_offset = new_offset;
 }
 
-void StringBuffer::RollbackWritePointer(size_t size) {
+void StringBuffer::Backward(size_t size) {
     write_offset -= size;
     total_size -= size;
     if(write_offset < 0){
@@ -126,12 +126,12 @@ void StringBuffer::StringBufferReader::Reset() {
     total_read_size = 0;
 }
 
-void StringBuffer::StringBufferReader::RollbackReadPointer(size_t size) {
+void StringBuffer::StringBufferReader::Backward(size_t size) {
     // TODO: 但是不急
     Logger::error("No Implementation! In file: {}, line:{}", __FILE__, __LINE__);
 }
 
-void StringBuffer::StringBufferReader::ForwardReadPointer(size_t size) {
+void StringBuffer::StringBufferReader::Foward(size_t size) {
     if(total_read_size + size <= buffer.total_size){
         total_read_size += size;
         read_offset += size;
@@ -166,7 +166,7 @@ char StringBuffer::StringBufferReader::PeekChar() const {
 std::string StringBuffer::StringBufferReader::PeekString(size_t size) const {
     std::string str;
     if(total_read_size + size <= buffer.total_size){
-        str.reserve(20);
+        str.reserve(32);
         size_t offset = read_offset;
         size_t read_cnt = 0;
         auto pos = read_pos;

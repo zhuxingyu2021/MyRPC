@@ -44,24 +44,22 @@ class JsonSerializer {
 public:
     JsonSerializer(StringBuffer& s):buffer(s){}
 
-    template<class T, class U>
-    using arithmetic_type =  typename std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>,U>;
+    template<class T>
+    using arithmetic_type =  typename std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>,void>;
 
     /**
      * @brief 模板函数的递归终点，序列化一个基本算术类型
      */
     template<class T>
-    arithmetic_type<T,JsonSerializer&> operator<<(const T& t){
+    arithmetic_type<T> Save(const T& t){
         buffer << std::to_string(t);
-        return (*this);
     }
 
     /**
      * @brief 模板函数的递归终点，序列化一个字符串
      */
-    JsonSerializer& operator<<(const std::string_view s){
+    void Save(const std::string_view s){
         buffer << '\"' << s << '\"';
-        return (*this);
     }
 
 private:
@@ -72,11 +70,11 @@ private:
     inline void serialize_like_vector_impl_(const T& t){
         buffer << '[';
         for(const auto& element:t) {
-            (*this) << element;
+            Save(element);
             buffer << ',';
         }
         if(!t.empty())
-            buffer.RollbackWritePointer(1); // 删除最后一个逗号
+            buffer.Backward(1); // 删除最后一个逗号
         buffer << ']';
     }
 
@@ -92,9 +90,9 @@ private:
     template<class Tkey, class Tval>
     inline isnot_string_type<Tkey> serialize_key_val_impl_(const Tkey& key, const Tval& value){
         buffer << "{\"key\":";
-        (*this) << key;
+        Save(key);
         buffer << ",\"value\":";
-        (*this) << value;
+        Save(value);
         buffer << '}';
     }
 
@@ -104,7 +102,7 @@ private:
     template<class Tval>
     inline void serialize_key_val_impl_(const std::string_view key, const Tval& value){
         buffer << '\"' << key << "\":";
-        (*this) << value;
+        Save(value);
     }
 
     /**
@@ -118,23 +116,23 @@ private:
             buffer << '{';
             for(const auto& [key, value]:t) {
                 buffer << '\"' << key << "\":";
-                (*this) << value;
+                Save(value);
                 buffer << ',';
             }
             if(!t.empty())
-                buffer.RollbackWritePointer(1); // 删除最后一个逗号
+                buffer.Backward(1); // 删除最后一个逗号
             buffer << '}';
         }else{
             buffer << '[';
             for(const auto& [key, value]:t) {
                 buffer << "{\"key\":";
-                (*this) << key;
+                Save(key);
                 buffer << ",\"value\":";
-                (*this) << value;
+                Save(value);
                 buffer << "},";
             }
             if(!t.empty())
-                buffer.RollbackWritePointer(1); // 删除最后一个逗号
+                buffer.Backward(1); // 删除最后一个逗号
             buffer << ']';
         }
     }
@@ -145,8 +143,8 @@ private:
     template<class Tuple, size_t... Is>
     inline void serialize_tuple_impl_(const Tuple& t,std::index_sequence<Is...>){
         buffer << '[';
-        (((*this) << std::get<Is>(t), buffer<<','), ...);
-        buffer.RollbackWritePointer(1); // 删除最后一个逗号
+        ((Save(std::get<Is>(t)), buffer<<','), ...);
+        buffer.Backward(1); // 删除最后一个逗号
         buffer << ']';
     }
 
@@ -156,71 +154,57 @@ public:
      */
 
     template<class T, size_t Num>
-    JsonSerializer& operator<<(const std::array<T, Num>& t){
+    void Save(const std::array<T, Num>& t){
         serialize_like_vector_impl_(t);
-        return (*this);
     }
 
     template<class T>
-    JsonSerializer& operator<<(const std::vector<T>& t){
+    void Save(const std::vector<T>& t){
         serialize_like_vector_impl_(t);
-        return (*this);
     }
 
     template<class T>
-    JsonSerializer& operator<<(const std::deque<T>& t){
+    void Save(const std::deque<T>& t){
         serialize_like_vector_impl_(t);
-        return (*this);
     }
 
     template<class T>
-    JsonSerializer& operator<<(const std::list<T>& t){
+    void Save(const std::list<T>& t){
         serialize_like_vector_impl_(t);
-        return (*this);
     }
 
     template<class T>
-    JsonSerializer& operator<<(const std::forward_list<T>& t){
+    void Save(const std::forward_list<T>& t){
         serialize_like_vector_impl_(t);
-        return (*this);
     }
 
     template<class T>
-    JsonSerializer& operator<<(const std::set<T>& t){
-        if constexpr((std::is_same_v<std::decay_t<T>, std::string>)||
-                     (std::is_same_v<std::decay_t<T>, std::string_view>)){
-
-        }
+    void Save(const std::set<T>& t){
         serialize_like_vector_impl_(t);
-        return (*this);
     }
 
     template<class T>
-    JsonSerializer& operator<<(const std::unordered_set<T>& t){
+    void Save(const std::unordered_set<T>& t){
         serialize_like_vector_impl_(t);
-        return (*this);
     }
 
     template<class ...Args>
-    JsonSerializer& operator<<(const std::tuple<Args...>& t){
+    void Save(const std::tuple<Args...>& t){
         serialize_tuple_impl_(t, std::index_sequence_for<Args...>{});
-        return (*this);
     }
 
     template<class Tkey, class Tval>
-    JsonSerializer& operator<<(const std::map<Tkey, Tval>& t){
+    void Save(const std::map<Tkey, Tval>& t){
         serialize_like_map_impl_<Tkey,Tval>(t);
-        return (*this);
     }
 
     template<class Tkey, class Tval>
-    JsonSerializer& operator<<(const std::unordered_map<Tkey, Tval>& t){
+    void Save(const std::unordered_map<Tkey, Tval>& t){
         serialize_like_map_impl_<Tkey,Tval>(t);
-        return (*this);
     }
 
     template<class Tkey, class Tval>
-    JsonSerializer& operator<<(const std::pair<Tkey, Tval>& t){
+    void Save(const std::pair<Tkey, Tval>& t){
         constexpr bool is_string = (std::is_same_v<std::decay_t<Tkey>, std::string>)||
                                    (std::is_same_v<std::decay_t<Tkey>, std::string_view>);
         if constexpr(is_string){
@@ -238,40 +222,73 @@ public:
         }else{
             buffer << ']';
         }
-        return (*this);
     }
 
     template<class T>
-    JsonSerializer& operator<<(const std::optional<T>& t){
+    void Save(const std::optional<T>& t){
         if(t)
-            (*this) << *t;
+            Save(*t);
         else
             buffer << "null";
-        return (*this);
     }
 
     template<class T>
-    JsonSerializer& operator<<(const std::shared_ptr<T>& t){
+    void Save(const std::shared_ptr<T>& t){
         if(t)
-            (*this) << *t;
+            Save(*t);
         else
             buffer << "null";
-        return (*this);
     }
 
     template<class T>
-    JsonSerializer& operator<<(const std::unique_ptr<T>& t){
+    void Save(const std::unique_ptr<T>& t){
         if(t)
-            (*this) << *t;
+            Save(*t);
         else
             buffer << "null";
-        return (*this);
     }
 
 private:
 
     StringBuffer& buffer;
+
+public:
+    /**
+     * @brief 以下是针对struct的序列化
+     */
+
+    inline void serialize_struct_begin_impl_(){
+        buffer << '{';
+    }
+    inline void serialize_struct_end_impl_(){
+        buffer.Backward(1);
+        buffer << '}';
+    }
+
+    template<class T>
+    inline void serialize_item_impl_(const std::string_view key, const T& val){
+        serialize_key_val_impl_(key, val);
+        buffer << ',';
+    }
+
+    template<class T>
+    using struct_class_type =  typename std::enable_if_t<(std::is_class_v<std::decay_t<T>>)&&
+                                                        (!std::is_same_v<std::decay_t<T>, std::string>)&&
+                                                        (!std::is_same_v<std::decay_t<T>, std::string_view>),void>;
+
+    template<class T>
+    struct_class_type<T> Save(const T& t) {
+        t.Save(*this);
+    }
+
 };
-}
+
+};
+
+#define SAVE_BEGIN void Save(MyRPC::JsonSerializer& serializer) const{ \
+                   serializer.serialize_struct_begin_impl_();
+
+#define SAVE_ITEM(x) serializer.serialize_item_impl_(#x, x);
+#define SAVE_END serializer.serialize_struct_end_impl_();}
 
 #endif //MYRPC_SERIALIZER_H

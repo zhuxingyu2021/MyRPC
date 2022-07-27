@@ -49,7 +49,7 @@ namespace MyRPC{
         /**
          * @brief 写入指针回退size个字符
          */
-        void RollbackWritePointer(size_t size);
+        void Backward(size_t size);
 
         /**
          * @brief 清除字符缓冲区
@@ -83,12 +83,12 @@ namespace MyRPC{
             /**
              * @brief 读指针前进size个字符
              */
-            void ForwardReadPointer(size_t size);
+            void Foward(size_t size);
 
             /**
              * @brief 读指针回退size个字符
              */
-            void RollbackReadPointer(size_t size);
+            void Backward(size_t size);
 
             /**
              * @brief 获得下一个字符，但不移动读指针
@@ -106,7 +106,7 @@ namespace MyRPC{
             template<char ...c>
             std::string ReadUntil() {
                 std::string str;
-                str.reserve(20);
+                str.reserve(32);
                 while (total_read_size < buffer.total_size) {
                     char t = read_pos->data[read_offset];
                     if (((c == t) || ...)) {

@@ -35,11 +35,11 @@ public:
         buffer_reader.Reset();
     }
 
-    template<class T, class U>
-    using arithmetic_type =  typename std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>,U>;
+    template<class T>
+    using arithmetic_type =  typename std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>,void>;
 
     template<class T>
-    arithmetic_type<T,JsonDeserializer&> operator>>(T& t){
+    arithmetic_type<T> Load(T& t){
         if constexpr(std::is_same_v<std::decay_t<T>, float> || std::is_same_v<std::decay_t<T>, double>) {
             // 浮点类型
             t = std::stod(buffer_reader.ReadUntil<',', '}', ']'>());
@@ -52,14 +52,12 @@ public:
             // 有符号类型
             t = std::stoull(buffer_reader.ReadUntil<',', '}', ']'>());
         }
-        return (*this);
     }
 
-    JsonDeserializer& operator>>(std::string& s){
+    void Load(std::string& s){
         MYRPC_ASSERT(buffer_reader.GetChar() == '\"');
         s = std::move(buffer_reader.ReadUntil<'\"'>());
         MYRPC_ASSERT(buffer_reader.GetChar() == '\"');
-        return *this;
     }
 
 private:
@@ -71,7 +69,7 @@ private:
         MYRPC_ASSERT(buffer_reader.GetChar() == '[');
         while(buffer_reader.PeekChar()!=']'){
             Tval elem;
-            (*this) >> elem;
+            Load(elem);
             t.emplace_back(std::move(elem));
             if(buffer_reader.PeekChar() == ','){
                 buffer_reader.GetChar();
@@ -92,11 +90,11 @@ private:
     template<class Tkey, class Tval>
     inline isnot_string_type<Tkey> deserialize_key_val_impl_(Tkey& key, Tval& value){
         MYRPC_ASSERT(buffer_reader.PeekString(7) == "{\"key\":");
-        buffer_reader.ForwardReadPointer(7);
-        (*this) >> key;
+        buffer_reader.Foward(7);
+        Load(key);
         MYRPC_ASSERT(buffer_reader.PeekString(9) == ",\"value\":");
-        buffer_reader.ForwardReadPointer(9);
-        (*this) >> value;
+        buffer_reader.Foward(9);
+        Load(value);
         MYRPC_ASSERT(buffer_reader.GetChar() == '}');
     }
 
@@ -105,9 +103,9 @@ private:
      */
     template<class Tval>
     inline void deserialize_key_val_impl_(std::string& key, Tval& value){
-        (*this) >> key;
+        Load(key);
         MYRPC_ASSERT(buffer_reader.GetChar() == ':');
-        (*this) >> value;
+        Load(value);
     }
 
     /**
@@ -140,7 +138,7 @@ private:
     template<class T>
     inline T make_tuple_internal_(){
         T t;
-        (*this) >> t;
+        Load(t);
         buffer_reader.GetChar();
         return t;
     }
@@ -160,67 +158,57 @@ public:
      */
 
     template<class T, size_t Num>
-    JsonDeserializer& operator>>(std::array<T, Num>& t){
+    void Load(std::array<T, Num>& t){
         deserialize_like_vector_impl_<T>(t);
-        return (*this);
     }
 
     template<class T>
-    JsonDeserializer& operator>>(std::vector<T>& t){
+    void Load(std::vector<T>& t){
         deserialize_like_vector_impl_<T>(t);
-        return (*this);
     }
 
     template<class T>
-    JsonDeserializer& operator>>(std::deque<T>& t){
+    void Load(std::deque<T>& t){
         deserialize_like_vector_impl_<T>(t);
-        return (*this);
     }
 
     template<class T>
-    JsonDeserializer& operator>>(std::list<T>& t){
+    void Load(std::list<T>& t){
         deserialize_like_vector_impl_<T>(t);
-        return (*this);
     }
 
     template<class T>
-    JsonDeserializer& operator>>(std::forward_list<T>& t){
+    void Load(std::forward_list<T>& t){
         deserialize_like_vector_impl_<T>(t);
-        return (*this);
     }
 
     template<class T>
-    JsonDeserializer& operator>>(std::set<T>& t){
+    void Load(std::set<T>& t){
         deserialize_like_vector_impl_<T>(t);
-        return (*this);
     }
 
     template<class T>
-    JsonDeserializer& operator>>(std::unordered_set<T>& t){
+    void Load(std::unordered_set<T>& t){
         deserialize_like_vector_impl_<T>(t);
-        return (*this);
     }
 
     template<class ...Args>
-    JsonDeserializer& operator>>(std::tuple<Args...>& t){
+    void Load(std::tuple<Args...>& t){
         deserialize_tuple_impl_(t, std::index_sequence_for<Args...>{});
-        return (*this);
     }
 
     template<class Tkey, class Tval>
-    JsonDeserializer& operator>>(std::map<Tkey, Tval>& t){
+    void Load(std::map<Tkey, Tval>& t){
         deserialize_like_map_impl_<Tkey, Tval>(t);
-        return (*this);
     }
 
     template<class Tkey, class Tval>
-    JsonDeserializer& operator>>(std::unordered_map<Tkey, Tval>& t){
+    void Load(std::unordered_map<Tkey, Tval>& t){
         deserialize_like_map_impl_<Tkey, Tval>(t);
-        return (*this);
     }
 
     template<class Tkey, class Tval>
-    JsonDeserializer& operator>>(std::pair<Tkey, Tval>& t){
+    void Load(std::pair<Tkey, Tval>& t){
         char c1 = buffer_reader.GetChar();
         MYRPC_ASSERT(c1 == '{' || c1 == '[');
 
@@ -232,47 +220,80 @@ public:
 
         char c3 = buffer_reader.GetChar();
         MYRPC_ASSERT(c3 == '}' || c3 == ']');
-        return (*this);
     }
 
     template<class T>
-    JsonDeserializer& operator>>(std::optional<T>& t){
+    void Load(std::optional<T>& t){
         if(buffer_reader.PeekString(4) == "null"){
-            buffer_reader.ForwardReadPointer(4);
+            buffer_reader.Foward(4);
             t = std::nullopt;
         }
         else{
             T val;
-            (*this) >> val;
+            Load(val);
             t.emplace(std::move(val));
         }
-        return (*this);
     }
 
     template<class T>
-    JsonDeserializer& operator>>(std::shared_ptr<T>& t){
+    void Load(std::shared_ptr<T>& t){
         t = std::move(std::make_shared<T>());
         if(buffer_reader.PeekString(4) == "null")
-            buffer_reader.ForwardReadPointer(4);
+            buffer_reader.Foward(4);
         else
-            (*this) >> *t;
-        return (*this);
+            Load(*t);
     }
 
     template<class T>
-    JsonDeserializer& operator>>(std::unique_ptr<T>& t){
+    void Load(std::unique_ptr<T>& t){
         t = std::move(std::make_unique<T>());
         if(buffer_reader.PeekString(4) == "null")
-            buffer_reader.ForwardReadPointer(4);
+            buffer_reader.Foward(4);
         else
-            (*this) >> *t;
-        return (*this);
+            Load(*t);
     }
 
 private:
     StringBuffer::StringBufferReader buffer_reader;
+
+public:
+    /**
+     * @brief 以下是针对struct的反序列化
+     */
+
+    inline void deserialize_struct_begin_impl_(){
+        MYRPC_ASSERT(buffer_reader.GetChar() == '{');
+    }
+    inline void deserialize_struct_end_impl_(){
+    }
+
+    template<class T>
+    inline void deserialize_item_impl_(const std::string_view key, T& val){
+        std::string key_str;
+
+        deserialize_key_val_impl_(key_str, val);
+        MYRPC_ASSERT(key == key_str);
+
+        char c = buffer_reader.GetChar();
+        MYRPC_ASSERT(c == ',' || c == '}');
+    }
+
+    template<class T>
+    using struct_class_type =  typename std::enable_if_t<(std::is_class_v<std::decay_t<T>>)&&
+                                                         (!std::is_same_v<std::decay_t<T>, std::string>)&&
+                                                         (!std::is_same_v<std::decay_t<T>, std::string_view>),void>;
+
+    template<class T>
+    struct_class_type<T> Load(T& t) {
+        t.Load(*this);
+    }
 };
 }
 
+#define LOAD_BEGIN void Load(MyRPC::JsonDeserializer& deserializer){ \
+                   deserializer.deserialize_struct_begin_impl_();
+
+#define LOAD_ITEM(x) deserializer.deserialize_item_impl_(#x, x);
+#define LOAD_END deserializer.deserialize_struct_end_impl_();}
 
 #endif //MYRPC_DESERIALIZER_H
