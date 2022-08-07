@@ -26,14 +26,7 @@
 namespace MyRPC{
 class JsonDeserializer{
 public:
-    JsonDeserializer(StringBuffer& s): buffer_reader(s.GetStringBufferReader()){}
-
-    /**
-     * @brief 从字符串缓冲区的起始位置开始重新反序列化
-     */
-    void Reset(){
-        buffer_reader.Reset();
-    }
+    JsonDeserializer(StringBuffer& sb): buffer(sb){}
 
     template<class T>
     using arithmetic_type =  typename std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>,void>;
@@ -42,22 +35,22 @@ public:
     arithmetic_type<T> Load(T& t){
         if constexpr(std::is_same_v<std::decay_t<T>, float> || std::is_same_v<std::decay_t<T>, double>) {
             // 浮点类型
-            t = std::stod(buffer_reader.ReadUntil<',', '}', ']'>());
+            t = std::stod(buffer.ReadUntil<',', '}', ']'>());
         }
         else if constexpr(std::is_unsigned_v<std::decay_t<T>>) {
             // 无符号类型
-            t = std::stoll(buffer_reader.ReadUntil<',', '}', ']'>());
+            t = std::stoll(buffer.ReadUntil<',', '}', ']'>());
         }
         else{
             // 有符号类型
-            t = std::stoull(buffer_reader.ReadUntil<',', '}', ']'>());
+            t = std::stoull(buffer.ReadUntil<',', '}', ']'>());
         }
     }
 
     void Load(std::string& s){
-        MYRPC_ASSERT(buffer_reader.GetChar() == '\"');
-        s = std::move(buffer_reader.ReadUntil<'\"'>());
-        MYRPC_ASSERT(buffer_reader.GetChar() == '\"');
+        MYRPC_ASSERT(buffer.GetChar() == '\"');
+        s = std::move(buffer.ReadUntil<'\"'>());
+        MYRPC_ASSERT(buffer.GetChar() == '\"');
     }
 
 private:
@@ -66,16 +59,16 @@ private:
      */
     template<class Tval, class T>
     inline void deserialize_like_vector_impl_(T& t){
-        MYRPC_ASSERT(buffer_reader.GetChar() == '[');
-        while(buffer_reader.PeekChar()!=']'){
+        MYRPC_ASSERT(buffer.GetChar() == '[');
+        while(buffer.PeekChar() != ']'){
             Tval elem;
             Load(elem);
             t.emplace_back(std::move(elem));
-            if(buffer_reader.PeekChar() == ','){
-                buffer_reader.GetChar();
+            if(buffer.PeekChar() == ','){
+                buffer.GetChar();
             }
         }
-        MYRPC_ASSERT(buffer_reader.GetChar() == ']');
+        MYRPC_ASSERT(buffer.GetChar() == ']');
     }
 
     template<class T>
@@ -89,13 +82,13 @@ private:
      */
     template<class Tkey, class Tval>
     inline isnot_string_type<Tkey> deserialize_key_val_impl_(Tkey& key, Tval& value){
-        MYRPC_ASSERT(buffer_reader.PeekString(7) == "{\"key\":");
-        buffer_reader.Foward(7);
+        MYRPC_ASSERT(buffer.PeekString(7) == "{\"key\":");
+        buffer.Forward(7);
         Load(key);
-        MYRPC_ASSERT(buffer_reader.PeekString(9) == ",\"value\":");
-        buffer_reader.Foward(9);
+        MYRPC_ASSERT(buffer.PeekString(9) == ",\"value\":");
+        buffer.Forward(9);
         Load(value);
-        MYRPC_ASSERT(buffer_reader.GetChar() == '}');
+        MYRPC_ASSERT(buffer.GetChar() == '}');
     }
 
     /**
@@ -104,7 +97,7 @@ private:
     template<class Tval>
     inline void deserialize_key_val_impl_(std::string& key, Tval& value){
         Load(key);
-        MYRPC_ASSERT(buffer_reader.GetChar() == ':');
+        MYRPC_ASSERT(buffer.GetChar() == ':');
         Load(value);
     }
 
@@ -113,22 +106,22 @@ private:
      */
     template<class Tkey, class Tval, class T>
     inline void deserialize_like_map_impl_(T& t){
-        auto c1 = buffer_reader.GetChar();
+        auto c1 = buffer.GetChar();
         MYRPC_ASSERT(c1 == '{' || c1 == '[');
 
-        char c2 = buffer_reader.PeekChar();
+        char c2 = buffer.PeekChar();
         while(c2 != '}' && c2 != ']'){
             Tkey key;
             Tval val;
             deserialize_key_val_impl_(key, val);
             t.emplace(std::move(key), std::move(val));
-            if(buffer_reader.PeekChar() == ','){
-                buffer_reader.GetChar();
+            if(buffer.PeekChar() == ','){
+                buffer.GetChar();
             }
-            c2 = buffer_reader.PeekChar();
+            c2 = buffer.PeekChar();
         }
 
-        auto c3 = buffer_reader.GetChar();
+        auto c3 = buffer.GetChar();
         MYRPC_ASSERT(c3 == '}' || c3 == ']');
     }
 
@@ -139,7 +132,7 @@ private:
     inline T make_tuple_internal_(){
         T t;
         Load(t);
-        buffer_reader.GetChar();
+        buffer.GetChar();
         return t;
     }
 
@@ -148,7 +141,7 @@ private:
      */
     template<class Tuple, size_t... Is>
     inline void deserialize_tuple_impl_(Tuple& t,std::index_sequence<Is...>){
-        MYRPC_ASSERT(buffer_reader.GetChar() == '[');
+        MYRPC_ASSERT(buffer.GetChar() == '[');
         ((std::get<Is>(t) = std::move(make_tuple_internal_<std::tuple_element_t<Is, Tuple>>())), ...);
     }
 
@@ -209,7 +202,7 @@ public:
 
     template<class Tkey, class Tval>
     void Load(std::pair<Tkey, Tval>& t){
-        char c1 = buffer_reader.GetChar();
+        char c1 = buffer.GetChar();
         MYRPC_ASSERT(c1 == '{' || c1 == '[');
 
         Tkey key;
@@ -218,14 +211,14 @@ public:
         t.first = std::move(key);
         t.second = std::move(val);
 
-        char c3 = buffer_reader.GetChar();
+        char c3 = buffer.GetChar();
         MYRPC_ASSERT(c3 == '}' || c3 == ']');
     }
 
     template<class T>
     void Load(std::optional<T>& t){
-        if(buffer_reader.PeekString(4) == "null"){
-            buffer_reader.Foward(4);
+        if(buffer.PeekString(4) == "null"){
+            buffer.Forward(4);
             t = std::nullopt;
         }
         else{
@@ -238,8 +231,8 @@ public:
     template<class T>
     void Load(std::shared_ptr<T>& t){
         t = std::move(std::make_shared<T>());
-        if(buffer_reader.PeekString(4) == "null")
-            buffer_reader.Foward(4);
+        if(buffer.PeekString(4) == "null")
+            buffer.Forward(4);
         else
             Load(*t);
     }
@@ -247,14 +240,14 @@ public:
     template<class T>
     void Load(std::unique_ptr<T>& t){
         t = std::move(std::make_unique<T>());
-        if(buffer_reader.PeekString(4) == "null")
-            buffer_reader.Foward(4);
+        if(buffer.PeekString(4) == "null")
+            buffer.Forward(4);
         else
             Load(*t);
     }
 
 private:
-    StringBuffer::StringBufferReader buffer_reader;
+    StringBuffer& buffer;
 
 public:
     /**
@@ -262,7 +255,7 @@ public:
      */
 
     inline void deserialize_struct_begin_impl_(){
-        MYRPC_ASSERT(buffer_reader.GetChar() == '{');
+        MYRPC_ASSERT(buffer.GetChar() == '{');
     }
     inline void deserialize_struct_end_impl_(){
     }
@@ -274,7 +267,7 @@ public:
         deserialize_key_val_impl_(key_str, val);
         MYRPC_ASSERT(key == key_str);
 
-        char c = buffer_reader.GetChar();
+        char c = buffer.GetChar();
         MYRPC_ASSERT(c == ',' || c == '}');
     }
 

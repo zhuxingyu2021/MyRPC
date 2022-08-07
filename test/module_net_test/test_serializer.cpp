@@ -7,30 +7,27 @@ using namespace std;
 using namespace MyRPC;
 
 int main() {
-    StringBuffer s;
+    StringBuilder s;
     JsonSerializer serializer(s);
 
     vector<int> vec1 = {32, 901, 12, 29, -323};
     serializer.Save(vec1);
-    s.WriteFile(STDIN_FILENO);
-    std::cout << std::endl <<"==========================================================" << std::endl;
-
+    StringBuffer buf1 = s.Concat();
+    std::cout <<std::string(buf1.data, buf1.size) << std::endl <<"==========================================================" << std::endl;
     s.Clear();
 
     array<string, 3> array1 = {"12o", "hELLO!", "Yeah!"};
     serializer.Save(array1);
-    s.WriteFile(STDIN_FILENO);
-    std::cout << std::endl <<"==========================================================" << std::endl;
-
+    StringBuffer buf2 = s.Concat();
+    std::cout <<std::string(buf2.data, buf2.size) << std::endl <<"==========================================================" << std::endl;
     s.Clear();
 
     std::unordered_map<float, string> map1 = {{9.23,   "12"},
                                               {92.19,  "2opw!"},
                                               {68.238, std::to_string(3.192)}};
     serializer.Save(map1);
-    s.WriteFile(STDIN_FILENO);
-    std::cout << std::endl <<"==========================================================" << std::endl;
-
+    StringBuffer buf3 = s.Concat();
+    std::cout <<std::string(buf3.data, buf3.size) << std::endl <<"==========================================================" << std::endl;
     s.Clear();
 
     std::pair<vector<int>, vector<int>> pair1;
@@ -44,24 +41,22 @@ int main() {
     pair1.second.push_back(0);
 
     serializer.Save(pair1);
-    s.WriteFile(STDIN_FILENO);
-    std::cout << std::endl <<"==========================================================" << std::endl;
-
+    StringBuffer buf4 = s.Concat();
+    std::cout <<std::string(buf4.data, buf4.size) << std::endl <<"==========================================================" << std::endl;
     s.Clear();
 
     string hello = "Hello!";
     tuple<double, int, vector<int>, string> tuple1 = std::make_tuple(232.111, 19, std::move(vec1), std::move(hello));
-    serializer.Save(tuple1);
-    s.WriteFile(STDIN_FILENO);
-    std::cout << std::endl <<"==========================================================" << std::endl;
 
+    serializer.Save(tuple1);
+    StringBuffer buf5 = s.Concat();
+    std::cout <<std::string(buf5.data, buf5.size) << std::endl <<"==========================================================" << std::endl;
     s.Clear();
 
     set<string> set1= {"323", "dqwd", "ca", "ld"};
     serializer.Save(set1);
-    s.WriteFile(STDIN_FILENO);
-    std::cout << std::endl <<"==========================================================" << std::endl;
-
+    StringBuffer buf6 = s.Concat();
+    std::cout <<std::string(buf6.data, buf6.size) << std::endl <<"==========================================================" << std::endl;
     s.Clear();
 
 
@@ -73,8 +68,8 @@ int main() {
 
 
     serializer.Save(map2);
-    s.WriteFile(STDIN_FILENO);
-    std::cout << std::endl <<"==========================================================" << std::endl;
+    StringBuffer buf7 = s.Concat();
+    std::cout <<std::string(buf7.data, buf7.size) << std::endl <<"==========================================================" << std::endl;
 
     s.Clear();
 
@@ -84,8 +79,8 @@ int main() {
     vec2.push_back(nullopt);
     vec2.emplace_back(new std::map<std::string, vector<int>>(map3));
     serializer.Save(vec2);
-    s.WriteFile(STDIN_FILENO);
-    std::cout << std::endl <<"==========================================================" << std::endl;
+    StringBuffer buf8 = s.Concat();
+    std::cout <<std::string(buf8.data, buf8.size) << std::endl <<"==========================================================" << std::endl;
 
     s.Clear();
 
@@ -102,7 +97,7 @@ int main() {
     Table t = {0, "Xiao Ming"};
 
     serializer.Save(t);
-    s.WriteFile(STDIN_FILENO);
-    std::cout << std::endl <<"==========================================================" << std::endl;
+    StringBuffer buf9 = s.Concat();
+    std::cout <<std::string(buf9.data, buf9.size) << std::endl <<"==========================================================" << std::endl;
 
 }

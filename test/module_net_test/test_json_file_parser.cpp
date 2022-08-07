@@ -49,19 +49,21 @@ int main(int argc, char** argv)
     }
     int fd = open(argv[1], O_RDONLY);
     if(fd > 0){
-        StringBuffer s;
-        char buf[4096];
+        StringBuilder s;
         while(true){
-            int sz = read(fd, buf, sizeof(buf));
+            StringBuffer buf(4096);
+            int sz = read(fd, buf.data, 4096);
             if(sz <= 0){
                 break;
             }
-            auto new_sz = strtrim<' ', '\t', '\n', '\r'>(buf, sz);
-            s.Write(buf, new_sz);
+            auto new_sz = strtrim<' ', '\t', '\n', '\r'>(buf.data, sz);
+            buf.size = new_sz;
+            s.Append(std::move(buf));
         }
+        StringBuffer sb = s.Concat();
 
         std::vector<Person> persons;
-        Deserializer d(s);
+        Deserializer d(sb);
 
         auto start = std::chrono::system_clock::now();
         d.Load(persons);

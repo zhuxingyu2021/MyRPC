@@ -25,7 +25,7 @@
 
 namespace MyRPC {
 /**
- * @brief 支持将STL容器类型序列化为json格式的序列化器
+ * @brief 将STL容器类型、自定义结构体类型序列化为json格式的序列化器
  *        目前支持以下STL容器类型：
  *        vector, deque, list, forward_list
  *        set, unordered_set, tuple
@@ -33,16 +33,14 @@ namespace MyRPC {
  *        string
  *        不支持裸指针，但支持以下智能指针：
  *        shared_ptr, unique_ptr
+ *        支持自定义结构体类型
+ *
  * @note 用法如下：
- * @code  rapidjson::StringBuffer buffer;
-          JsonSerializer serializer(buffer);
-          std::vector<int> vec = {32, 901, 12, 29, -323};
-          serializer << vec1;
-          std::cout << s.GetString() << std::endl;
+ * @code
  */
 class JsonSerializer {
 public:
-    JsonSerializer(StringBuffer& s):buffer(s){}
+    JsonSerializer(StringBuilder& s): buffer(s){}
 
     template<class T>
     using arithmetic_type =  typename std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>,void>;
@@ -52,14 +50,16 @@ public:
      */
     template<class T>
     arithmetic_type<T> Save(const T& t){
-        buffer << std::to_string(t);
+        buffer.Append(std::to_string(t));
     }
 
     /**
      * @brief 模板函数的递归终点，序列化一个字符串
      */
-    void Save(const std::string_view s){
-        buffer << '\"' << s << '\"';
+    void Save(const std::string& s){
+        buffer.Append('\"');
+        buffer.Append(s);
+        buffer.Append('\"');
     }
 
 private:
@@ -68,14 +68,14 @@ private:
      */
     template<class T>
     inline void serialize_like_vector_impl_(const T& t){
-        buffer << '[';
+        buffer.Append('[');
         for(const auto& element:t) {
             Save(element);
-            buffer << ',';
+            buffer.Append(',');
         }
         if(!t.empty())
             buffer.Backward(1); // 删除最后一个逗号
-        buffer << ']';
+        buffer.Append(']');
     }
 
     template<class T>
@@ -89,19 +89,21 @@ private:
      */
     template<class Tkey, class Tval>
     inline isnot_string_type<Tkey> serialize_key_val_impl_(const Tkey& key, const Tval& value){
-        buffer << "{\"key\":";
+        buffer.Append("{\"key\":");
         Save(key);
-        buffer << ",\"value\":";
+        buffer.Append(",\"value\":");
         Save(value);
-        buffer << '}';
+        buffer.Append('}');
     }
 
     /**
      * @brief 生成json对象的key-value对（使用c++17 string_view）
      */
     template<class Tval>
-    inline void serialize_key_val_impl_(const std::string_view key, const Tval& value){
-        buffer << '\"' << key << "\":";
+    inline void serialize_key_val_impl_(const std::string& key, const Tval& value){
+        buffer.Append('\"');
+        buffer.Append(key);
+        buffer.Append("\":");
         Save(value);
     }
 
@@ -113,27 +115,29 @@ private:
         constexpr bool is_string = (std::is_same_v<std::decay_t<Tkey>, std::string>)||
                                    (std::is_same_v<std::decay_t<Tkey>, std::string_view>);
         if constexpr(is_string){
-            buffer << '{';
+            buffer.Append('{');
             for(const auto& [key, value]:t) {
-                buffer << '\"' << key << "\":";
+                buffer.Append('\"');
+                buffer.Append(key);
+                buffer.Append("\":");
                 Save(value);
-                buffer << ',';
+                buffer.Append(',');
             }
             if(!t.empty())
                 buffer.Backward(1); // 删除最后一个逗号
-            buffer << '}';
+            buffer.Append('}');
         }else{
-            buffer << '[';
+            buffer.Append('[');
             for(const auto& [key, value]:t) {
-                buffer << "{\"key\":";
+                buffer.Append("{\"key\":");
                 Save(key);
-                buffer << ",\"value\":";
+                buffer.Append(",\"value\":");
                 Save(value);
-                buffer << "},";
+                buffer.Append("},");
             }
             if(!t.empty())
                 buffer.Backward(1); // 删除最后一个逗号
-            buffer << ']';
+            buffer.Append(']');
         }
     }
 
@@ -142,10 +146,10 @@ private:
      */
     template<class Tuple, size_t... Is>
     inline void serialize_tuple_impl_(const Tuple& t,std::index_sequence<Is...>){
-        buffer << '[';
-        ((Save(std::get<Is>(t)), buffer<<','), ...);
+        buffer.Append('[');
+        ((Save(std::get<Is>(t)), buffer.Append(',')), ...);
         buffer.Backward(1); // 删除最后一个逗号
-        buffer << ']';
+        buffer.Append(']');
     }
 
 public:
@@ -209,18 +213,18 @@ public:
                                    (std::is_same_v<std::decay_t<Tkey>, std::string_view>);
         if constexpr(is_string){
             //key是字符串类型
-            buffer << '{';
+            buffer.Append('{');
         }else{
-            buffer << '[';
+            buffer.Append('[');
         }
         const auto& [key,value] = t;
         serialize_key_val_impl_(key, value);
 
         if constexpr(is_string){
             //key是字符串类型
-            buffer << '}';
+            buffer.Append('}');
         }else{
-            buffer << ']';
+            buffer.Append(']');
         }
     }
 
@@ -229,7 +233,7 @@ public:
         if(t)
             Save(*t);
         else
-            buffer << "null";
+            buffer.Append("null");
     }
 
     template<class T>
@@ -237,7 +241,7 @@ public:
         if(t)
             Save(*t);
         else
-            buffer << "null";
+            buffer.Append("null");
     }
 
     template<class T>
@@ -245,12 +249,12 @@ public:
         if(t)
             Save(*t);
         else
-            buffer << "null";
+            buffer.Append("null");
     }
 
 private:
 
-    StringBuffer& buffer;
+    StringBuilder& buffer;
 
 public:
     /**
@@ -258,17 +262,17 @@ public:
      */
 
     inline void serialize_struct_begin_impl_(){
-        buffer << '{';
+        buffer.Append('{');
     }
     inline void serialize_struct_end_impl_(){
         buffer.Backward(1);
-        buffer << '}';
+        buffer.Append('}');
     }
 
     template<class T>
-    inline void serialize_item_impl_(const std::string_view key, const T& val){
+    inline void serialize_item_impl_(const std::string& key, const T& val){
         serialize_key_val_impl_(key, val);
-        buffer << ',';
+        buffer.Append(',');
     }
 
     template<class T>

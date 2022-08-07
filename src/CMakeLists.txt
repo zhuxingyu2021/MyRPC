@@ -6,6 +6,10 @@ set(SRCFILE
         fiber/fiber.cpp
         fiber/eventmanager.cpp
         fiber/fiberpool.cpp
+
+        net/protocol.cpp
+        net/socket.cpp
+
         macro.cpp
         utils.cpp
         stringbuffer.cpp

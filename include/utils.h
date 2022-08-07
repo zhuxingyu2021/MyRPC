@@ -11,7 +11,7 @@ namespace MyRPC{
     template<class T,size_t size>
     using byteorder_convert_type =  typename std::enable_if_t<sizeof(std::decay_t<T>)==size,std::decay_t<T>>;
 
-    /*
+    /**
      * @brief 将一个8位变量从本地字节序转化为网络字节序
      */
     template <class T>
@@ -19,7 +19,7 @@ namespace MyRPC{
         return t;
     }
 
-    /*
+    /**
      * @brief 将一个16位变量从本地字节序转化为网络字节序
      */
     template <class T>
@@ -28,7 +28,7 @@ namespace MyRPC{
         return *(reinterpret_cast<T*>(&u));
     }
 
-    /*
+    /**
      * @brief 将一个32位变量从本地字节序转化为网络字节序
      */
     template <class T>
@@ -37,7 +37,7 @@ namespace MyRPC{
         return *(reinterpret_cast<T*>(&u));
     }
 
-    /*
+    /**
      * @brief 将一个64位变量从本地字节序转化为网络字节序
      */
     template <class T>
@@ -54,7 +54,7 @@ namespace MyRPC{
         return t;
     }
 
-    /*
+    /**
      * @brief 将一个8位变量从网络字节序转化为本地字节序
      */
     template <class T>
@@ -62,7 +62,7 @@ namespace MyRPC{
         return t;
     }
 
-    /*
+    /**
      * @brief 将一个16位变量从网络字节序转化为本地字节序
      */
     template <class T>
@@ -71,7 +71,7 @@ namespace MyRPC{
         return *(reinterpret_cast<T*>(&u));
     }
 
-    /*
+    /**
      * @brief 将一个32位变量从网络字节序转化为本地字节序
      */
     template <class T>
@@ -80,7 +80,7 @@ namespace MyRPC{
         return *(reinterpret_cast<T*>(&u));
     }
 
-    /*
+    /**
      * @brief 将一个64位变量从网络字节序转化为本地字节序
      */
     template <class T>
