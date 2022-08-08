@@ -7,8 +7,9 @@ set(SRCFILE
         fiber/eventmanager.cpp
         fiber/fiberpool.cpp
 
-        net/protocol.cpp
-        net/socket.cpp
+        net/inetaddr.cpp
+        net/tcpserver.cpp
+        net/tcpclient.cpp
 
         macro.cpp
         utils.cpp
