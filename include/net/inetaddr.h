@@ -22,7 +22,7 @@ namespace MyRPC{
             struct sockaddr_in addr_;
             struct sockaddr_in6 addr6_;
         };
-        bool ipv6_;
+        bool m_ipv6;
     };
 
     class InetInvalidAddrException: public std::exception{

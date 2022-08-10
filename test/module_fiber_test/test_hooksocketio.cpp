@@ -7,6 +7,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "fiber/timeoutio.h"
+
 using namespace MyRPC;
 
 #define NUM_THREADS 1
@@ -84,9 +86,13 @@ int main()
         Logger::info("accept success");
         char buf[1024];
         memset(buf, 0, sizeof(buf));
+        timespec ts;
+        ts.tv_sec = 2;
+        ts.tv_nsec = 0;
         while(true){
-            int input_size = recv(new_sockfd, buf, sizeof(buf), 0);
-            write(STDOUT_FILENO, buf, input_size);
+            int input_size = recv_timeout(new_sockfd, buf, sizeof(buf), 0, ts);
+            if(input_size != -2)    write(STDOUT_FILENO, buf, input_size);
+            else Logger::info("recv timeout");
         }
     }, 0);
 

@@ -32,8 +32,19 @@ namespace MyRPC{
          */
         int AddIOEvent(int fd, EventType event);
 
+        /**
+         * @brief 删除IO事件，该方法必须由协程调用
+         * @param fd[in] 文件描述符
+         * @param event[in] IO事件类型
+         * @return 0表示成功, -1表示失败。如果fd不存在，也会返回0
+         */
         int RemoveIOEvent(int fd, EventType event);
 
+        /**
+         * @brief 检查是否在等待IO事件的发生
+         * @param fd[in] 文件描述符
+         * @param event[in] IO事件类型
+         */
         bool IsExistIOEvent(int fd, EventType event) const;
 
         /**

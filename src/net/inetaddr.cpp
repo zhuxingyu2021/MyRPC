@@ -6,7 +6,7 @@
 
 using namespace MyRPC;
 
-InetAddr::InetAddr(const std::string& ip, uint16_t port, bool ipv6):ipv6_(ipv6) {
+InetAddr::InetAddr(const std::string& ip, uint16_t port, bool ipv6): m_ipv6(ipv6) {
     if(ipv6){
         memset(&addr6_, 0, sizeof(addr6_));
         addr6_.sin6_family = AF_INET6;
@@ -31,5 +31,5 @@ const sockaddr* InetAddr::GetAddr() const{
 }
 
 const socklen_t InetAddr::GetAddrLen() const {
-    return (ipv6_)?sizeof(sockaddr_in6):sizeof(sockaddr_in);
+    return (m_ipv6) ? sizeof(sockaddr_in6) : sizeof(sockaddr_in);
 }

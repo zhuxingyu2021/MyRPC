@@ -69,35 +69,36 @@ extern "C" ssize_t read(int fd, void *buf, size_t count) {
     return sys_read(fd, buf, count);
 }
 
-ssize_t read_timeout(int fd, void *buf, size_t count, __useconds_t __useconds) {
+ssize_t MyRPC::read_timeout(int fd, void *buf, size_t count, const timespec& ts) {
     if (enable_hook) {
         enable_hook = false;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
-        Logger::debug("Thread:{} Fiber:{} trying to read({}, {}, {})", FiberPool::GetCurrentThreadId(),
+        Logger::debug("Thread:{} Fiber:{} trying to read({}, {}, {}) with timeout", FiberPool::GetCurrentThreadId(),
                       MyRPC::Fiber::GetCurrentId(), fd, buf, count);
 #endif
         auto err = FiberPool::GetEventManager()->AddIOEvent(fd, EventManager::READ);
         if(!err){
-            if(__useconds > 0) {
-                auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
 
-                struct itimerspec its;
-                memset(&its, 0, sizeof(its));
-                its.it_value.tv_nsec = __useconds * 1000;
-                MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
+            auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
 
-                FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
+            struct itimerspec its;
+            its.it_interval.tv_nsec=0;
+            its.it_interval.tv_sec=0;
+            its.it_value = ts;
+            MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
 
-                Fiber::Block();
+            FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
 
-                if(FiberPool::GetEventManager()->IsExistIOEvent(timer_fd, EventManager::READ)) {
-                    MYRPC_SYS_ASSERT(FiberPool::GetEventManager()->RemoveIOEvent(timer_fd, EventManager::READ)==0);
-                    sys_close(timer_fd);
-                    return -2;
-                }
+            Fiber::Block();
 
-                sys_close(timer_fd);
+            FiberPool::GetEventManager()->RemoveIOEvent(timer_fd, EventManager::READ);
+            sys_close(timer_fd);
+
+            // 如果fd的读事件还没被触发，说明超时
+            if(FiberPool::GetEventManager()->IsExistIOEvent(fd, EventManager::READ)) {
+                MYRPC_SYS_ASSERT(FiberPool::GetEventManager()->RemoveIOEvent(fd, EventManager::READ)==0);
+                return -2;
             }
         }
         else {
@@ -177,35 +178,35 @@ extern "C" int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
     return sys_accept(sockfd, addr, addrlen);
 }
 
-int accept_timeout(int sockfd, struct sockaddr *addr, socklen_t *addrlen, __useconds_t __useconds) {
+int MyRPC::accept_timeout(int sockfd, struct sockaddr *addr, socklen_t *addrlen, const timespec& ts) {
     if (enable_hook) {
         enable_hook = false;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
-        Logger::debug("Thread:{} Fiber:{} trying to accept({}, {}, {})", FiberPool::GetCurrentThreadId(),
+        Logger::debug("Thread:{} Fiber:{} trying to accept({}, {}, {}) with timeout", FiberPool::GetCurrentThreadId(),
                       MyRPC::Fiber::GetCurrentId(), sockfd, (void*)addr, *addrlen);
 #endif
         auto err = FiberPool::GetEventManager()->AddIOEvent(sockfd, EventManager::READ);
         if(!err){
-            if(__useconds > 0) {
-                auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+            auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
 
-                struct itimerspec its;
-                memset(&its, 0, sizeof(its));
-                its.it_value.tv_nsec = __useconds * 1000;
-                MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
+            struct itimerspec its;
+            its.it_interval.tv_nsec=0;
+            its.it_interval.tv_sec=0;
+            its.it_value = ts;
+            MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
 
-                FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
+            FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
 
-                Fiber::Block();
+            Fiber::Block();
 
-                if(FiberPool::GetEventManager()->IsExistIOEvent(timer_fd, EventManager::READ)) {
-                    MYRPC_SYS_ASSERT(FiberPool::GetEventManager()->RemoveIOEvent(timer_fd, EventManager::READ)==0);
-                    sys_close(timer_fd);
-                    return -2;
-                }
+            FiberPool::GetEventManager()->RemoveIOEvent(timer_fd, EventManager::READ);
+            sys_close(timer_fd);
 
-                sys_close(timer_fd);
+            // 如果sockfd的读事件还没被触发，说明超时
+            if(FiberPool::GetEventManager()->IsExistIOEvent(sockfd, EventManager::READ)) {
+                MYRPC_SYS_ASSERT(FiberPool::GetEventManager()->RemoveIOEvent(sockfd, EventManager::READ)==0);
+                return -2;
             }
         }
         else {
@@ -242,36 +243,36 @@ extern "C" int connect(int sockfd, const struct sockaddr *addr, socklen_t addrle
     return sys_connect(sockfd, addr, addrlen);
 }
 
-int connect_timeout(int sockfd, const struct sockaddr *addr, socklen_t addrlen, __useconds_t __useconds) {
+int MyRPC::connect_timeout(int sockfd, const struct sockaddr *addr, socklen_t addrlen, const timespec& ts) {
     if (enable_hook) {
         enable_hook = false;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
-        Logger::debug("Thread:{} Fiber:{} trying to connect({}, {}, {})", FiberPool::GetCurrentThreadId(),
+        Logger::debug("Thread:{} Fiber:{} trying to connect({}, {}, {}) with timeout", FiberPool::GetCurrentThreadId(),
                       MyRPC::Fiber::GetCurrentId(), sockfd, (void*)addr, addrlen);
 #endif
 
         auto err = FiberPool::GetEventManager()->AddIOEvent(sockfd, EventManager::WRITE);
         if(!err){
-            if(__useconds > 0) {
-                auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+            auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
 
-                struct itimerspec its;
-                memset(&its, 0, sizeof(its));
-                its.it_value.tv_nsec = __useconds * 1000;
-                MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
+            struct itimerspec its;
+            its.it_interval.tv_nsec=0;
+            its.it_interval.tv_sec=0;
+            its.it_value = ts;
+            MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
 
-                FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
+            FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
 
-                Fiber::Block();
+            Fiber::Block();
 
-                if(FiberPool::GetEventManager()->IsExistIOEvent(timer_fd, EventManager::READ)) {
-                    MYRPC_SYS_ASSERT(FiberPool::GetEventManager()->RemoveIOEvent(timer_fd, EventManager::READ)==0);
-                    sys_close(timer_fd);
-                    return -2;
-                }
+            FiberPool::GetEventManager()->RemoveIOEvent(timer_fd, EventManager::READ);
+            sys_close(timer_fd);
 
-                sys_close(timer_fd);
+            // 如果sockfd的读事件还没被触发，说明超时
+            if(FiberPool::GetEventManager()->IsExistIOEvent(sockfd, EventManager::READ)) {
+                MYRPC_SYS_ASSERT(FiberPool::GetEventManager()->RemoveIOEvent(sockfd, EventManager::READ)==0);
+                return -2;
             }
         }
         else {
@@ -307,35 +308,35 @@ extern "C" ssize_t recv(int sockfd, void *buf, size_t len, int flags) {
     return sys_recv(sockfd, buf, len, flags);
 }
 
-ssize_t recv_timeout(int sockfd, void *buf, size_t len, int flags, __useconds_t __useconds) {
+ssize_t MyRPC::recv_timeout(int sockfd, void *buf, size_t len, int flags, const timespec& ts) {
     if (enable_hook) {
         enable_hook = false;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
-        Logger::debug("Thread:{} Fiber:{} trying to recv({}, {}, {}, {})", FiberPool::GetCurrentThreadId(),
+        Logger::debug("Thread:{} Fiber:{} trying to recv({}, {}, {}, {}) with timeout", FiberPool::GetCurrentThreadId(),
                       MyRPC::Fiber::GetCurrentId(), sockfd, buf, len, flags);
 #endif
         auto err = FiberPool::GetEventManager()->AddIOEvent(sockfd, EventManager::READ);
         if(!err){
-            if(__useconds > 0) {
-                auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+            auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
 
-                struct itimerspec its;
-                memset(&its, 0, sizeof(its));
-                its.it_value.tv_nsec = __useconds * 1000;
-                MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
+            struct itimerspec its;
+            its.it_interval.tv_nsec=0;
+            its.it_interval.tv_sec=0;
+            its.it_value = ts;
+            MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
 
-                FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
+            FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
 
-                Fiber::Block();
+            Fiber::Block();
 
-                if(FiberPool::GetEventManager()->IsExistIOEvent(timer_fd, EventManager::READ)) {
-                    MYRPC_SYS_ASSERT(FiberPool::GetEventManager()->RemoveIOEvent(timer_fd, EventManager::READ)==0);
-                    sys_close(timer_fd);
-                    return -2;
-                }
+            FiberPool::GetEventManager()->RemoveIOEvent(timer_fd, EventManager::READ);
+            sys_close(timer_fd);
 
-                sys_close(timer_fd);
+            // 如果sockfd的读事件还没被触发，说明超时
+            if(FiberPool::GetEventManager()->IsExistIOEvent(sockfd, EventManager::READ)) {
+                MYRPC_SYS_ASSERT(FiberPool::GetEventManager()->RemoveIOEvent(sockfd, EventManager::READ)==0);
+                return -2;
             }
         }
         else {
