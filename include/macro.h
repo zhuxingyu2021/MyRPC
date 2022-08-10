@@ -4,6 +4,7 @@
 #include "logger.h"
 
 #define MYRPC_DEBUG_ON_LEVEL 1
+#define MYRPC_DEBUG_NET_LEVEL 2
 #define MYRPC_DEBUG_HOOK_LEVEL 3
 #define MYRPC_DEBUG_FIBER_POOL_LEVEL 4
 

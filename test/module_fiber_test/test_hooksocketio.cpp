@@ -86,11 +86,8 @@ int main()
         Logger::info("accept success");
         char buf[1024];
         memset(buf, 0, sizeof(buf));
-        timespec ts;
-        ts.tv_sec = 2;
-        ts.tv_nsec = 0;
         while(true){
-            int input_size = recv_timeout(new_sockfd, buf, sizeof(buf), 0, ts);
+            int input_size = recv_timeout(new_sockfd, buf, sizeof(buf), 0, 2000000);
             if(input_size != -2)    write(STDOUT_FILENO, buf, input_size);
             else Logger::info("recv timeout");
         }

@@ -13,7 +13,7 @@ namespace MyRPC{
     public:
         using ptr = std::shared_ptr<EventManager>;
         static const int MAX_EVENTS = 300;
-        static const int TIMEOUT = 1000;
+        static const int TIME_OUT = 1000;
 
         EventManager();
         ~EventManager();

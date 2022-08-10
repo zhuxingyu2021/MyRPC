@@ -1,6 +1,10 @@
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 set(SRCFILE
+        macro.cpp
+        utils.cpp
+        stringbuffer.cpp
+
         fiber/hookio.cpp
         fiber/hooksleep.cpp
         fiber/fiber.cpp
@@ -8,13 +12,8 @@ set(SRCFILE
         fiber/fiberpool.cpp
 
         net/inetaddr.cpp
-        net/tcpsocket.cpp
         net/tcpserver.cpp
         net/tcpclient.cpp
-
-        macro.cpp
-        utils.cpp
-        stringbuffer.cpp
 )
 
 find_package(Boost COMPONENTS coroutine REQUIRED)

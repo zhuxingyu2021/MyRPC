@@ -70,7 +70,8 @@ extern "C" int usleep (__useconds_t __useconds) {
 
             struct itimerspec its;
             memset(&its, 0, sizeof(its));
-            its.it_value.tv_nsec = __useconds * 1000;
+            its.it_value.tv_sec = __useconds / 1000000; // 秒
+            its.it_value.tv_nsec = (__useconds % 1000000) * 1000; // 微秒
             MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
 
             FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);

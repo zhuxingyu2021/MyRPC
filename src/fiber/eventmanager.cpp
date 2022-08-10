@@ -85,7 +85,7 @@ int EventManager::AddIOFunc(int fd, EventType event, std::function<void()> func)
 }
 
 void EventManager::WaitEvent() {
-    auto n = epoll_wait(m_epoll_fd, m_events, MAX_EVENTS, TIMEOUT);
+    auto n = epoll_wait(m_epoll_fd, m_events, MAX_EVENTS, TIME_OUT);
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
     Logger::debug("epoll_wait() returned {}", n);
 #endif
