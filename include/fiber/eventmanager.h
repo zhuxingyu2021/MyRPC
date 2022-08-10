@@ -32,6 +32,10 @@ namespace MyRPC{
          */
         int AddIOEvent(int fd, EventType event);
 
+        int RemoveIOEvent(int fd, EventType event);
+
+        bool IsExistIOEvent(int fd, EventType event) const;
+
         /**
          * @brief 将IO事件与函数绑定，当IO事件到来，执行相应函数
          * @param fd[in] 文件描述符
@@ -50,7 +54,7 @@ namespace MyRPC{
         /**
          * @brief 获得事件数量
          */
-         int GetNumEvents(){return event_count;}
+         int GetNumEvents(){return m_event_count;}
 
     protected:
         // 恢复执行协程ID为fiber_id的协程
@@ -58,17 +62,17 @@ namespace MyRPC{
         virtual void resume(int64_t fiber_id);
 
     private:
-        int epoll_fd;
-        int event_count = 0;
-        epoll_event _events[MAX_EVENTS];
+        int m_epoll_fd;
+        int m_event_count = 0;
+        epoll_event m_events[MAX_EVENTS];
 
         // fd -> (Fiber Id, Event)
         // 可以根据文件描述符查到谁添加了这个IO事件，以及IO事件的事件类型
-        std::unordered_map<int, std::pair<int64_t ,EventType>> _fd_event_map;
+        std::unordered_map<int, std::pair<int64_t ,EventType>> m_fd_event_map;
 
         // fd -> function
         // 可以根据文件描述符查到AddIOFunc添加的函数
-        std::unordered_map<int, std::function<void()>> _fd_func_map;
+        std::unordered_map<int, std::function<void()>> m_fd_func_map;
     };
 
 }

@@ -13,12 +13,13 @@ namespace MyRPC{
     public:
         char* data = nullptr;
         size_t size = 0;
+        const size_t capacity;
 
         StringBuffer() = delete;
         StringBuffer(const StringBuffer&) = delete;
 
-        StringBuffer(size_t sz):size(sz){data = new char[sz];}
-        StringBuffer(StringBuffer&& sb) noexcept {
+        StringBuffer(size_t cap):capacity(cap){data = new char[cap];}
+        StringBuffer(StringBuffer&& sb) noexcept:capacity(sb.capacity) {
             data = sb.data;
             size = sb.size;
             sb.data = nullptr; sb.size = 0;
@@ -56,20 +57,20 @@ namespace MyRPC{
          */
         template<char ...c>
         std::string ReadUntil() {
-            std::string str;
-            while (read_offset < size) {
-                char t = data[read_offset];
+            auto start_pos = m_read_offset;
+            while (m_read_offset < size) {
+                char t = data[m_read_offset];
                 if (((c == t) || ...)) {
                     break;
                 }
-                read_offset++;
-                str.push_back(t);
+                m_read_offset++;
             }
+            std::string str(data + start_pos, m_read_offset - start_pos);
             return str;
         }
 
     private:
-        int read_offset = 0; // 已读取的字符数量
+        int m_read_offset = 0; // 已读取的字符数量
     };
 
     class StringBuilder {
@@ -118,8 +119,8 @@ namespace MyRPC{
         void Clear();
 
     private:
-        int total_size = 0; // 字符缓冲区总大小
-        int max_backward = 0;
+        int m_total_size = 0; // 字符缓冲区总大小
+        int m_max_backward = 0;
 
         struct _backward_type {
             size_t size;

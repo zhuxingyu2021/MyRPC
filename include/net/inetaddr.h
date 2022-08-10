@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <string>
 #include <netinet/in.h>
+#include <exception>
 
 namespace MyRPC{
     class InetAddr{
@@ -22,6 +23,16 @@ namespace MyRPC{
             struct sockaddr_in6 addr6_;
         };
         bool ipv6_;
+    };
+
+    class InetInvalidAddrException: public std::exception{
+    public:
+        InetInvalidAddrException(const std::string& msg):msg_(msg){}
+        const char* what() const noexcept override{
+            return msg_.c_str();
+        }
+    private:
+        std::string msg_;
     };
 }
 

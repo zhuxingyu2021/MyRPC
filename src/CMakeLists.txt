@@ -8,6 +8,7 @@ set(SRCFILE
         fiber/fiberpool.cpp
 
         net/inetaddr.cpp
+        net/tcpsocket.cpp
         net/tcpserver.cpp
         net/tcpclient.cpp
 

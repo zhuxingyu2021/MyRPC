@@ -55,8 +55,8 @@ namespace MyRPC{
 
             int event_fd;
         };
-        std::list<Task::ptr> _tasks; // 任务队列
-        ThreadLevelSpinLock _tasks_lock; // 任务队列锁
+        std::list<Task::ptr> m_tasks; // 任务队列
+        ThreadLevelSpinLock m_tasks_lock; // 任务队列锁
     public:
 
         class FiberController{
@@ -64,14 +64,14 @@ namespace MyRPC{
             using ptr = std::shared_ptr<FiberController>;
 
             friend FiberPool;
-            FiberController(Task::ptr _ptr):_task_ptr(_ptr){}
+            FiberController(Task::ptr _ptr): m_task_ptr(_ptr){}
 
             /**
              * @brief 判断协程是否已停止
              * @return 若协程已停止，返回true，否则返回false
              */
             bool IsStopped() {
-                return _task_ptr->stopped;
+                return m_task_ptr->stopped;
             }
 
             /**
@@ -84,20 +84,20 @@ namespace MyRPC{
              * @brief 获取协程ID
              * @return 协程ID
              */
-            int64_t GetId(){return _task_ptr->fiber->GetId();}
+            int64_t GetId(){return m_task_ptr->fiber->GetId();}
 
             /**
              * @brief 获得当前任务已循环执行的次数
              * @return 返回循环执行计数，表示任务已被执行了多少次
              */
-            int32_t GetCircularCount(){return _task_ptr->circular_count;}
+            int32_t GetCircularCount(){return m_task_ptr->circular_count;}
 
             /**
              * @brief 将任务设置成不能循环执行
              */
-            void UnsetCircular(){_task_ptr->circular=false;}
+            void UnsetCircular(){ m_task_ptr->circular=false;}
         private:
-            Task::ptr _task_ptr;
+            Task::ptr m_task_ptr;
         };
 
         /**
@@ -128,7 +128,7 @@ namespace MyRPC{
         static EventManager::ptr GetEventManager();
 
     private:
-        int n_threads; // 线程数量
+        int m_threads_cnt; // 线程数量
 
         class ThreadContext:public EventManager{
         public:
@@ -142,21 +142,21 @@ namespace MyRPC{
             void resume(int64_t fiber_id) override;
         };
 
-        std::vector<ThreadContext::ptr> _threads_context_ptr;
+        std::vector<ThreadContext::ptr> m_threads_context_ptr;
 
-        std::vector<std::shared_future<int>> _threads_future;
+        std::vector<std::shared_future<int>> m_threads_future;
 
         // 协程池主循环
         int MainLoop(int thread_id);
 
         // 当有新的任务到来时，可以通过event_fd来唤醒协程池中的主协程
-        int event_fd;
+        int m_event_fd;
 
         // 判断协程池是否有线程在运行
-        std::atomic<bool> running {false};
+        std::atomic<bool> m_running {false};
 
         // 用以强制关闭协程池
-        std::atomic<bool> stopping{false};
+        std::atomic<bool> m_stopping{false};
     };
 
 }

@@ -57,12 +57,12 @@ namespace MyRPC {
         /**
          * @brief 获得协程的状态
          */
-        status GetStatus(){return _status;}
+        status GetStatus(){return m_status;}
 
         /**
          * @brief 获得协程的ID
          */
-        int64_t GetId(){return fiber_id;}
+        int64_t GetId(){return m_fiber_id;}
 
         /**
          * @brief 获得当前协程状态，必须由协程调用
@@ -76,14 +76,14 @@ namespace MyRPC {
 
     private:
         // 协程id
-        int64_t fiber_id = 0;
+        int64_t m_fiber_id = 0;
         // 当前执行状态
-        status _status;
+        status m_status;
         // 需要执行的函数
-        std::function<void()> _func;
+        std::function<void()> m_func;
         // 协程，使用boost coroutine2实现
-        pull_type* func_pull_type = nullptr;
-        push_type* func_push_type = nullptr;
+        pull_type* m_func_pull_type = nullptr;
+        push_type* m_func_push_type = nullptr;
 
         // 协程的主函数
         static void Main(push_type&);
