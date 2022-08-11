@@ -1,8 +1,8 @@
-#include "fiber/eventmanager.h"
+#include "fiber/event_manager.h"
 #include "macro.h"
 #include <cstring>
 #include "fiber/fiber.h"
-#include "fiber/hookio.h"
+#include "fiber/hook_io.h"
 
 using namespace MyRPC;
 
@@ -84,10 +84,10 @@ int EventManager::AddIOFunc(int fd, EventType event, std::function<void()> func)
     return epoll_ctl(m_epoll_fd, op, fd, &event_epoll);
 }
 
-void EventManager::WaitEvent() {
+void EventManager::WaitEvent(int thread_id) {
     auto n = epoll_wait(m_epoll_fd, m_events, MAX_EVENTS, TIME_OUT);
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
-    Logger::debug("epoll_wait() returned {}", n);
+    Logger::debug("Thread: {}, epoll_wait() returned {}", thread_id ,n);
 #endif
     for(int i=0;i<n;i++){
         auto happened_event = m_events[i].events;

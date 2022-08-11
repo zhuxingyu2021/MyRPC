@@ -1,10 +1,9 @@
-# include "fiber/fiberpool.h"
+# include "fiber/fiber_pool.h"
 # include "logger.h"
 
 using namespace MyRPC;
 
 #define NUM_THREADS 1
-#define MAX_CIRCULAR_COUNT 4
 
 int main(){
     FiberPool fp(NUM_THREADS);
@@ -19,12 +18,9 @@ int main(){
         sleep(2);
 
         Logger::info("Timer expired!");
-    }, 0, true);
+    }, 0);
 
-    while(f->GetCircularCount() < MAX_CIRCULAR_COUNT){
-        sched_yield();
-    }
-    f->UnsetCircular();
+
     f->Join();
 
     Logger::info("usleep Test Start!");
@@ -36,12 +32,8 @@ int main(){
         usleep(20000);
 
         Logger::info("Timer expired!");
-    }, 0, true);
+    }, 0);
 
-    while(g->GetCircularCount() < MAX_CIRCULAR_COUNT){
-        sched_yield();
-    }
-    g->UnsetCircular();
     g->Join();
 
 
@@ -56,12 +48,8 @@ int main(){
         nanosleep(&ts, NULL);
 
         Logger::info("Timer expired!");
-    }, 0, true);
+    }, 0);
 
-    while(h->GetCircularCount() < MAX_CIRCULAR_COUNT){
-        sched_yield();
-    }
-    h->UnsetCircular();
     h->Join();
 
     fp.Stop();

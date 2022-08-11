@@ -1,4 +1,4 @@
-# include "fiber/fiberpool.h"
+# include "fiber/fiber_pool.h"
 # include "logger.h"
 # include <fcntl.h>
 
@@ -30,7 +30,7 @@ int main()
         }
         s[++read_cnt] = '\0';
         write(STDOUT_FILENO, s, read_cnt);
-    }, 0, false);
+    }, 0);
 
     f->Join();
     fp.Stop();

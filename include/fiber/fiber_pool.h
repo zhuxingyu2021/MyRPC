@@ -1,5 +1,5 @@
-#ifndef MYRPC_FIBERPOOL_H
-#define MYRPC_FIBERPOOL_H
+#ifndef MYRPC_FIBER_POOL_H
+#define MYRPC_FIBER_POOL_H
 
 #include "fiber/fiber.h"
 #include <future>
@@ -9,7 +9,7 @@
 
 #include "macro.h"
 #include "lock.h"
-#include "fiber/eventmanager.h"
+#include "fiber/event_manager.h"
 
 namespace MyRPC{
     class FiberPool: public std::enable_shared_from_this<FiberPool> {
@@ -38,20 +38,23 @@ namespace MyRPC{
          */
         void NotifyAll();
 
+        /**
+         * @brief 主线程等待协程池中的所有协程执行完毕
+         */
+        void Wait();
+
     private:
         struct Task{
             using ptr = std::shared_ptr<Task>;
 
-            Task(std::function<void()> func, int tid, bool _circular);
+            Task(std::function<void()> func, int tid);
             Task() = delete;
             ~Task();
 
             Fiber::unique_ptr fiber; // 协程指针
             int thread_id; // 线程ID
-            std::atomic<bool> circular ; // 任务是否循环执行
 
             std::atomic<bool> stopped {false}; // 任务是否已停止
-            std::atomic<uint32_t> circular_count {0}; //循环执行计数
 
             int event_fd;
         };
@@ -85,17 +88,6 @@ namespace MyRPC{
              * @return 协程ID
              */
             int64_t GetId(){return m_task_ptr->fiber->GetId();}
-
-            /**
-             * @brief 获得当前任务已循环执行的次数
-             * @return 返回循环执行计数，表示任务已被执行了多少次
-             */
-            int32_t GetCircularCount(){return m_task_ptr->circular_count;}
-
-            /**
-             * @brief 将任务设置成不能循环执行
-             */
-            void UnsetCircular(){ m_task_ptr->circular=false;}
         private:
             Task::ptr m_task_ptr;
         };
@@ -104,10 +96,9 @@ namespace MyRPC{
          * 运行任务func
          * @param func 任务对应的函数
          * @param thread_id 将任务指定给线程thread_id执行。若thread_id被设置为-1，表示将任务分配给任意线程执行
-         * @param circular true表示任务会被循环执行，false表示任务只执行一次
          * @return
          */
-        FiberController::ptr Run(std::function<void()> func, int thread_id = -1, bool circular = false);
+        FiberController::ptr Run(std::function<void()> func, int thread_id = -1);
 
         /**
          * 获得当前线程Id，该方法只能由协程池中的线程调用
@@ -157,7 +148,9 @@ namespace MyRPC{
 
         // 用以强制关闭协程池
         std::atomic<bool> m_stopping{false};
+
+        std::atomic<int> m_tasks_cnt {0}; // 当前任务数量
     };
 
 }
-#endif //MYRPC_FIBERPOOL_H
+#endif //MYRPC_FIBER_POOL_H

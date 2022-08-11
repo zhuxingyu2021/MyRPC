@@ -1,7 +1,7 @@
-#include "fiber/hookio.h"
-#include "fiber/timeoutio.h"
+#include "fiber/hook_io.h"
+#include "fiber/timeout_io.h"
 #include "logger.h"
-#include "fiber/fiberpool.h"
+#include "fiber/fiber_pool.h"
 #include "macro.h"
 
 #include <unistd.h>
@@ -205,8 +205,8 @@ namespace MyRPC{
             enable_hook = false;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
-            Logger::debug("Thread:{} Fiber:{} trying to read({}, {}, {}) with timeout", FiberPool::GetCurrentThreadId(),
-                          MyRPC::Fiber::GetCurrentId(), fd, buf, count);
+            Logger::debug("Thread:{} Fiber:{} trying to read({}, {}, {}) with timeout {}us", FiberPool::GetCurrentThreadId(),
+                          MyRPC::Fiber::GetCurrentId(), fd, buf, count, ts);
 #endif
             auto err = FiberPool::GetEventManager()->AddIOEvent(fd, EventManager::READ);
             if(!err){
@@ -229,7 +229,7 @@ namespace MyRPC{
                     // 如果fd的读事件还没被触发，说明超时
                     if (FiberPool::GetEventManager()->IsExistIOEvent(fd, EventManager::READ)) {
                         MYRPC_SYS_ASSERT(FiberPool::GetEventManager()->RemoveIOEvent(fd, EventManager::READ) == 0);
-                        return -2;
+                        return MYRPC_ERR_TIMEOUT_FLAG;
                     }
                 }
                 else {
@@ -259,8 +259,8 @@ namespace MyRPC{
             enable_hook = false;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
-            Logger::debug("Thread:{} Fiber:{} trying to accept({}, {}, {}) with timeout", FiberPool::GetCurrentThreadId(),
-                          MyRPC::Fiber::GetCurrentId(), sockfd, (void*)addr, (void*)addrlen);
+            Logger::debug("Thread:{} Fiber:{} trying to accept({}, {}, {}) with timeout {}us", FiberPool::GetCurrentThreadId(),
+                          MyRPC::Fiber::GetCurrentId(), sockfd, (void*)addr, (void*)addrlen, ts);
 #endif
             auto err = FiberPool::GetEventManager()->AddIOEvent(sockfd, EventManager::READ);
             if(!err){
@@ -283,7 +283,7 @@ namespace MyRPC{
                     // 如果sockfd的读事件还没被触发，说明超时
                     if (FiberPool::GetEventManager()->IsExistIOEvent(sockfd, EventManager::READ)) {
                         MYRPC_SYS_ASSERT(FiberPool::GetEventManager()->RemoveIOEvent(sockfd, EventManager::READ) == 0);
-                        return -2;
+                        return MYRPC_ERR_TIMEOUT_FLAG;
                     }
                 } else {
                     Fiber::Block();
@@ -304,8 +304,8 @@ namespace MyRPC{
             enable_hook = false;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
-            Logger::debug("Thread:{} Fiber:{} trying to connect({}, {}, {}) with timeout", FiberPool::GetCurrentThreadId(),
-                          MyRPC::Fiber::GetCurrentId(), sockfd, (void*)addr, addrlen);
+            Logger::debug("Thread:{} Fiber:{} trying to connect({}, {}, {}) with timeout {}us", FiberPool::GetCurrentThreadId(),
+                          MyRPC::Fiber::GetCurrentId(), sockfd, (void*)addr, addrlen, ts);
 #endif
 
             auto err = FiberPool::GetEventManager()->AddIOEvent(sockfd, EventManager::WRITE);
@@ -329,7 +329,7 @@ namespace MyRPC{
                     // 如果sockfd的读事件还没被触发，说明超时
                     if (FiberPool::GetEventManager()->IsExistIOEvent(sockfd, EventManager::READ)) {
                         MYRPC_SYS_ASSERT(FiberPool::GetEventManager()->RemoveIOEvent(sockfd, EventManager::READ) == 0);
-                        return -2;
+                        return MYRPC_ERR_TIMEOUT_FLAG;
                     }
                 }else{
                     Fiber::Block();
@@ -350,8 +350,8 @@ namespace MyRPC{
             enable_hook = false;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
-            Logger::debug("Thread:{} Fiber:{} trying to recv({}, {}, {}, {}) with timeout", FiberPool::GetCurrentThreadId(),
-                          MyRPC::Fiber::GetCurrentId(), sockfd, buf, len, flags);
+            Logger::debug("Thread:{} Fiber:{} trying to recv({}, {}, {}, {}) with timeout {}us", FiberPool::GetCurrentThreadId(),
+                          MyRPC::Fiber::GetCurrentId(), sockfd, buf, len, flags, ts);
 #endif
             auto err = FiberPool::GetEventManager()->AddIOEvent(sockfd, EventManager::READ);
             if(!err){
@@ -374,7 +374,7 @@ namespace MyRPC{
                     // 如果sockfd的读事件还没被触发，说明超时
                     if (FiberPool::GetEventManager()->IsExistIOEvent(sockfd, EventManager::READ)) {
                         MYRPC_SYS_ASSERT(FiberPool::GetEventManager()->RemoveIOEvent(sockfd, EventManager::READ) == 0);
-                        return -2;
+                        return MYRPC_ERR_TIMEOUT_FLAG;
                     }
                 }else{
                     Fiber::Block();

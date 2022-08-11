@@ -2,7 +2,7 @@
 #define MYRPC_LOGGER_H
 
 #include "spdlog/spdlog.h"
-#include "fiber/hooksleep.h"
+#include "fiber/hook_sleep.h"
 
 namespace MyRPC{
     class Logger{
@@ -11,7 +11,7 @@ namespace MyRPC{
         static void info(Args ...args){
             auto tmp = enable_hook;
             enable_hook = false;
-            spdlog::info(args...);
+            spdlog::info(std::forward<Args>(args)...);
             enable_hook = tmp;
         }
 
@@ -19,7 +19,7 @@ namespace MyRPC{
         static void debug(Args ...args){
             auto tmp = enable_hook;
             enable_hook = false;
-            spdlog::debug(args...);
+            spdlog::debug(std::forward<Args>(args)...);
             enable_hook = tmp;
         }
 
@@ -27,7 +27,7 @@ namespace MyRPC{
         static void warn(Args ...args){
             auto tmp = enable_hook;
             enable_hook = false;
-            spdlog::warn(args...);
+            spdlog::warn(std::forward<Args>(args)...);
             enable_hook = tmp;
         }
 
@@ -35,7 +35,7 @@ namespace MyRPC{
         static void error(Args ...args){
             auto tmp = enable_hook;
             enable_hook = false;
-            spdlog::error(args...);
+            spdlog::error(std::forward<Args>(args)...);
             enable_hook = tmp;
         }
 
@@ -43,7 +43,7 @@ namespace MyRPC{
         static void critical(Args ...args){
             auto tmp = enable_hook;
             enable_hook = false;
-            spdlog::critical(args...);
+            spdlog::critical(std::forward<Args>(args)...);
             enable_hook = tmp;
         }
     };

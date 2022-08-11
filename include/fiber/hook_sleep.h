@@ -1,5 +1,5 @@
-#ifndef MYRPC_HOOKSLEEP_H
-#define MYRPC_HOOKSLEEP_H
+#ifndef MYRPC_HOOK_SLEEP_H
+#define MYRPC_HOOK_SLEEP_H
 
 namespace MyRPC{
     extern thread_local bool enable_hook;
@@ -11,4 +11,4 @@ namespace MyRPC{
     }
 }
 
-#endif //MYRPC_HOOKSLEEP_H
+#endif //MYRPC_HOOK_SLEEP_H

@@ -1,5 +1,5 @@
-#ifndef MYRPC_HOOKIO_H
-#define MYRPC_HOOKIO_H
+#ifndef MYRPC_HOOK_IO_H
+#define MYRPC_HOOK_IO_H
 
 namespace MyRPC{
     extern thread_local bool enable_hook;
@@ -11,4 +11,4 @@ namespace MyRPC{
     }
 }
 
-#endif //MYRPC_HOOKIO_H
+#endif //MYRPC_HOOK_IO_H

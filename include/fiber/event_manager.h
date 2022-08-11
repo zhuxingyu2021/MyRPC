@@ -1,5 +1,5 @@
-#ifndef MYRPC_EVENTMANAGER_H
-#define MYRPC_EVENTMANAGER_H
+#ifndef MYRPC_EVENT_MANAGER_H
+#define MYRPC_EVENT_MANAGER_H
 
 #include <memory>
 #include <sys/epoll.h>
@@ -60,7 +60,7 @@ namespace MyRPC{
         /**
          * @brief 处理Epoll事件
          */
-        void WaitEvent();
+        void WaitEvent(int thread_id);
 
         /**
          * @brief 获得事件数量
@@ -89,4 +89,4 @@ namespace MyRPC{
 }
 
 
-#endif //MYRPC_EVENTMANAGER_H
+#endif //MYRPC_EVENT_MANAGER_H

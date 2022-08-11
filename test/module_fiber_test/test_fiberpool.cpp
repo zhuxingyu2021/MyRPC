@@ -1,8 +1,11 @@
-#include "fiber/fiberpool.h"
+#include "fiber/fiber_pool.h"
 #include "fiber/fiber.h"
 #include <thread>
 #include <vector>
 #include "logger.h"
+
+#include <atomic>
+#include <iostream>
 
 using namespace MyRPC;
 
@@ -12,17 +15,18 @@ int main(){
     FiberPool fp(NUM_THREADS);
     fp.Start();
 
-    std::vector<FiberPool::FiberController::ptr> v;
+    std::atomic<int> fiber_cnt=0;
 
     for(int i = 1; i <= 1000; i++){
-        v.push_back(fp.Run([](){
+        fp.Run([&fiber_cnt](){
             Logger::info("Hello World! From thread {}, fiber {}", FiberPool::GetCurrentThreadId(),Fiber::GetCurrentId());
-        }, i%NUM_THREADS));
+            ++fiber_cnt;
+        }, i%NUM_THREADS);
     }
 
-    for(int i=0; i<v.size();i++){
-        v[i]->Join();
-    }
+    fp.Wait();
+
+    std::cout << "Total fiber count: " << fiber_cnt << std::endl;
 
     fp.Stop();
 

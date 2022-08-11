@@ -22,6 +22,10 @@
     exit(-1);                              \
 }
 
+#define MYRPC_ASSERT_EXCEPTION(x, throw) if(!(x)) { \
+    throw; \
+}
+
 namespace MyRPC::Initializer {
     extern int _debug_initializer;
 
