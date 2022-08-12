@@ -23,6 +23,8 @@
 #include "macro.h"
 #include "stringbuffer.h"
 
+#include "net/exception.h"
+
 namespace MyRPC{
 class JsonDeserializer{
 public:
@@ -37,6 +39,10 @@ public:
             // 浮点类型
             t = std::stod(buffer.ReadUntil<',', '}', ']'>());
         }
+        if constexpr(std::is_same_v<std::decay_t<T>, bool>) {
+            // 布尔类型
+            t = (buffer.ReadUntil<',', '}', ']'>() == "true");
+        }
         else if constexpr(std::is_unsigned_v<std::decay_t<T>>) {
             // 无符号类型
             t = std::stoll(buffer.ReadUntil<',', '}', ']'>());
@@ -48,9 +54,9 @@ public:
     }
 
     void Load(std::string& s){
-        MYRPC_ASSERT(buffer.GetChar() == '\"');
+        MYRPC_ASSERT_EXCEPTION(buffer.GetChar() == '\"', throw JsonDeserializerException(buffer.GetPos()));
         s = std::move(buffer.ReadUntil<'\"'>());
-        MYRPC_ASSERT(buffer.GetChar() == '\"');
+        MYRPC_ASSERT_EXCEPTION(buffer.GetChar() == '\"', throw JsonDeserializerException(buffer.GetPos()));
     }
 
 private:
@@ -59,7 +65,7 @@ private:
      */
     template<class Tval, class T>
     inline void deserialize_like_vector_impl_(T& t){
-        MYRPC_ASSERT(buffer.GetChar() == '[');
+        MYRPC_ASSERT_EXCEPTION(buffer.GetChar() == '[', throw JsonDeserializerException(buffer.GetPos()));
         while(buffer.PeekChar() != ']'){
             Tval elem;
             Load(elem);
@@ -68,7 +74,7 @@ private:
                 buffer.GetChar();
             }
         }
-        MYRPC_ASSERT(buffer.GetChar() == ']');
+        MYRPC_ASSERT_EXCEPTION(buffer.GetChar() == ']', throw JsonDeserializerException(buffer.GetPos()));
     }
 
     template<class T>
@@ -82,13 +88,13 @@ private:
      */
     template<class Tkey, class Tval>
     inline isnot_string_type<Tkey> deserialize_key_val_impl_(Tkey& key, Tval& value){
-        MYRPC_ASSERT(buffer.PeekString(7) == "{\"key\":");
+        MYRPC_ASSERT_EXCEPTION(buffer.PeekString(7) == "{\"key\":", throw JsonDeserializerException(buffer.GetPos()));
         buffer.Forward(7);
         Load(key);
-        MYRPC_ASSERT(buffer.PeekString(9) == ",\"value\":");
+        MYRPC_ASSERT_EXCEPTION(buffer.PeekString(9) == ",\"value\":", throw JsonDeserializerException(buffer.GetPos()));
         buffer.Forward(9);
         Load(value);
-        MYRPC_ASSERT(buffer.GetChar() == '}');
+        MYRPC_ASSERT_EXCEPTION(buffer.GetChar() == '}', throw JsonDeserializerException(buffer.GetPos()));
     }
 
     /**
@@ -97,7 +103,7 @@ private:
     template<class Tval>
     inline void deserialize_key_val_impl_(std::string& key, Tval& value){
         Load(key);
-        MYRPC_ASSERT(buffer.GetChar() == ':');
+        MYRPC_ASSERT_EXCEPTION(buffer.GetChar() == ':', throw JsonDeserializerException(buffer.GetPos()));
         Load(value);
     }
 
@@ -107,7 +113,7 @@ private:
     template<class Tkey, class Tval, class T>
     inline void deserialize_like_map_impl_(T& t){
         auto c1 = buffer.GetChar();
-        MYRPC_ASSERT(c1 == '{' || c1 == '[');
+        MYRPC_ASSERT_EXCEPTION(c1 == '{' || c1 == '[', throw JsonDeserializerException(buffer.GetPos()));
 
         char c2 = buffer.PeekChar();
         while(c2 != '}' && c2 != ']'){
@@ -122,7 +128,7 @@ private:
         }
 
         auto c3 = buffer.GetChar();
-        MYRPC_ASSERT(c3 == '}' || c3 == ']');
+        MYRPC_ASSERT_EXCEPTION(c3 == '}' || c3 == ']', throw JsonDeserializerException(buffer.GetPos()));
     }
 
     /**
@@ -141,7 +147,7 @@ private:
      */
     template<class Tuple, size_t... Is>
     inline void deserialize_tuple_impl_(Tuple& t,std::index_sequence<Is...>){
-        MYRPC_ASSERT(buffer.GetChar() == '[');
+        MYRPC_ASSERT_EXCEPTION(buffer.GetChar() == '[', throw JsonDeserializerException(buffer.GetPos()));
         ((std::get<Is>(t) = std::move(make_tuple_internal_<std::tuple_element_t<Is, Tuple>>())), ...);
     }
 
@@ -203,7 +209,7 @@ public:
     template<class Tkey, class Tval>
     void Load(std::pair<Tkey, Tval>& t){
         char c1 = buffer.GetChar();
-        MYRPC_ASSERT(c1 == '{' || c1 == '[');
+        MYRPC_ASSERT_EXCEPTION(c1 == '{' || c1 == '[', throw JsonDeserializerException(buffer.GetPos()));
 
         Tkey key;
         Tval val;
@@ -212,7 +218,7 @@ public:
         t.second = std::move(val);
 
         char c3 = buffer.GetChar();
-        MYRPC_ASSERT(c3 == '}' || c3 == ']');
+        MYRPC_ASSERT_EXCEPTION(c3 == '}' || c3 == ']', throw JsonDeserializerException(buffer.GetPos()));
     }
 
     template<class T>
@@ -255,7 +261,7 @@ public:
      */
 
     inline void deserialize_struct_begin_impl_(){
-        MYRPC_ASSERT(buffer.GetChar() == '{');
+        MYRPC_ASSERT_EXCEPTION(buffer.GetChar() == '{', throw JsonDeserializerException(buffer.GetPos()));
     }
     inline void deserialize_struct_end_impl_(){
     }
@@ -265,10 +271,10 @@ public:
         std::string key_str;
 
         deserialize_key_val_impl_(key_str, val);
-        MYRPC_ASSERT(key == key_str);
+        MYRPC_ASSERT_EXCEPTION(key == key_str, throw JsonDeserializerException(buffer.GetPos()));
 
         char c = buffer.GetChar();
-        MYRPC_ASSERT(c == ',' || c == '}');
+        MYRPC_ASSERT_EXCEPTION(c == ',' || c == '}', throw JsonDeserializerException(buffer.GetPos()));
     }
 
     template<class T>
@@ -287,6 +293,7 @@ public:
                    deserializer.deserialize_struct_begin_impl_();
 
 #define LOAD_ITEM(x) deserializer.deserialize_item_impl_(#x, x);
+#define LOAD_ALIAS_ITEM(alias, x) deserializer.deserialize_item_impl_(#alias, x);
 #define LOAD_END deserializer.deserialize_struct_end_impl_();}
 
 #endif //MYRPC_DESERIALIZER_H

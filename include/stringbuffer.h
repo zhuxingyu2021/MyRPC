@@ -28,6 +28,11 @@ namespace MyRPC{
         ~StringBuffer(){delete data;}
 
         /**
+         * @brief 获取读指针的当前位置
+         */
+        int GetPos() const {return m_read_offset;}
+
+        /**
          * @brief 获得下一个字符，并将读指针向后移动一个字符
          */
         char GetChar();

@@ -16,7 +16,7 @@ static thread_local FiberPool *p_fiber_pool = nullptr;
 // 当前线程id
 static thread_local int now_thread_id = -2;
 
-FiberPool::FiberPool(int thread_num) : m_threads_cnt(thread_num) {
+FiberPool::FiberPool(int thread_num) : m_threads_num(thread_num) {
     m_threads_context_ptr.reserve(thread_num);
     m_threads_future.reserve(thread_num);
 
@@ -35,7 +35,7 @@ void FiberPool::Start() {
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_ON_LEVEL
         Logger::info("FiberPool::Start() - start");
 #endif
-        for (int i = 0; i < m_threads_cnt; i++) {
+        for (int i = 0; i < m_threads_num; i++) {
             m_threads_context_ptr.emplace_back(new ThreadContext);
             // 添加读eventfd事件，用以唤醒线程
             m_threads_context_ptr[i]->AddIOFunc(m_event_fd, EventManager::READ, [this]() {
@@ -54,7 +54,7 @@ void FiberPool::Stop() {
         Logger::info("FiberPool::Stop() - stop");
 #endif
         m_stopping = true;
-        for (int i = 0; i < m_threads_cnt; i++) {
+        for (int i = 0; i < m_threads_num; i++) {
             NotifyAll();
             auto status = m_threads_future[i].wait_for(std::chrono::nanoseconds(1));
             while (status != std::future_status::ready) {

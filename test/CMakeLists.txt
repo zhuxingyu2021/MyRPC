@@ -17,3 +17,5 @@ make_test(module_net_test test_deserializer)
 make_test(module_net_test test_utils_byteorder)
 make_test(module_net_test test_json_file_parser)
 make_test(module_net_test test_tcp_server_client)
+
+make_test(module_rpc_test test_config)

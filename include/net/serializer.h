@@ -50,7 +50,12 @@ public:
      */
     template<class T>
     arithmetic_type<T> Save(const T& t){
-        buffer.Append(std::to_string(t));
+        if constexpr(std::is_same_v<std::decay_t<T>, bool>){
+            // 布尔类型
+            buffer.Append(t ? "true" : "false");
+        }else {
+            buffer.Append(std::to_string(t));
+        }
     }
 
     /**
@@ -293,6 +298,7 @@ public:
                    serializer.serialize_struct_begin_impl_();
 
 #define SAVE_ITEM(x) serializer.serialize_item_impl_(#x, x);
+#define SAVE_ALIAS_ITEM(alias, x) serializer.serialize_item_impl_(#alias, x);
 #define SAVE_END serializer.serialize_struct_end_impl_();}
 
 #endif //MYRPC_SERIALIZER_H

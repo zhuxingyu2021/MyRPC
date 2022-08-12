@@ -1,5 +1,5 @@
-#ifndef MYRPC_EXCEPTION_H
-#define MYRPC_EXCEPTION_H
+#ifndef MYRPC_NET_EXCEPTION_H
+#define MYRPC_NET_EXCEPTION_H
 
 #include <exception>
 #include <string>
@@ -14,7 +14,7 @@ namespace MyRPC{
      */
     class InetInvalidAddrException: public std::exception{
     public:
-        InetInvalidAddrException(const std::string& msg):msg_(msg){}
+        InetInvalidAddrException(std::string&& msg):msg_(msg){}
         const char* what() const noexcept override{
             return msg_.c_str();
         }
@@ -36,6 +36,15 @@ namespace MyRPC{
         std::string msg_;
     };
 
+    class JsonDeserializerException: public std::exception{
+    public:
+        JsonDeserializerException(int pos):msg_("Json deserializer error in position: " + std::to_string(pos)){}
+        const char* what() const noexcept override{
+            return msg_.c_str();
+        }
+    private:
+        std::string msg_;
+    };
 }
 
-#endif //MYRPC_EXCEPTION_H
+#endif //MYRPC_NET_EXCEPTION_H

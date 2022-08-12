@@ -119,7 +119,7 @@ namespace MyRPC{
         static EventManager::ptr GetEventManager();
 
     private:
-        int m_threads_cnt; // 线程数量
+        int m_threads_num; // 线程数量
 
         class ThreadContext:public EventManager{
         public:

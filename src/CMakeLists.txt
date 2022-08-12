@@ -14,6 +14,7 @@ set(SRCFILE
         net/inetaddr.cpp
         net/tcp_server.cpp
 
+        rpc/config.cpp
         rpc/rpc_registry_server.cpp
 )
 
