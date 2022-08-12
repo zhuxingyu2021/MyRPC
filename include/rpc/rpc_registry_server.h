@@ -9,9 +9,9 @@ namespace MyRPC{
     class RpcRegistryServer:public TCPServer{
     public:
         using ptr = std::shared_ptr<RpcRegistryServer>;
-        explicit RpcRegistryServer(Config::ptr config);
+        explicit RpcRegistryServer(const Config::ptr& config);
     protected:
-        void handleConnection(Socket::ptr sock) override;
+        void handleConnection(const Socket::ptr& sock) override;
     };
 }
 

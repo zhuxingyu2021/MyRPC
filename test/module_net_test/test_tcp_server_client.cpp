@@ -1,6 +1,5 @@
 #include "net/tcp_server.h"
 #include "net/tcp_client.h"
-#include "fiber/timeout_io.h"
 #include "fiber/fiber_pool.h"
 
 #include <iostream>
@@ -15,19 +14,24 @@ class EchoServer : public TCPServer {
 public:
     using TCPServer::TCPServer;
 protected:
-    void handleConnection(Socket::ptr sock) override {
+    void handleConnection(const Socket::ptr& sock) override {
         int sock_fd = sock->GetSocketfd();
         char buf[1024];
-        while(true) {
-            int recv_sz = recv_timeout(sock_fd, buf, sizeof(buf), 0, TIME_OUT);
-            if (recv_sz > 0) {
-                send(sock_fd, buf, recv_sz, 0);
-            } else if (recv_sz == MYRPC_ERR_TIMEOUT_FLAG) {
-                spdlog::info("recv timeout, retrying...");
-            } else {
-                spdlog::error("recv error, info: {}", strerror(errno));
-                break;
+        try {
+            while (true) {
+                int recv_sz = sock->RecvTimeout(buf, sizeof(buf), 0, TIME_OUT);
+                if (recv_sz > 0) {
+                    sock->SendAll(buf, recv_sz, 0);
+                } else if (recv_sz < 0) {
+                    //Logger::info("recv timeout, retrying...");
+                } else{
+                    Logger::info("socket fd:{}, client close connection", sock->GetSocketfd());
+                    break;
+                }
             }
+        }
+        catch (const std::exception& e){
+            Logger::error(e.what());
         }
     }
 };
@@ -38,17 +42,23 @@ public:
     char buf[1024];
     void doConnect(const string& msg, bool* err){
         *err = false;
-        send(sock->GetSocketfd(), msg.c_str(), msg.size(), 0);
 
-        int recv_sz = recv_timeout(sock->GetSocketfd(), buf, sizeof(buf), 0, TIME_OUT);
-        if (recv_sz > 0) {
-            std::cout << "recv: " << buf << std::endl;
-            memset(buf, 0, recv_sz);
-        } else if (recv_sz == MYRPC_ERR_TIMEOUT_FLAG) {
-            spdlog::error("recv timeout");
-            *err = true;
-        } else {
-            spdlog::error("recv error, info: {}", strerror(errno));
+        try {
+            sock->SendAll(msg.c_str(), msg.size(), 0);
+
+            int recv_sz = sock->RecvTimeout(buf, sizeof(buf), 0, TIME_OUT);
+            if (recv_sz > 0) {
+                std::cout << "recv: " << buf << std::endl;
+                memset(buf, 0, recv_sz);
+            } else if (recv_sz == MYRPC_ERR_TIMEOUT_FLAG) {
+                Logger::error("recv timeout");
+                *err = true;
+            } else{
+                Logger::error("connection reset");
+                *err = true;
+            }
+        }catch (const std::exception& e){
+            Logger::error(e.what());
             *err = true;
         }
     }

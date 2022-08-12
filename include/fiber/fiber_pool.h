@@ -116,14 +116,13 @@ namespace MyRPC{
          * 获得当前线程的事件管理器，该方法只能由协程池中的协程调用
          * @return 当前协程的事件管理器
          */
-        static EventManager::ptr GetEventManager();
+        static EventManager* GetEventManager();
 
     private:
         int m_threads_num; // 线程数量
 
         class ThreadContext:public EventManager{
         public:
-            using ptr = std::shared_ptr<ThreadContext>;
             ThreadContext():EventManager(){}
 
             // Fiber Id -> Task
@@ -133,7 +132,7 @@ namespace MyRPC{
             void resume(int64_t fiber_id) override;
         };
 
-        std::vector<ThreadContext::ptr> m_threads_context_ptr;
+        std::vector<ThreadContext*> m_threads_context_ptr;
 
         std::vector<std::shared_future<int>> m_threads_future;
 

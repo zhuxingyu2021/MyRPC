@@ -76,7 +76,7 @@ void TCPServer::doAccept() {
     }
 }
 
-void TCPServer::handleConnection(Socket::ptr sock) {
+void TCPServer::handleConnection(const Socket::ptr& sock) {
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_NET_LEVEL
     auto clientAddr = InetAddr::GetPeerAddr(sock->GetSocketfd());
     Logger::info("Thread: {}, Fiber: {}: A new connection form IP:{}, port:{}, connection fd:{}", FiberPool::GetCurrentThreadId(),

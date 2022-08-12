@@ -28,6 +28,8 @@ FiberPool::FiberPool(int thread_num) : m_threads_num(thread_num) {
 FiberPool::~FiberPool() {
     if (m_running) Stop();
     MYRPC_SYS_ASSERT(close(m_event_fd) == 0);
+
+    for(auto threads_context: m_threads_context_ptr) delete threads_context;
 }
 
 void FiberPool::Start() {
@@ -36,7 +38,7 @@ void FiberPool::Start() {
         Logger::info("FiberPool::Start() - start");
 #endif
         for (int i = 0; i < m_threads_num; i++) {
-            m_threads_context_ptr.emplace_back(new ThreadContext);
+            m_threads_context_ptr.push_back(new ThreadContext);
             // 添加读eventfd事件，用以唤醒线程
             m_threads_context_ptr[i]->AddIOFunc(m_event_fd, EventManager::READ, [this]() {
                 uint64_t val;
@@ -63,6 +65,7 @@ void FiberPool::Stop() {
             }
             MYRPC_ASSERT(m_threads_future[i].get() == 0);
         }
+        for(auto threads_context: m_threads_context_ptr) delete threads_context;
         m_threads_context_ptr.clear();
         m_threads_future.clear();
         m_running = false;
@@ -130,10 +133,10 @@ FiberPool *FiberPool::GetThis() {
     return p_fiber_pool;
 }
 
-EventManager::ptr FiberPool::GetEventManager() {
+EventManager* FiberPool::GetEventManager() {
     if (now_thread_id >= 0) {
         MYRPC_ASSERT(p_fiber_pool);
-        return static_cast<EventManager::ptr>(p_fiber_pool->m_threads_context_ptr[now_thread_id]);
+        return static_cast<EventManager*>(p_fiber_pool->m_threads_context_ptr[now_thread_id]);
     }
     return nullptr;
 }
@@ -151,12 +154,12 @@ int FiberPool::MainLoop(int thread_id) {
         {
             std::lock_guard<ThreadLevelSpinLock> lock(m_tasks_lock);
             for (auto iter = m_tasks.begin(); iter != m_tasks.end();) {
-                auto tsk_ptr = *iter;
+                const auto& tsk_ptr = *iter;
                 if (tsk_ptr->thread_id == thread_id || tsk_ptr->thread_id == -1) {
                     context_ptr->my_tasks[tsk_ptr->fiber->GetId()] = tsk_ptr;
                     iter = m_tasks.erase(iter);
                 } else {
-                    NotifyAll(); // 告诉其他线程有新的任务要处理
+                    //NotifyAll(); // 告诉其他线程有新的任务要处理
                     iter++;
                 }
             }
@@ -164,7 +167,9 @@ int FiberPool::MainLoop(int thread_id) {
 
         // 2. 调度线程的所有协程
         for (auto iter = context_ptr->my_tasks.begin(); iter != context_ptr->my_tasks.end();) {
-            auto[fiber_id, tsk_ptr] = *iter;
+            auto fiber_id = iter->first;
+            const auto& tsk_ptr = iter->second;
+
             MYRPC_ASSERT(tsk_ptr->fiber->GetStatus() != Fiber::ERROR);
             tsk_ptr->thread_id = thread_id;
             if (tsk_ptr->fiber->GetStatus() == Fiber::READY) { // 如果任务已就绪，那么执行任务

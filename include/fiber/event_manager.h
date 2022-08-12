@@ -9,11 +9,10 @@
 
 namespace MyRPC{
 
-    class EventManager : std::enable_shared_from_this<EventManager> {
+    class EventManager{
     public:
-        using ptr = std::shared_ptr<EventManager>;
         static const int MAX_EVENTS = 300;
-        static const int TIME_OUT = 1000;
+        static const int TIME_OUT = 5000;
 
         EventManager();
         ~EventManager();

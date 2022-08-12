@@ -53,7 +53,7 @@ namespace MyRPC{
         }
 
     protected:
-        virtual void handleConnection(Socket::ptr sock);
+        virtual void handleConnection(const Socket::ptr& sock);
 
     private:
         bool m_ipv6;
