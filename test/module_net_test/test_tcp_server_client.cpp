@@ -15,6 +15,8 @@ public:
     using TCPServer::TCPServer;
 protected:
     void handleConnection(const Socket::ptr& sock) override {
+        TCPServer::handleConnection(sock);
+
         int sock_fd = sock->GetSocketfd();
         char buf[1024];
         try {

@@ -8,11 +8,12 @@
 #include "net/serializer.h"
 #include "net/deserializer.h"
 
+#include "noncopyable.h"
+
 namespace MyRPC{
-    class Config{
+    class Config:public NonCopyable{
     public:
         using ptr = std::shared_ptr<Config>;
-        Config() = default;
 
         friend JsonSerializer;
         friend JsonDeserializer;

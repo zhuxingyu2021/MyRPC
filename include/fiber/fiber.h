@@ -5,8 +5,10 @@
 #include <functional>
 #include <boost/coroutine2/coroutine.hpp>
 
+#include "noncopyable.h"
+
 namespace MyRPC {
-    class Fiber : public std::enable_shared_from_this<Fiber> {
+    class Fiber : public NonCopyable {
     public:
         using ptr = std::shared_ptr<Fiber>;
         using unique_ptr = std::unique_ptr<Fiber>;
@@ -24,29 +26,34 @@ namespace MyRPC {
         /**
          * @param[in] func 协程中运行的函数
          */
-        Fiber(std::function<void()> func);
+        Fiber(const std::function<void()>& func);
+        Fiber(std::function<void()>&& func);
         ~Fiber();
 
         /**
          * @brief 对于当前协程，让出CPU控制权，必须由协程调用
+         * @param return_value 返回值
          */
-        static void Suspend();
+        static void Suspend(int64_t return_value = 0);
 
         /**
-         *@brief 阻塞当前协程，直至被事件唤醒，必须由协程调用
+         *@brief 阻塞当前协程，直至被IO事件唤醒，必须由协程调用
+         *@param return_value 返回值
          *@note 该方法必须由协程池中的协程调用，否则会永远阻塞
          */
-         static void Block();
+         static void Block(int64_t return_value = 0);
 
         /**
          * @brief 对于当前协程，停止执行，必须由协程调用
+         * @param return_value 返回值
          */
-         static void Exit();
+         static void Exit(int64_t return_value = 0);
 
         /**
          * @brief 恢复协程的CPU控制权
+         * @return 协程的返回值
          */
-        void Resume();
+        int64_t Resume();
 
         /**
          * @brief 重置协程的状态

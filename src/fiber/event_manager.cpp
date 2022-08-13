@@ -1,8 +1,11 @@
 #include "fiber/event_manager.h"
 #include "macro.h"
 #include <cstring>
+#include <sys/fcntl.h>
 #include "fiber/fiber.h"
 #include "fiber/hook_io.h"
+
+#include <sys/eventfd.h>
 
 using namespace MyRPC;
 
@@ -10,9 +13,15 @@ EventManager::EventManager() {
     // 初始化epoll
     m_epoll_fd = epoll_create(1);
     MYRPC_SYS_ASSERT(m_epoll_fd != -1);
+
+    // 初始化唤醒event_fd
+    m_notify_event_fd = eventfd(0, O_NONBLOCK);
+    MYRPC_SYS_ASSERT(m_notify_event_fd > 0);
+    MYRPC_SYS_ASSERT(AddWakeupEventfd(m_notify_event_fd) == 0);
 }
 
 EventManager::~EventManager() {
+    MYRPC_SYS_ASSERT(close(m_notify_event_fd) == 0);
     MYRPC_SYS_ASSERT(close(m_epoll_fd) == 0);
 }
 
@@ -49,41 +58,6 @@ int EventManager::AddIOEvent(int fd, EventType event) {
     return epoll_ctl(m_epoll_fd, op, fd, &event_epoll);
 }
 
-int EventManager::AddIOFunc(int fd, EventType event, std::function<void()> func) {
-    epoll_event event_epoll; // epoll_ctl 的4个参数
-    memset(&event_epoll, 0, sizeof(epoll_event));
-
-    int op; // epoll_ctl 的第二个参数
-
-    // 查找fd对应的event是否已存在
-    auto iter = m_fd_event_map.find(fd);
-    if(iter != m_fd_event_map.end())
-    {
-        // event已存在，则修改event
-        EventType new_event = (EventType)(iter->second.second | event);
-        m_fd_event_map[fd] = std::make_pair(-1, new_event);
-
-        event_epoll.events = EPOLLET | new_event;
-        event_epoll.data.fd = fd;
-
-        op = EPOLL_CTL_MOD;
-    }
-    else{
-        // event不存在，创建event
-        m_fd_event_map[fd] = std::make_pair(-1, event);
-        event_epoll.events = EPOLLET | event;
-        event_epoll.data.fd = fd;
-
-        op = EPOLL_CTL_ADD;
-        ++m_event_count;
-    }
-    // 添加事件处理函数
-    m_fd_func_map[fd] = func;
-
-    // 调用epoll_ctl
-    return epoll_ctl(m_epoll_fd, op, fd, &event_epoll);
-}
-
 void EventManager::WaitEvent(int thread_id) {
     auto n = epoll_wait(m_epoll_fd, m_events, MAX_EVENTS, TIME_OUT);
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
@@ -95,10 +69,13 @@ void EventManager::WaitEvent(int thread_id) {
 
         auto[fiber_id, fiber_event] = m_fd_event_map[fd];
 
-        if(fiber_id == -1){ // 函数事件
+        if(fiber_id == -1){ // eventfd唤醒
             auto tmp = enable_hook;
             enable_hook = false;
-            (m_fd_func_map[fd])();
+
+            uint64_t val;
+            read(fd, &val, sizeof(val));
+
             enable_hook = tmp;
             continue;
         }
@@ -130,8 +107,7 @@ void EventManager::WaitEvent(int thread_id) {
 }
 
 void EventManager::resume(int64_t fiber_id) {
-    Logger::critical("No Implementation Error! In file {}, line: {}", __FILE__, __LINE__);
-    exit(-1);
+    MYRPC_NO_IMPLEMENTATION_ERROR();
 }
 
 int EventManager::RemoveIOEvent(int fd, EventManager::EventType event) {
@@ -171,4 +147,37 @@ bool EventManager::IsExistIOEvent(int fd, EventManager::EventType event) const {
     }else{
         return (iter->second.second & event) != 0;
     }
+}
+
+int EventManager::AddWakeupEventfd(int fd) {
+    if(m_fd_event_map.find(fd) == m_fd_event_map.end()) {
+
+        // 将Eventfd设置为非阻塞模式
+        int flags;
+        MYRPC_SYS_ASSERT((flags = fcntl(fd, F_GETFL, 0)) != -1);
+        if (!(flags & O_NONBLOCK)) {
+            flags |= O_NONBLOCK;
+            MYRPC_SYS_ASSERT(fcntl(fd, F_SETFL, flags) == 0)
+        }
+
+        EventType eventfd_event = EventManager::READ; // 需要从eventfd读数据
+        m_fd_event_map[fd] = std::make_pair(-1, eventfd_event);
+
+        epoll_event event_epoll; // epoll_ctl 的4个参数
+        memset(&event_epoll, 0, sizeof(epoll_event));
+        event_epoll.data.fd = fd;
+        event_epoll.events = EPOLLET | eventfd_event;
+
+        // 调用epoll_ctl
+        return epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fd, &event_epoll);
+    }
+    return 0;
+}
+
+void EventManager::Notify() {
+    auto tmp = enable_hook;
+    enable_hook = false;
+    uint64_t val = 1;
+    MYRPC_SYS_ASSERT(write(m_notify_event_fd, &val, sizeof(uint64_t)) == sizeof(uint64_t));
+    enable_hook = tmp;
 }

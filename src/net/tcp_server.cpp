@@ -15,13 +15,13 @@
 using namespace MyRPC;
 
 TCPServer::TCPServer(int thread_num, __useconds_t accept_timeout, bool ipv6) :m_fiberPool(std::make_shared<FiberPool>(thread_num)), m_running(false),
-m_ipv6(ipv6), m_acceptor_con_timeout(accept_timeout){
+m_ipv6(ipv6), m_acceptor_con_timeout(accept_timeout), m_acceptor(nullptr){
     m_listen_sock_fd = socket(ipv6 ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
     MYRPC_ASSERT_EXCEPTION(m_listen_sock_fd >= 0, throw SocketException("TCPServer socket creation"));
 }
 
 TCPServer::TCPServer(FiberPool::ptr fiberPool, useconds_t accept_timeout, bool ipv6) : m_fiberPool(fiberPool), m_running(false), m_ipv6(ipv6),
-    m_acceptor_con_timeout(accept_timeout){
+    m_acceptor_con_timeout(accept_timeout), m_acceptor(nullptr){
     m_listen_sock_fd = socket(ipv6 ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
     MYRPC_ASSERT_EXCEPTION(m_listen_sock_fd >= 0, throw SocketException("TCPServer socket creation"));
 }
@@ -35,7 +35,7 @@ void TCPServer::Start() {
     if(!m_running) {
 
         MYRPC_ASSERT_EXCEPTION(listen(m_listen_sock_fd, SOMAXCONN) == 0, throw SocketException("socket listen"));
-        m_fiberPool->Run(std::bind(&TCPServer::doAccept, this));
+        m_acceptor = m_fiberPool->Run(std::bind(&TCPServer::doAccept, this));
         m_fiberPool->Start();
 
         m_running = true;
@@ -48,6 +48,13 @@ void TCPServer::Stop() {
         m_fiberPool->Wait();
         m_fiberPool->Stop();
         m_running = false;
+    }
+}
+
+void TCPServer::StopAccept() {
+    if(m_acceptor){
+        m_acceptor->Join();
+        m_acceptor = nullptr;
     }
 }
 
@@ -74,12 +81,4 @@ void TCPServer::doAccept() {
         Socket::ptr sock = std::make_shared<Socket>(sockfd);
         m_fiberPool->Run(std::bind(&TCPServer::handleConnection, this, sock));
     }
-}
-
-void TCPServer::handleConnection(const Socket::ptr& sock) {
-#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_NET_LEVEL
-    auto clientAddr = InetAddr::GetPeerAddr(sock->GetSocketfd());
-    Logger::info("Thread: {}, Fiber: {}: A new connection form IP:{}, port:{}, connection fd:{}", FiberPool::GetCurrentThreadId(),
-                 Fiber::GetCurrentId(), clientAddr->GetIP(), clientAddr->GetPort(), sock->GetSocketfd());
-#endif
 }

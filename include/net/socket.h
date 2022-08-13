@@ -9,16 +9,16 @@
 
 #include "macro.h"
 
+#include "noncopyable.h"
+
 namespace MyRPC{
     // RAII Socket对象
-    class Socket: public std::enable_shared_from_this<Socket> {
+    class Socket: public NonCopyable{
     public:
         using ptr = std::shared_ptr<Socket>;
         using unique_ptr = std::unique_ptr<Socket>;
 
-        Socket(int sockfd):m_socketfd(sockfd){}
-        Socket(const Socket&) = delete;
-        Socket(Socket&&) = delete;
+        explicit Socket(int sockfd):m_socketfd(sockfd){}
 
         ~Socket(){
             if(m_socketfd != -1){

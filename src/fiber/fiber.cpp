@@ -21,10 +21,9 @@ enable_hook = false;}
 
 #define GET_THIS() p_fiber
 
-Fiber::Fiber(std::function<void()> func) : m_fiber_id(++fiber_count) {
-    m_func = func;
-    m_status = READY;
-}
+Fiber::Fiber(const std::function<void()>& func) : m_fiber_id(++fiber_count), m_func(func), m_status(READY) {}
+
+Fiber::Fiber(std::function<void()>&& func) : m_fiber_id(++fiber_count), m_func(std::move(func)), m_status(READY) {}
 
 Fiber::~Fiber() {
     if (m_status != TERMINAL) {
@@ -33,7 +32,7 @@ Fiber::~Fiber() {
     delete m_func_pull_type;
 }
 
-void Fiber::Suspend() {
+void Fiber::Suspend(int64_t return_value) {
     auto ptr = GET_THIS();
     if (ptr) {
         ptr->m_status = READY;
@@ -41,11 +40,11 @@ void Fiber::Suspend() {
         MYRPC_ASSERT(ptr->m_func_push_type != nullptr);
         SWAP_OUT();
         // 切换上下文
-        (*(ptr->m_func_push_type))(0);
+        (*(ptr->m_func_push_type))(return_value);
     }
 }
 
-void Fiber::Block() {
+void Fiber::Block(int64_t return_value) {
     auto ptr = GET_THIS();
     if (ptr) {
         ptr->m_status = BLOCKED;
@@ -53,11 +52,11 @@ void Fiber::Block() {
         MYRPC_ASSERT(ptr->m_func_push_type != nullptr);
         SWAP_OUT();
         // 切换上下文
-        (*(ptr->m_func_push_type))(0);
+        (*(ptr->m_func_push_type))(return_value);
     }
 }
 
-void Fiber::Exit() {
+void Fiber::Exit(int64_t return_value) {
     auto ptr = GET_THIS();
     if (ptr) {
         ptr->m_status = TERMINAL;
@@ -65,11 +64,11 @@ void Fiber::Exit() {
         MYRPC_ASSERT(ptr->m_func_push_type != nullptr);
         SWAP_OUT();
         // 切换上下文
-        (*(ptr->m_func_push_type))(0);
+        (*(ptr->m_func_push_type))(return_value);
     }
 }
 
-void Fiber::Resume() {
+int64_t Fiber::Resume() {
     if (m_status == READY || m_status == BLOCKED) {
         SWAP_IN();
         m_status = EXEC;
@@ -79,6 +78,7 @@ void Fiber::Resume() {
         } else {
             (*m_func_pull_type)();
         }
+        return m_func_pull_type->get();
     } else if (m_status == EXEC) {
         Logger::warn("Trying to resume fiber{} which is in execution!", m_fiber_id);
     } else {
@@ -115,17 +115,22 @@ int64_t Fiber::GetCurrentId() {
 
 void Fiber::Main(push_type &p) {
     GET_THIS()->m_func_push_type = &p;
-    try {
-        GET_THIS()->m_func();
-    }
-    catch (std::exception &e) {
-        Logger::warn("Fiber id:{} throws an exception {}.", GET_THIS()->m_fiber_id, e.what());
-    }
-    catch (...) {
-        Logger::warn("Fiber id:{} throws an exception.", GET_THIS()->m_fiber_id);
+    {
+        try {
+            GET_THIS()->m_func();
+        }
+        catch (std::exception &e) {
+            Logger::warn("Fiber id:{} throws an exception {}.", GET_THIS()->m_fiber_id, e.what());
+        }
+        catch (...) {
+            Logger::warn("Fiber id:{} throws an exception.", GET_THIS()->m_fiber_id);
+        }
     }
     GET_THIS()->m_status = TERMINAL;
     SWAP_OUT();
+
+    // 默认返回值为0
+    p(0);
 }
 
 }

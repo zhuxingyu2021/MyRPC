@@ -202,7 +202,17 @@ public:
     }
 
     template<class Tkey, class Tval>
+    void Load(std::multimap<Tkey, Tval>& t){
+        deserialize_like_map_impl_<Tkey, Tval>(t);
+    }
+
+    template<class Tkey, class Tval>
     void Load(std::unordered_map<Tkey, Tval>& t){
+        deserialize_like_map_impl_<Tkey, Tval>(t);
+    }
+
+    template<class Tkey, class Tval>
+    void Load(std::unordered_multimap<Tkey, Tval>& t){
         deserialize_like_map_impl_<Tkey, Tval>(t);
     }
 

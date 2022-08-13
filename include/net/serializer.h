@@ -29,8 +29,8 @@ namespace MyRPC {
  *        目前支持以下STL容器类型：
  *        vector, deque, list, forward_list
  *        set, unordered_set, tuple
- *        map, unordered_map, optional
- *        string
+ *        map, unordered_map, multimap, unordered_multimap
+ *        optional, string
  *        不支持裸指针，但支持以下智能指针：
  *        shared_ptr, unique_ptr
  *        支持自定义结构体类型
@@ -208,7 +208,17 @@ public:
     }
 
     template<class Tkey, class Tval>
+    void Save(const std::multimap<Tkey, Tval>& t){
+        serialize_like_map_impl_<Tkey,Tval>(t);
+    }
+
+    template<class Tkey, class Tval>
     void Save(const std::unordered_map<Tkey, Tval>& t){
+        serialize_like_map_impl_<Tkey,Tval>(t);
+    }
+
+    template<class Tkey, class Tval>
+    void Save(const std::unordered_multimap<Tkey, Tval>& t){
         serialize_like_map_impl_<Tkey,Tval>(t);
     }
 

@@ -10,11 +10,13 @@ set(SRCFILE
         fiber/fiber.cpp
         fiber/event_manager.cpp
         fiber/fiber_pool.cpp
+        fiber/synchronization.cpp
 
         net/inetaddr.cpp
         net/tcp_server.cpp
 
         rpc/config.cpp
+        rpc/protocol.cpp
         rpc/rpc_registry_server.cpp
 )
 

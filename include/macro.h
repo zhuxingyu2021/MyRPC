@@ -4,9 +4,10 @@
 #include "logger.h"
 
 #define MYRPC_DEBUG_ON_LEVEL 1
-#define MYRPC_DEBUG_NET_LEVEL 2
-#define MYRPC_DEBUG_HOOK_LEVEL 3
-#define MYRPC_DEBUG_FIBER_POOL_LEVEL 4
+#define MYRPC_DEBUG_RPC_LEVEL 2
+#define MYRPC_DEBUG_NET_LEVEL 3
+#define MYRPC_DEBUG_HOOK_LEVEL 4
+#define MYRPC_DEBUG_FIBER_POOL_LEVEL 5
 
 // 设置调试级别
 #define MYRPC_DEBUG_LEVEL MYRPC_DEBUG_FIBER_POOL_LEVEL
@@ -22,10 +23,6 @@
     exit(-1);                              \
 }
 
-#define MYRPC_ASSERT_EXCEPTION(x, throw) if(!(x)) { \
-    throw; \
-}
-
 namespace MyRPC::Initializer {
     extern int _debug_initializer;
 
@@ -36,5 +33,14 @@ namespace MyRPC::Initializer {
 #define MYRPC_ASSERT(x) {x;}
 #define MYRPC_SYS_ASSERT(x) {x;}
 #endif
+
+#define MYRPC_ASSERT_EXCEPTION(x, throw) if(!(x)) { \
+    throw; \
+}
+
+#define MYRPC_NO_IMPLEMENTATION_ERROR() { \
+Logger::critical("No Implementation Error! In file {}, line: {}", __FILE__, __LINE__); \
+exit(-1); \
+}
 
 #endif //MYRPC_MACRO_H

@@ -11,8 +11,10 @@
 
 #include <unistd.h>
 
+#include "noncopyable.h"
+
 namespace MyRPC{
-    class TCPServer: public std::enable_shared_from_this<TCPServer>{
+    class TCPServer: public NonCopyable{
     public:
         using ptr = std::shared_ptr<TCPServer>;
 
@@ -32,7 +34,7 @@ namespace MyRPC{
          */
         TCPServer(int thread_num=std::thread::hardware_concurrency(), __useconds_t accept_timeout=0, bool ipv6=false);
 
-        virtual ~TCPServer();
+        ~TCPServer();
 
         bool Bind(InetAddr::ptr addr) noexcept;
 
@@ -48,20 +50,34 @@ namespace MyRPC{
          */
         void Stop();
 
+        /**
+         * @brief 停止Acceptor协程，不停止协程池
+         * @note 若要再次启动Acceptor协程，必须先调用Stop()方法停止协程池，再调用Start()方法重启
+         */
+        void StopAccept();
+
         void SetAcceptTimeout(__useconds_t accept_timeout){
             m_acceptor_con_timeout = accept_timeout;
         }
 
     protected:
-        virtual void handleConnection(const Socket::ptr& sock);
+        virtual void handleConnection(const Socket::ptr& sock) {
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_NET_LEVEL
+            auto clientAddr = InetAddr::GetPeerAddr(sock->GetSocketfd());
+            Logger::info("Thread: {}, Fiber: {}: A new connection form IP:{}, port:{}, connection fd:{}", FiberPool::GetCurrentThreadId(),
+                         Fiber::GetCurrentId(), clientAddr->GetIP(), clientAddr->GetPort(), sock->GetSocketfd());
+#endif
+        }
+
+        FiberPool::ptr m_fiberPool;
 
     private:
         bool m_ipv6;
 
         InetAddr::ptr m_addr;
-        FiberPool::ptr m_fiberPool;
 
         int m_listen_sock_fd = -1; // 用于监听端口的socket
+        FiberPool::FiberController::ptr m_acceptor;
         useconds_t m_acceptor_con_timeout; // Accept超时时间
 
         bool m_running;

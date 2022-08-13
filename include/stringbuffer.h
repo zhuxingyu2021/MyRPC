@@ -7,16 +7,17 @@
 #include <deque>
 #include <variant>
 
+#include "noncopyable.h"
+
 namespace MyRPC{
     // 字符串缓冲区，由StringBuilder生成
-    class StringBuffer{
+    class StringBuffer: public NonCopyable{
     public:
         char* data = nullptr;
         size_t size = 0;
         const size_t capacity;
 
-        StringBuffer() = delete;
-        StringBuffer(const StringBuffer&) = delete;
+        StringBuffer():capacity(0){}
 
         StringBuffer(size_t cap):capacity(cap){data = new char[cap];}
         StringBuffer(StringBuffer&& sb) noexcept:capacity(sb.capacity) {
@@ -78,12 +79,8 @@ namespace MyRPC{
         int m_read_offset = 0; // 已读取的字符数量
     };
 
-    class StringBuilder {
+    class StringBuilder : public NonCopyable{
     public:
-        StringBuilder(){}
-        StringBuilder(const StringBuilder &) = delete;
-        StringBuilder(StringBuilder &&) = delete;
-
         /**
          * @brief 向StringBuilder中添加字符串缓冲区
          * @param sb 要添加的字符串缓冲区

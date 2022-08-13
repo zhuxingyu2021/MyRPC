@@ -4,12 +4,15 @@
 #include <memory>
 #include <sys/epoll.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <functional>
 #include "fiber.h"
 
+#include "noncopyable.h"
+
 namespace MyRPC{
 
-    class EventManager{
+    class EventManager: public NonCopyable{
     public:
         static const int MAX_EVENTS = 300;
         static const int TIME_OUT = 5000;
@@ -31,6 +34,8 @@ namespace MyRPC{
          */
         int AddIOEvent(int fd, EventType event);
 
+        int AddWakeupEventfd(int fd);
+
         /**
          * @brief 删除IO事件，该方法必须由协程调用
          * @param fd[in] 文件描述符
@@ -46,15 +51,7 @@ namespace MyRPC{
          */
         bool IsExistIOEvent(int fd, EventType event) const;
 
-        /**
-         * @brief 将IO事件与函数绑定，当IO事件到来，执行相应函数
-         * @param fd[in] 文件描述符
-         * @param event[in] IO事件类型
-         * @param func[in] IO事件完成之后，执行的函数
-         * @note 函数function内部不能有阻塞系统调用
-         * @return 0表示成功, -1表示失败
-         */
-        int AddIOFunc(int fd, EventType event, std::function<void()> func);
+        void Notify();
 
         /**
          * @brief 处理Epoll事件
@@ -76,13 +73,11 @@ namespace MyRPC{
         int m_event_count = 0;
         epoll_event m_events[MAX_EVENTS];
 
+        int m_notify_event_fd; // 用于从epoll_wait中唤醒
+
         // fd -> (Fiber Id, Event)
         // 可以根据文件描述符查到谁添加了这个IO事件，以及IO事件的事件类型
         std::unordered_map<int, std::pair<int64_t ,EventType>> m_fd_event_map;
-
-        // fd -> function
-        // 可以根据文件描述符查到AddIOFunc添加的函数
-        std::unordered_map<int, std::function<void()>> m_fd_func_map;
     };
 
 }

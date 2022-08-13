@@ -8,11 +8,11 @@
 #include <atomic>
 
 #include "macro.h"
-#include "lock.h"
+#include "spinlock.h"
 #include "fiber/event_manager.h"
 
 namespace MyRPC{
-    class FiberPool: public std::enable_shared_from_this<FiberPool> {
+    class FiberPool: public NonCopyable {
     public:
         using ptr = std::shared_ptr<FiberPool>;
 
@@ -34,7 +34,16 @@ namespace MyRPC{
         void Stop();
 
         /**
-         * @brief 唤醒正在等待事件的线程
+         * @brief 唤醒正在等待事件的线程（指定线程）
+         * @param thread_id 需要唤醒的线程id
+         */
+        void Notify(int thread_id){
+            m_threads_context_ptr[thread_id]->Notify();
+        }
+
+        /**
+         * @brief 唤醒正在等待事件的线程（所有线程）
+         * @note 该方法一次唤醒线程池中的所有线程
          */
         void NotifyAll();
 
@@ -47,9 +56,10 @@ namespace MyRPC{
         struct Task{
             using ptr = std::shared_ptr<Task>;
 
-            Task(std::function<void()> func, int tid);
+            template<class Func>
+            Task(Func&& func, int tid):fiber(new Fiber(std::forward<Func>(func))), thread_id(tid){}
             Task() = delete;
-            ~Task();
+            ~Task() = default;
 
             Fiber::unique_ptr fiber; // 协程指针
             int thread_id; // 线程ID
@@ -59,7 +69,7 @@ namespace MyRPC{
             int event_fd;
         };
         std::list<Task::ptr> m_tasks; // 任务队列
-        ThreadLevelSpinLock m_tasks_lock; // 任务队列锁
+        SpinLock m_tasks_lock; // 任务队列锁
     public:
 
         class FiberController{
@@ -98,7 +108,17 @@ namespace MyRPC{
          * @param thread_id 将任务指定给线程thread_id执行。若thread_id被设置为-1，表示将任务分配给任意线程执行
          * @return
          */
-        FiberController::ptr Run(std::function<void()> func, int thread_id = -1);
+        template<class Func>
+        FiberController::ptr Run(Func&& func, int thread_id = -1){
+            Task::ptr ptr(new Task(std::forward<Func>(func), thread_id));
+            {
+                std::lock_guard<SpinLock> lock(m_tasks_lock);
+                m_tasks.push_back(ptr);
+                ++m_tasks_cnt;
+            }
+            NotifyAll();
+            return std::make_shared<FiberPool::FiberController>(ptr);
+        }
 
         /**
          * 获得当前线程Id，该方法只能由协程池中的线程调用
@@ -139,8 +159,8 @@ namespace MyRPC{
         // 协程池主循环
         int MainLoop(int thread_id);
 
-        // 当有新的任务到来时，可以通过event_fd来唤醒协程池中的主协程
-        int m_event_fd;
+        // 当有新的任务到来时，可以通过event_fd来唤醒协程池中的所有主协程
+        int m_global_event_fd;
 
         // 判断协程池是否有线程在运行
         std::atomic<bool> m_running {false};

@@ -12,13 +12,14 @@
 #include <unistd.h>
 #include <memory>
 
+#include "noncopyable.h"
+
 namespace MyRPC{
 template<class Derived>
-class TCPClient: public std::enable_shared_from_this<TCPClient<Derived>>{
+class TCPClient: public NonCopyable{
 public:
     using ptr = std::shared_ptr<TCPClient<Derived>>;
     TCPClient() = delete;
-    TCPClient(const TCPClient&) = delete;
 
     /**
      * @brief 与IP地址是addr的服务器建立连接
