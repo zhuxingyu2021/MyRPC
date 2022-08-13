@@ -136,7 +136,8 @@ int FiberPool::MainLoop(int thread_id) {
                 // 任务已就绪，恢复任务执行
                 auto ret_val = tsk_ptr->fiber->Resume();
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
-                Logger::debug("Thread: {}, Fiber: {} is swapped out #1, return value:{}", thread_id, tsk_ptr->fiber->GetId(), ret_val);
+                Logger::debug("Thread: {}, Fiber: {} is swapped out #1, return value:{}, status:{}", thread_id,
+                              tsk_ptr->fiber->GetId(), ret_val, tsk_ptr->fiber->GetStatus());
 #endif
                 // 任务让出CPU，等待下次被调度
             } else if (tsk_ptr->fiber->GetStatus() == Fiber::TERMINAL) {
@@ -154,13 +155,13 @@ int FiberPool::MainLoop(int thread_id) {
     }
 }
 
-    void FiberPool::Wait() {
-        while (m_tasks_cnt > 0 && m_running) {
-            sleep(1);
-        }
+void FiberPool::Wait() {
+    while (m_tasks_cnt > 0 && m_running) {
+        sleep(1);
     }
+}
 
-    void FiberPool::ThreadContext::resume(int64_t fiber_id) {
+void FiberPool::ThreadContext::resume(int64_t fiber_id) {
     auto iter = my_tasks.find(fiber_id);
     if (iter != my_tasks.end()) {
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
@@ -169,8 +170,8 @@ int FiberPool::MainLoop(int thread_id) {
 #endif
         auto ret_val = (*iter).second->fiber->Resume();
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
-        Logger::debug("Thread: {}, Fiber: {} is swapped out #2, return value:{}", FiberPool::GetCurrentThreadId(),
-                      iter->second->fiber->GetId(), ret_val);
+        Logger::debug("Thread: {}, Fiber: {} is swapped out #2, return value:{}, status:{}", FiberPool::GetCurrentThreadId(),
+                      iter->second->fiber->GetId(), ret_val, iter->second->fiber->GetStatus());
 #endif
     } else {
         Logger::warn("Attempt to resume a fiber which has been erased!");

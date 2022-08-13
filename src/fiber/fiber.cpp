@@ -84,6 +84,7 @@ int64_t Fiber::Resume() {
     } else {
         Logger::warn("Trying to resume fiber{} which is not in ready!", m_fiber_id);
     }
+    return 0;
 }
 
 void Fiber::Reset() {

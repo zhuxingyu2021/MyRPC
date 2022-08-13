@@ -37,7 +37,9 @@ int EventManager::AddIOEvent(int fd, EventType event) {
     {
         // event已存在，则修改event
         EventType new_event = (EventType)(iter->second.second | event);
-        m_fd_event_map[fd] = std::make_pair(Fiber::GetCurrentId(), new_event);
+        //m_fd_event_map[fd] = std::make_pair(Fiber::GetCurrentId(), new_event);
+        m_fd_event_map.emplace(std::piecewise_construct,
+                               std::forward_as_tuple(fd), std::forward_as_tuple(Fiber::GetCurrentId(), new_event));
 
         event_epoll.events = EPOLLET | new_event;
         event_epoll.data.fd = fd;
@@ -46,7 +48,9 @@ int EventManager::AddIOEvent(int fd, EventType event) {
     }
     else{
         // event不存在，创建event
-        m_fd_event_map[fd] = std::make_pair(Fiber::GetCurrentId(), event);
+        //m_fd_event_map[fd] = std::make_pair(Fiber::GetCurrentId(), event);
+        m_fd_event_map.emplace(std::piecewise_construct,
+                               std::forward_as_tuple(fd), std::forward_as_tuple(Fiber::GetCurrentId(), event));
         event_epoll.events = EPOLLET | event;
         event_epoll.data.fd = fd;
 
@@ -60,14 +64,16 @@ int EventManager::AddIOEvent(int fd, EventType event) {
 
 void EventManager::WaitEvent(int thread_id) {
     auto n = epoll_wait(m_epoll_fd, m_events, MAX_EVENTS, TIME_OUT);
-#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_EPOLL_LEVEL
     Logger::debug("Thread: {}, epoll_wait() returned {}", thread_id ,n);
 #endif
     for(int i=0;i<n;i++){
         auto happened_event = m_events[i].events;
         auto fd = m_events[i].data.fd;
 
-        auto[fiber_id, fiber_event] = m_fd_event_map[fd];
+        //auto[fiber_id, fiber_event] = m_fd_event_map[fd];
+        auto fd_iter = m_fd_event_map.find(fd);
+        auto[fiber_id, fiber_event] = fd_iter->second;
 
         if(fiber_id == -1){ // eventfd唤醒
             auto tmp = enable_hook;
@@ -91,9 +97,11 @@ void EventManager::WaitEvent(int thread_id) {
         int op = left_event?EPOLL_CTL_MOD: EPOLL_CTL_DEL;
         if(!left_event) { // 若event全部被触发，则删除相应的event
             --m_event_count;
-            m_fd_event_map.erase(fd);
+            //m_fd_event_map.erase(fd);
+            m_fd_event_map.erase(fd_iter);
         }else{
-            m_fd_event_map[fd].second = static_cast<EventType>(left_event);
+            //m_fd_event_map[fd].second = static_cast<EventType>(left_event);
+            (*fd_iter).second.second = static_cast<EventType>(left_event);
         }
         m_events[i].events = left_event | EPOLLET;
 
@@ -128,10 +136,12 @@ int EventManager::RemoveIOEvent(int fd, EventManager::EventType event) {
 
         if(new_event == 0) {
             --m_event_count;
-            m_fd_event_map.erase(fd);
+            //m_fd_event_map.erase(fd);
+            m_fd_event_map.erase(iter);
             return epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, &event_epoll);
         }else{
-            m_fd_event_map[fd] = std::make_pair(iter->second.first, new_event);
+            //m_fd_event_map[fd] = std::make_pair(iter->second.first, new_event);
+            (*iter).second.second = new_event;
             return epoll_ctl(m_epoll_fd, EPOLL_CTL_MOD, fd, &event_epoll);
         }
     }
@@ -161,7 +171,9 @@ int EventManager::AddWakeupEventfd(int fd) {
         }
 
         EventType eventfd_event = EventManager::READ; // 需要从eventfd读数据
-        m_fd_event_map[fd] = std::make_pair(-1, eventfd_event);
+        //m_fd_event_map[fd] = std::make_pair(-1, eventfd_event);
+        m_fd_event_map.emplace(std::piecewise_construct,
+                               std::forward_as_tuple(fd), std::forward_as_tuple(-1, eventfd_event));
 
         epoll_event event_epoll; // epoll_ctl 的4个参数
         memset(&event_epoll, 0, sizeof(epoll_event));

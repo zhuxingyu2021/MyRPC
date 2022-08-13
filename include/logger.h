@@ -4,7 +4,11 @@
 #include "spdlog/spdlog.h"
 #include "fiber/hook_sleep.h"
 
+#include "spinlock.h"
+
 namespace MyRPC{
+    extern SpinLock _global_logger_spinlock;
+
     class Logger{
     public:
         template<class ...Args>
@@ -17,10 +21,12 @@ namespace MyRPC{
 
         template<class ...Args>
         static void debug(Args ...args){
+            _global_logger_spinlock.lock();
             auto tmp = enable_hook;
             enable_hook = false;
             spdlog::debug(std::forward<Args>(args)...);
             enable_hook = tmp;
+            _global_logger_spinlock.unlock();
         }
 
         template<class ...Args>
