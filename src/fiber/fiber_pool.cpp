@@ -103,6 +103,8 @@ int FiberPool::MainLoop(int thread_id) {
 
     auto context_ptr = m_threads_context_ptr[thread_id];
 
+    while(!m_running); // 等待所有线程启动完成
+
     while (true) {
         if (m_stopping) return 0;
 

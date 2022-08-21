@@ -8,6 +8,34 @@
 
 using namespace MyRPC;
 
+#define THREADS_NUM 8
+#define WRITER_COUNT 128
+#define READER_COUNT 256
+
 int main(){
-    
+    FiberPool fp(THREADS_NUM);
+
+    FiberSync::RWMutex rwlock;
+    volatile int var = 10;
+
+    for(int i=0; i<WRITER_COUNT; i++){
+        fp.Run([&rwlock, &var](){
+            rwlock.lock();
+            var += 10;
+
+            Logger::info("write var: {}", var);
+            rwlock.unlock();
+        }, rand()%THREADS_NUM);
+    }
+
+    for(int i=0; i<READER_COUNT; i++){
+        fp.Run([&rwlock, &var](){
+            rwlock.lock_shared();
+            Logger::info("read var: {}", var);
+            rwlock.unlock_shared();
+        }, rand()%THREADS_NUM);
+    }
+
+    fp.Start();
+    fp.Wait();
 }
