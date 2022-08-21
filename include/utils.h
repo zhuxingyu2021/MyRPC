@@ -106,10 +106,10 @@ namespace MyRPC{
      * @return 删去字符串中的空白字符之后，字符串的字符数量
      */
     template <char... write_space>
-    size_t strtrim(char* str, size_t size){
+    size_t strtrim(unsigned char* str, size_t size){
         size_t write_pos=0;
         for(size_t read_pos=0;read_pos<size;++read_pos){
-            char c = str[read_pos];
+            unsigned char c = str[read_pos];
             if(((c == write_space) || ...)){
                 // skip
             }else{

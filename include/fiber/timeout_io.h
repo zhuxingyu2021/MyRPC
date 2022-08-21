@@ -9,7 +9,7 @@
 
 /**
  * @brief 带timeout的read, accept, connect, recv函数
- * @param ts 超时时间， 单位微妙
+ * @param ts 超时时间， 单位微秒
  * @note 若超时，则返回MYRPC_ERR_TIMEOUT_FLAG。其他情况下的返回值与原系统调用相同
  */
 namespace MyRPC{

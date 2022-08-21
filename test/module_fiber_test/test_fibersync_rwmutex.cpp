@@ -3,6 +3,7 @@
 #include "fiber/fiber.h"
 
 #include <mutex>
+#include <shared_mutex>
 #include <cstdlib>
 #include <iostream>
 
@@ -20,19 +21,16 @@ int main(){
 
     for(int i=0; i<WRITER_COUNT; i++){
         fp.Run([&rwlock, &var](){
-            rwlock.lock();
+            std::unique_lock<FiberSync::RWMutex> lock(rwlock);
             var += 10;
-
             Logger::info("write var: {}", var);
-            rwlock.unlock();
         }, rand()%THREADS_NUM);
     }
 
     for(int i=0; i<READER_COUNT; i++){
         fp.Run([&rwlock, &var](){
-            rwlock.lock_shared();
+            std::shared_lock<FiberSync::RWMutex> lock_shared(rwlock);
             Logger::info("read var: {}", var);
-            rwlock.unlock_shared();
         }, rand()%THREADS_NUM);
     }
 

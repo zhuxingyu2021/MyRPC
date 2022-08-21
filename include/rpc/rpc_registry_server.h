@@ -30,6 +30,9 @@ namespace MyRPC{
         std::unordered_multimap<std::string, InetAddr::ptr> m_service_provider_map;
 
         FiberSync::Mutex m_service_provider_map_mutex; // 用于保护m_service_provider_map变量的mutex
+
+        void handleMessageRequestSubscribe(Protocol &proto);
+        void handleMessageRequestRegistration(Protocol &proto);
     };
 }
 

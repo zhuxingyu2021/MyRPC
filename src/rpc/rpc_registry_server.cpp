@@ -32,28 +32,8 @@ void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
 
     while (true) {
         auto message_type = proto.ParseHeader();
-        if(message_type == Protocol::MESSAGE_HEARTBEAT) {
-            heartbeat_flag = true;
-        }else if(message_type == Protocol::MESSAGE_REQUEST_SUBSCRIBE) {
-            // 从客户端接收订阅的服务名称 格式：std::vector<std::string>，服务名称的数组
-            std::vector<std::string> service_name_array;
-            proto.ParseContent(service_name_array);
 
-            // TODO 返回提供相应服务的服务器IP地址 格式：std::map<std::string, std::vector<InetAddr>>，服务名称 -> 服务器IP地址的数组
-            std::map<std::string, std::vector<InetAddr::ptr>> service_ip;
-            for(auto service_name: service_name_array){
-                
-            }
-
-            break;
-        }else if(message_type == Protocol::MESSAGE_REQUEST_REGISTRATION) {
-            // TODO 从客户端接收注册的服务名称 格式：std::vector<std::string>，服务名称的数组
-
-            // TODO 返回OK应答
-
-            // TODO 向订阅了相应服务的客户端返回新注册的服务
-            break;
-        }else if(message_type == Protocol::ERROR_TIMEOUT) {
+        if(message_type >= Protocol::ERROR){
             if (heartbeat_stopped_flag) {
                 // 心跳停止
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
@@ -61,12 +41,46 @@ void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
 #endif
                 break;
             }
-        }else{
-            // TODO
+        }
+
+        switch(message_type){
+            case Protocol::MESSAGE_HEARTBEAT:
+                heartbeat_flag = true;
+                break;
+            case Protocol::MESSAGE_REQUEST_SUBSCRIBE:
+                heartbeat_flag = true;
+                handleMessageRequestSubscribe(proto);
+                break;
+            case Protocol::MESSAGE_REQUEST_REGISTRATION:
+                heartbeat_flag = true;
+                handleMessageRequestRegistration(proto);
+                break;
+            default:
+                // TODO
+                ;
         }
     }
 
     // 等待子线程退出
     heartbeat_flag = false;
     wait_subtask_exit_mutex.lock();
+}
+
+void RpcRegistryServer::handleMessageRequestSubscribe(Protocol& proto) {
+    // 从客户端接收订阅的服务名称 格式：std::vector<std::string>，服务名称的数组
+    std::vector<std::string> service_name_array;
+    proto.ParseContent(service_name_array);
+    // TODO 返回提供相应服务的服务器IP地址 格式：std::map<std::string, std::vector<InetAddr>>，服务名称 -> 服务器IP地址的数组
+    std::map<std::string, std::vector<InetAddr::ptr>> service_ip;
+    for(auto service_name: service_name_array){
+
+    }
+}
+
+void RpcRegistryServer::handleMessageRequestRegistration(Protocol &proto) {
+    // TODO 从客户端接收注册的服务名称 格式：std::vector<std::string>，服务名称的数组
+
+    // TODO 返回OK应答
+
+    // TODO 向订阅了相应服务的客户端返回新注册的服务
 }

@@ -13,17 +13,24 @@ namespace MyRPC{
     // 字符串缓冲区，由StringBuilder生成
     class StringBuffer: public NonCopyable{
     public:
-        char* data = nullptr;
+        unsigned char* data = nullptr;
         size_t size = 0;
-        const size_t capacity;
+        unsigned long capacity;
 
         StringBuffer():capacity(0){}
 
-        StringBuffer(size_t cap):capacity(cap){data = new char[cap];}
+        StringBuffer(size_t cap):capacity(cap){data = new unsigned char[cap];}
         StringBuffer(StringBuffer&& sb) noexcept:capacity(sb.capacity) {
             data = sb.data;
             size = sb.size;
             sb.data = nullptr; sb.size = 0;
+        }
+        StringBuffer& operator=(StringBuffer&& sb) noexcept{
+            capacity = sb.capacity;
+            data = sb.data;
+            size = sb.size;
+            sb.data = nullptr; sb.size = 0;
+            return *this;
         }
 
         ~StringBuffer(){delete data;}
@@ -51,7 +58,7 @@ namespace MyRPC{
         /**
          * @brief 获得下一个字符，但不移动读指针
          */
-        char PeekChar() const;
+        unsigned char PeekChar() const;
 
         /**
         * @brief 获得之后的N个字符，但不移动读指针
@@ -71,7 +78,7 @@ namespace MyRPC{
                 }
                 m_read_offset++;
             }
-            std::string str(data + start_pos, m_read_offset - start_pos);
+            std::string str((char*)(data + start_pos), m_read_offset - start_pos);
             return str;
         }
 
@@ -103,7 +110,7 @@ namespace MyRPC{
          * @brief 向字符缓冲区中添加字符数据
          * @param str 要添加的字符串
          */
-        void Append(char c);
+        void Append(unsigned char c);
 
         /**
          * @brief 写入指针回退size个字符

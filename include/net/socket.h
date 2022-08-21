@@ -47,7 +47,7 @@ namespace MyRPC{
 
         ssize_t RecvTimeout(void *buf, size_t len, int flags, __useconds_t timeout){
             ssize_t ret;
-            MYRPC_ASSERT_EXCEPTION((ret = recv_timeout(m_socketfd, buf,len,flags, timeout))!=-1, SocketException("TCP send timeout"));
+            MYRPC_ASSERT_EXCEPTION((ret = recv_timeout(m_socketfd, buf,len,flags, timeout))!=-1, SocketException("TCP recv timeout"));
             return ret;
         }
 

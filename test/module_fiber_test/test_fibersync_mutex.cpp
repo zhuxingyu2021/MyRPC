@@ -20,10 +20,9 @@ int main(){
 
     for(int i=0;i<FIBER_COUNT;i++){
         fp.Run([&mutex, &count](){
-            mutex.lock();
+            std::unique_lock<FiberSync::Mutex> lock(mutex);
             ++count;
             Logger::info("Fiber: {} has acquired the lock", Fiber::GetCurrentId());
-            mutex.unlock();
         }, rand()%THREADS_NUM);
     }
     fp.Wait();
