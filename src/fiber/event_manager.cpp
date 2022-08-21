@@ -35,6 +35,8 @@ int EventManager::AddIOEvent(int fd, EventType event) {
     auto iter = m_fd_event_map.find(fd);
     if(iter != m_fd_event_map.end())
     {
+        assert(iter->second.first == Fiber::GetCurrentId());
+
         // event已存在，则修改event
         EventType new_event = (EventType)(iter->second.second | event);
         //m_fd_event_map[fd] = std::make_pair(Fiber::GetCurrentId(), new_event);
@@ -71,9 +73,7 @@ void EventManager::WaitEvent(int thread_id) {
         auto happened_event = m_events[i].events;
         auto fd = m_events[i].data.fd;
 
-        //auto[fiber_id, fiber_event] = m_fd_event_map[fd];
-        auto fd_iter = m_fd_event_map.find(fd);
-        auto[fiber_id, fiber_event] = fd_iter->second;
+        auto[fiber_id, fiber_event] = m_fd_event_map[fd];
 
         if(fiber_id == -1){ // eventfd唤醒
             auto tmp = enable_hook;
@@ -97,11 +97,9 @@ void EventManager::WaitEvent(int thread_id) {
         int op = left_event?EPOLL_CTL_MOD: EPOLL_CTL_DEL;
         if(!left_event) { // 若event全部被触发，则删除相应的event
             --m_event_count;
-            //m_fd_event_map.erase(fd);
-            m_fd_event_map.erase(fd_iter);
+            m_fd_event_map.erase(fd);
         }else{
-            //m_fd_event_map[fd].second = static_cast<EventType>(left_event);
-            (*fd_iter).second.second = static_cast<EventType>(left_event);
+            m_fd_event_map[fd].second = static_cast<EventType>(left_event);
         }
         m_events[i].events = left_event | EPOLLET;
 
@@ -136,8 +134,7 @@ int EventManager::RemoveIOEvent(int fd, EventManager::EventType event) {
 
         if(new_event == 0) {
             --m_event_count;
-            //m_fd_event_map.erase(fd);
-            m_fd_event_map.erase(iter);
+            m_fd_event_map.erase(fd);
             return epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, &event_epoll);
         }else{
             //m_fd_event_map[fd] = std::make_pair(iter->second.first, new_event);

@@ -12,6 +12,7 @@ make_test(module_fiber_test test_hooksleep)
 make_test(module_fiber_test test_hookio)
 make_test(module_fiber_test test_hooksocketio)
 make_test(module_fiber_test test_fibersync_mutex)
+make_test(module_fiber_test test_fibersync_rwmutex)
 
 make_test(module_net_test test_serializer)
 make_test(module_net_test test_deserializer)

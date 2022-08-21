@@ -15,7 +15,7 @@ namespace MyRPC {
 
         void unlock() { m_lock.clear(std::memory_order_release); }
 
-        bool tryLock() { return m_lock.test_and_set(std::memory_order_acquire); }
+        bool tryLock() { return !m_lock.test_and_set(std::memory_order_acquire); }
 
     private:
         std::atomic_flag m_lock = ATOMIC_FLAG_INIT;

@@ -114,9 +114,15 @@ int FiberPool::MainLoop(int thread_id) {
                 const auto& tsk_ptr = *iter;
                 if (tsk_ptr->thread_id == thread_id || tsk_ptr->thread_id == -1) {
                     context_ptr->my_tasks[tsk_ptr->fiber->GetId()] = tsk_ptr;
+
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
+                    Logger::debug("Thread: {}, Fiber: {} is adding to ready queue", thread_id,
+                                  tsk_ptr->fiber->GetId());
+#endif
+
                     iter = m_tasks.erase(iter);
                 } else {
-                    //NotifyAll(); // 告诉其他线程有新的任务要处理
+                    Notify(tsk_ptr->thread_id); // 告诉其他线程有新的任务要处理
                     iter++;
                 }
             }
@@ -142,6 +148,10 @@ int FiberPool::MainLoop(int thread_id) {
                 // 任务让出CPU，等待下次被调度
             } else if (tsk_ptr->fiber->GetStatus() == Fiber::TERMINAL) {
                     // 协程执行完成，从任务队列中删除
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
+                Logger::debug("Thread: {}, Fiber: {} is going to delete", thread_id, tsk_ptr->fiber->GetId());
+#endif
+
                     tsk_ptr->stopped = true;
                     context_ptr->my_tasks.erase(iter++);
                     --m_tasks_cnt;

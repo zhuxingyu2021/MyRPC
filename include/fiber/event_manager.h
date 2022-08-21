@@ -4,6 +4,7 @@
 #include <memory>
 #include <sys/epoll.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <functional>
 #include "fiber.h"
 
@@ -60,7 +61,7 @@ namespace MyRPC{
         /**
          * @brief 获得事件数量
          */
-         int GetNumEvents(){return m_event_count;}
+        int GetNumEvents(){return m_event_count;}
 
     protected:
         // 恢复执行协程ID为fiber_id的协程
@@ -76,7 +77,7 @@ namespace MyRPC{
 
         // fd -> (Fiber Id, Event)
         // 可以根据文件描述符查到谁添加了这个IO事件，以及IO事件的事件类型
-        std::unordered_multimap<int, std::pair<int64_t ,EventType>> m_fd_event_map;
+        std::unordered_map<int, std::pair<int64_t ,EventType>> m_fd_event_map;
     };
 
 }
