@@ -24,7 +24,7 @@ namespace MyRPC{
          * @param accept_timeout accept调用的超时时间，单位微秒，0表示不设置超时时间
          * @param ipv6 bind调用的地址是否是ipv6地址
          */
-        TCPServer(FiberPool::ptr fiberPool, __useconds_t accept_timeout=0, bool ipv6=false);
+        TCPServer(FiberPool::ptr fiberPool, useconds_t accept_timeout=0, bool ipv6=false);
 
         /**
          * @brief TCPServer类的构造函数，该方法会调用socket系统函数，若失败，会抛出SocketException异常
@@ -32,7 +32,7 @@ namespace MyRPC{
          * @param accept_timeout accept调用的超时时间，单位微秒，0表示不设置超时时间
          * @param ipv6 bind调用的地址是否是ipv6地址
          */
-        TCPServer(int thread_num=std::thread::hardware_concurrency(), __useconds_t accept_timeout=0, bool ipv6=false);
+        TCPServer(int thread_num=std::thread::hardware_concurrency(), useconds_t accept_timeout=0, bool ipv6=false);
 
         ~TCPServer();
 
@@ -56,14 +56,14 @@ namespace MyRPC{
          */
         void StopAccept();
 
-        void SetAcceptTimeout(__useconds_t accept_timeout){
+        void SetAcceptTimeout(useconds_t accept_timeout){
             m_acceptor_con_timeout = accept_timeout;
         }
 
     protected:
         virtual void handleConnection(const Socket::ptr& sock) {
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_NET_LEVEL
-            auto clientAddr = InetAddr::GetPeerAddr(sock->GetSocketfd());
+            auto clientAddr = sock->GetPeerAddr();
             Logger::info("Thread: {}, Fiber: {}: A new connection form IP:{}, port:{}, connection fd:{}", FiberPool::GetCurrentThreadId(),
                          Fiber::GetCurrentId(), clientAddr->GetIP(), clientAddr->GetPort(), sock->GetSocketfd());
 #endif

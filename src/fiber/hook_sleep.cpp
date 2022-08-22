@@ -11,7 +11,7 @@
 namespace MyRPC{
     // 原始的系统调用入口
     unsigned int (*sys_sleep)(unsigned int seconds) = nullptr;
-    int (*sys_usleep)(__useconds_t __useconds) = nullptr;
+    int (*sys_usleep)(useconds_t __useconds) = nullptr;
     int (*sys_nanosleep)(const struct timespec *__req, struct timespec *__rem) = nullptr;
 
     extern int (*sys_close)(int fd);
@@ -19,7 +19,7 @@ namespace MyRPC{
     namespace Initializer {
         int _hook_sleep_initializer = []() {
             sys_sleep = (unsigned int (*)(unsigned int))dlsym(RTLD_NEXT, "sleep");
-            sys_usleep = (int (*)(__useconds_t))dlsym(RTLD_NEXT, "usleep");
+            sys_usleep = (int (*)(useconds_t))dlsym(RTLD_NEXT, "usleep");
             sys_nanosleep = (int (*)(const struct timespec *, struct timespec *))dlsym(RTLD_NEXT, "nanosleep");
 
             return 0;
@@ -58,7 +58,7 @@ extern "C" unsigned int sleep (unsigned int __seconds) {
 }
 
 //覆盖glibc的usleep函数
-extern "C" int usleep (__useconds_t __useconds) {
+extern "C" int usleep (useconds_t __useconds) {
     if (enable_hook) {
         enable_hook = false;
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL

@@ -1,5 +1,5 @@
-#ifndef MYRPC_PROTOCOL_H
-#define MYRPC_PROTOCOL_H
+#ifndef MYRPC_RPC_SESSION_H
+#define MYRPC_RPC_SESSION_H
 
 #include <memory>
 #include <atomic>
@@ -28,14 +28,17 @@ namespace MyRPC{
  * 第四-七个字节是接收的内容长度。
  */
 
-    class Protocol: public NonCopyable{
+    class RPCSession: public NonCopyable{
     public:
-        using ptr = std::shared_ptr<Protocol>;
+        using ptr = std::shared_ptr<RPCSession>;
+        using weak_ptr = std::weak_ptr<RPCSession>;
+
         const static uint8_t MAGIC_NUMBER = 0xE5;
         const static uint8_t VERSION = 0x00;
         const static int HEADER_LENGTH = 7;
 
-        Protocol(Socket& s, __useconds_t socket_timeout = 0):m_sock(s), m_sock_timeout(socket_timeout), m_content(){}
+        RPCSession(Socket& s, useconds_t socket_timeout = 0): m_sock(s), m_sock_timeout(socket_timeout), m_content(),
+                                                              m_peer_ip(std::move(m_sock.GetPeerAddr())){}
 
         enum MessageType{ // 请求类型，协议的第三个字节
             MESSAGE_HEARTBEAT = 0,
@@ -44,6 +47,8 @@ namespace MyRPC{
             MESSAGE_REQUEST_REGISTRATION,
 
             MESSAGE_RESPOND_OK,
+
+            MESSAGE_PUSH,
 
             ERROR,
             ERROR_TIMEOUT,
@@ -88,13 +93,33 @@ namespace MyRPC{
             m_sock.SendAll(buffer.data, buffer.size, 0);
         }
 
+        void Send(MessageType msg_type){
+            StringBuilder sb;
+
+            // 构造协议header（内容长度为0）
+            StringBuffer header(7);
+            header.data[0] = MAGIC_NUMBER;
+            header.data[1] = VERSION;
+            header.data[2] = (uint8_t)msg_type;
+            memset(header.data + 3, 0, sizeof(uint32_t)); // 内容长度设置为0
+            sb.Append(std::move(header));
+
+            // 发送package
+            m_sock.SendAll(header.data, header.size, 0);
+        }
+
+        Socket& GetSocket() const{return m_sock;}
+        InetAddr::ptr GetPeerIP() const{return m_peer_ip;}
+
     private:
         Socket& m_sock;
 
-        const __useconds_t m_sock_timeout = 0;
+        const useconds_t m_sock_timeout = 0;
 
         StringBuffer m_content;
+
+        InetAddr::ptr m_peer_ip;
     };
 }
 
-#endif //MYRPC_PROTOCOL_H
+#endif //MYRPC_RPC_SESSION_H

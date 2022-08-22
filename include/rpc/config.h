@@ -29,7 +29,7 @@ namespace MyRPC{
         int m_threads_num = 8;
         bool m_ipv6 = false;
 
-        int m_timeout = 2;
+        int m_timeout = 2000; // 超时时间 单位ms
         int m_keepalive = 5;
 
         LOAD_BEGIN

@@ -61,7 +61,7 @@ public:
 
 private:
     /**
-     * @brief 读取json数组，用于反序列化vector, list, set等类型
+     * @brief 读取json数组，用于反序列化vector, list等类型
      */
     template<class Tval, class T>
     inline void deserialize_like_vector_impl_(T& t){
@@ -70,6 +70,23 @@ private:
             Tval elem;
             Load(elem);
             t.emplace_back(std::move(elem));
+            if(buffer.PeekChar() == ','){
+                buffer.GetChar();
+            }
+        }
+        MYRPC_ASSERT_EXCEPTION(buffer.GetChar() == ']', throw JsonDeserializerException(buffer.GetPos()));
+    }
+
+    /**
+     * @brief 读取json数组，用于反序列化set, unordered_set等类型
+     */
+    template<class Tval, class T>
+    inline void deserialize_like_set_impl_(T& t){
+        MYRPC_ASSERT_EXCEPTION(buffer.GetChar() == '[', throw JsonDeserializerException(buffer.GetPos()));
+        while(buffer.PeekChar() != ']'){
+            Tval elem;
+            Load(elem);
+            t.insert(std::move(elem));
             if(buffer.PeekChar() == ','){
                 buffer.GetChar();
             }
@@ -183,12 +200,12 @@ public:
 
     template<class T>
     void Load(std::set<T>& t){
-        deserialize_like_vector_impl_<T>(t);
+        deserialize_like_set_impl_<T>(t);
     }
 
     template<class T>
     void Load(std::unordered_set<T>& t){
-        deserialize_like_vector_impl_<T>(t);
+        deserialize_like_set_impl_<T>(t);
     }
 
     template<class ...Args>

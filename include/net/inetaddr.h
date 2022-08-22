@@ -20,6 +20,28 @@ namespace MyRPC{
 
         InetAddr(const std::string& ip, uint16_t port, bool ipv6=false);
 
+        bool operator==(const InetAddr& operand) const{
+            if(m_ipv6 == operand.m_ipv6){
+                if(!m_ipv6){
+                    return (memcmp(&addr_, &operand.addr_, sizeof(addr_))==0);
+                }else{
+                    return (memcmp(&addr6_, &operand.addr6_, sizeof(addr6_))==0);
+                }
+            }
+            return false;
+        }
+
+        bool operator<(const InetAddr& operand) const{
+            if(m_ipv6 == operand.m_ipv6){
+                if(!m_ipv6){
+                    return (memcmp(&addr_, &operand.addr_, sizeof(addr_))<0);
+                }else{
+                    return (memcmp(&addr6_, &operand.addr6_, sizeof(addr6_))<0);
+                }
+            }
+            return operand.m_ipv6;
+        }
+
         /**
          * @brief 获得客户端的ip地址
          * @param sockfd socket描述符
@@ -34,6 +56,8 @@ namespace MyRPC{
         const socklen_t GetAddrLen() const;
 
         const bool IsIPv6() const{return m_ipv6;}
+
+        std::string ToString() const{return m_ip_str + ":" + std::to_string(m_port);}
 
         friend JsonSerializer;
         friend JsonDeserializer;

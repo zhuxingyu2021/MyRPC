@@ -1,9 +1,9 @@
-#include "rpc/protocol.h"
+#include "rpc/rpc_session.h"
 #include "rpc/exception.h"
 
 using namespace MyRPC;
 
-Protocol::MessageType Protocol::ParseHeader() {
+RPCSession::MessageType RPCSession::ParseHeader() {
     uint8_t buf[HEADER_LENGTH];
     auto recv_result = m_sock.RecvAllTimeout(buf, HEADER_LENGTH, 0, m_sock_timeout);
 
@@ -29,7 +29,7 @@ Protocol::MessageType Protocol::ParseHeader() {
             m_content = std::move(null_content);
         }
 
-        return Protocol::MessageType(buf[2]);
+        return RPCSession::MessageType(buf[2]);
     }else if(recv_result == 0){
         // 客户端关闭连接
         return ERROR_CLIENT_CLOSE_CONN;

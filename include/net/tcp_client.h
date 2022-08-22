@@ -29,7 +29,7 @@ public:
      * @return 如果与服务器之间的连接建立成功，返回TCPClient对象指针；如果连接超时，返回空指针。如果因为超时以外的原因导致连接失败，抛出SocketException异常。
      */
      template<class... Args>
-    static TCPClient<Derived>::ptr connect(InetAddr::ptr addr, __useconds_t conn_timeout=0, Args... args){
+    static TCPClient<Derived>::ptr connect(InetAddr::ptr addr, useconds_t conn_timeout=0, Args... args){
         auto sock_fd = socket(addr->IsIPv6() ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
         MYRPC_ASSERT_EXCEPTION(sock_fd >= 0, throw SocketException("TCPClient socket creation"));
 
@@ -46,7 +46,7 @@ public:
     template<class... Args>
     void doConnect(Args... args){
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_NET_LEVEL
-        auto serverAddr = InetAddr::GetPeerAddr(sock->GetSocketfd());
+        auto serverAddr = sock->GetPeerAddr();
         Logger::debug("A new connection to IP:{}, port:{}, connection fd:{}", serverAddr->GetIP(), serverAddr->GetPort(), sock->GetSocketfd());
 #endif
         static_cast<Derived*>(this)->doConnect(std::forward<Args>(args)...);

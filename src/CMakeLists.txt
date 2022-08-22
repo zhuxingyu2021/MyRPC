@@ -16,7 +16,7 @@ set(SRCFILE
         net/tcp_server.cpp
 
         rpc/config.cpp
-        rpc/protocol.cpp
+        rpc/rpc_session.cpp
         rpc/rpc_registry_server.cpp
 )
 
