@@ -109,7 +109,7 @@ namespace MyRPC{
             ssize_t ret;
             MYRPC_ASSERT(len >= 0);
             do{
-                MYRPC_ASSERT_EXCEPTION((ret = recv(m_socketfd, buf,len,flags))!=-1, SocketException("TCP recv"));
+                MYRPC_ASSERT_EXCEPTION((ret = recv_timeout(m_socketfd, buf,len,flags, timeout))!=-1, SocketException("TCP recv timeout"));
 
                 if(ret == 0) return 0; // 对方已关闭连接
                 if(ret == MYRPC_ERR_TIMEOUT_FLAG){

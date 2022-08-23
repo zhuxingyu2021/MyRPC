@@ -21,3 +21,4 @@ make_test(module_net_test test_json_file_parser)
 make_test(module_net_test test_tcp_server_client)
 
 make_test(module_rpc_test test_config)
+make_test(module_rpc_test/test_rpc_registry test_rpc_registry_server)

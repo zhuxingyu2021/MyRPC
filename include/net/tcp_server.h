@@ -56,6 +56,8 @@ namespace MyRPC{
          */
         void StopAccept();
 
+        void Loop(){m_fiberPool->Wait();}
+
         void SetAcceptTimeout(useconds_t accept_timeout){
             m_acceptor_con_timeout = accept_timeout;
         }

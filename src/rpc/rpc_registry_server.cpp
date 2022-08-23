@@ -1,6 +1,7 @@
 #include "fiber/synchronization.h"
 #include "rpc/rpc_registry_server.h"
 #include "rpc/rpc_session.h"
+#include "rpc/exception.h"
 
 #include <unistd.h>
 #include <string>
@@ -48,7 +49,16 @@ void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
     });
 
     while (true) {
-        auto message_type = proto.ParseHeader();
+        RPCSession::MessageType message_type;
+        try {
+            message_type = proto.ParseHeader();
+        }catch(ProtocolException& e){
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
+            Logger::info("A connection form IP: {}, port: {} is closed because invalid data format: {}", proto.GetPeerIP()->GetIP(),
+                          proto.GetPeerIP()->GetPort(), e.what());
+#endif
+            break;
+        }
 
         if(message_type >= RPCSession::ERROR){
             if (heartbeat_stopped_flag) {
@@ -122,6 +132,7 @@ void RpcRegistryServer::handleMessageRequestSubscribe(RPCSession& proto, std::ve
         auto ret = m_service_provider_map.equal_range(service_name);
         for(auto iter = ret.first; iter != ret.second; ++iter)
             map_service_ip.emplace(iter->first, iter->second);
+        if(ret.first == ret.second) map_service_ip.emplace(service_name, nullptr); // 如果查询不到，返回null
     }
 
     // 将查询结果发送给客户端
@@ -193,6 +204,7 @@ void RpcRegistryServer::PushRegistryInfo(std::unordered_set<std::string> &servic
                 auto ret_server_ip = m_service_provider_map.equal_range(iter_service->second);
                 for(auto iter_server_ip = ret_server_ip.first; iter_server_ip != ret_server_ip.second; ++iter_server_ip)
                     map_service_ip.emplace(iter_server_ip->first, iter_server_ip->second);
+                if(ret_server_ip.first == ret_server_ip.second) map_service_ip.emplace(iter_service->second, nullptr); // 如果查询不到，返回null
             }
 
             // 发送更新内容给客户端
