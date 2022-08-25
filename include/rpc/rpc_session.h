@@ -56,7 +56,7 @@ namespace MyRPC{
             ERROR_OTHERS
         };
 
-        MessageType ParseHeader();
+        MessageType RecvAndParseHeader();
 
         template<class ContentType>
         void ParseContent(ContentType& content){

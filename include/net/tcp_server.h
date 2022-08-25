@@ -34,9 +34,11 @@ namespace MyRPC{
          */
         TCPServer(int thread_num=std::thread::hardware_concurrency(), useconds_t accept_timeout=0, bool ipv6=false);
 
-        ~TCPServer();
+        virtual ~TCPServer();
 
-        bool Bind(InetAddr::ptr addr) noexcept;
+        static void handleSIGINT(int);
+
+        bool bind(InetAddr::ptr addr) noexcept;
 
         /**
          * @brief 开启协程池，开启Acceptor协程，启动TCP服务器
@@ -49,12 +51,6 @@ namespace MyRPC{
          * @note 必须在协程池的析构函数或Stop()方法之前调用
          */
         void Stop();
-
-        /**
-         * @brief 停止Acceptor协程，不停止协程池
-         * @note 若要再次启动Acceptor协程，必须先调用Stop()方法停止协程池，再调用Start()方法重启
-         */
-        void StopAccept();
 
         void Loop(){m_fiberPool->Wait();}
 
@@ -73,6 +69,10 @@ namespace MyRPC{
 
         FiberPool::ptr m_fiberPool;
 
+        /**
+         * @brief 判断当前服务器是否将要被关闭。（关闭原因可能是调用Stop函数/析构函数/SIGINT事件）
+         */
+        bool IsStopping() const{return m_stopping.load();}
     private:
         bool m_ipv6;
 
@@ -85,8 +85,13 @@ namespace MyRPC{
         bool m_running;
         std::atomic<bool> m_stopping = {false};
 
+        inline static std::vector<TCPServer*> m_avail_server;
+
         void doAccept();
     };
+
+    extern int _sigint_handler_initializer;
+    static int _my_sigint_handler_initializer = _sigint_handler_initializer;
 }
 
 #endif //MYRPC_TCP_SERVER_H

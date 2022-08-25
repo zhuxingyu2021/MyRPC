@@ -69,7 +69,7 @@ int main()
         local_addr.sin_port = htons(port_server);
         local_addr.sin_addr.s_addr = inet_addr(ip);
         if(bind(sockfd, (struct sockaddr*)&local_addr, sizeof(local_addr)) < 0){
-            Logger::error("Bind error");
+            Logger::error("bind error");
             return;
         }
         if(listen(sockfd, 5) < 0){

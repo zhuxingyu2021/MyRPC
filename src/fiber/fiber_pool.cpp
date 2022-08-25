@@ -25,7 +25,7 @@ FiberPool::FiberPool(int thread_num) : m_threads_num(thread_num) {
 
 FiberPool::~FiberPool() {
     if (m_running) Stop();
-    MYRPC_SYS_ASSERT(close(m_global_event_fd) == 0);
+    close(m_global_event_fd);
 
     for(auto threads_context: m_threads_context_ptr) delete threads_context;
 }

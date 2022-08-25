@@ -48,26 +48,20 @@ void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
         wait_subtask_exit_mutex.unlock();
     });
 
-    while (true) {
+    while (!IsStopping()) {
         RPCSession::MessageType message_type;
         try {
-            message_type = proto.ParseHeader();
+            message_type = proto.RecvAndParseHeader();
         }catch(ProtocolException& e){
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
             Logger::info("A connection form IP: {}, port: {} is closed because invalid data format: {}", proto.GetPeerIP()->GetIP(),
                           proto.GetPeerIP()->GetPort(), e.what());
 #endif
             break;
-        }
-
-        if(message_type >= RPCSession::ERROR){
-            if (heartbeat_stopped_flag) {
-                // 心跳停止
-#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
-                Logger::debug("Connection socket fd {}: heartbeat package timeout!", sock->GetSocketfd());
-#endif
-                break;
-            }
+        }catch(std::exception& e){
+            Logger::info("Internal Error: {}, connection form IP: {}, port: {}", e.what(), proto.GetPeerIP()->GetIP(),
+                         proto.GetPeerIP()->GetPort());
+            message_type = RPCSession::ERROR_OTHERS;
         }
 
         switch(message_type){
@@ -82,12 +76,33 @@ void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
                 heartbeat_flag = true;
                 handleMessageRequestRegistration(proto, local_provide_service);
                 break;
+            case RPCSession::ERROR_TIMEOUT:
+                if (heartbeat_stopped_flag) {
+                    // 心跳停止
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
+                    Logger::info("A connection form IP: {}, port: {} is closed because of heartbeat timeout", proto.GetPeerIP()->GetIP(),
+                                 proto.GetPeerIP()->GetPort());
+#endif
+                    goto end_loop;
+                }
+                break;
+            case RPCSession::ERROR_CLIENT_CLOSE_CONN:
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
+                Logger::info("A connection form IP: {}, port: {} is closed by client", proto.GetPeerIP()->GetIP(),
+                             proto.GetPeerIP()->GetPort());
+#endif
+                goto end_loop;
             default:
-                // TODO
-                ;
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
+                Logger::info("A connection form IP: {}, port: {} is closed because of internal error", proto.GetPeerIP()->GetIP(),
+                             proto.GetPeerIP()->GetPort());
+#endif
+                goto end_loop;
         }
+
     }
 
+    end_loop:
     // 在会话表中删除当前会话的表项
     {
         std::unique_lock<FiberSync::RWMutex> lock(m_peer_ip_session_map_mutex);

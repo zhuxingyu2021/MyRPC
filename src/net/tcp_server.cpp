@@ -11,24 +11,49 @@
 #include "fiber/timeout_io.h"
 
 #include "net/exception.h"
+#include <csignal>
 
 using namespace MyRPC;
+
+int MyRPC::_sigint_handler_initializer = [](){
+    // 捕捉SIGINT事件，使得程序在Ctrl-C事件发生之后能正常关闭TCPServer
+    struct sigaction sigIntHandler;
+
+    sigIntHandler.sa_handler = TCPServer::handleSIGINT;
+    sigemptyset(&sigIntHandler.sa_mask);
+    sigIntHandler.sa_flags = 0;
+
+    sigaction(SIGINT, &sigIntHandler, NULL);
+    return 0;
+}();
+
 
 TCPServer::TCPServer(int thread_num, useconds_t accept_timeout, bool ipv6) :m_fiberPool(std::make_shared<FiberPool>(thread_num)), m_running(false),
 m_ipv6(ipv6), m_acceptor_con_timeout(accept_timeout), m_acceptor(nullptr){
     m_listen_sock_fd = socket(ipv6 ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
     MYRPC_ASSERT_EXCEPTION(m_listen_sock_fd >= 0, throw SocketException("TCPServer socket creation"));
+
+    m_avail_server.push_back(this);
 }
 
 TCPServer::TCPServer(FiberPool::ptr fiberPool, useconds_t accept_timeout, bool ipv6) : m_fiberPool(fiberPool), m_running(false), m_ipv6(ipv6),
     m_acceptor_con_timeout(accept_timeout), m_acceptor(nullptr){
     m_listen_sock_fd = socket(ipv6 ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
     MYRPC_ASSERT_EXCEPTION(m_listen_sock_fd >= 0, throw SocketException("TCPServer socket creation"));
+
+    m_avail_server.push_back(this);
 }
 
 TCPServer::~TCPServer() {
     Stop();
-    close(m_listen_sock_fd);
+    MYRPC_SYS_ASSERT(close(m_listen_sock_fd));
+
+    auto iter = std::find(m_avail_server.begin(), m_avail_server.end(),this);
+    if(iter != m_avail_server.end()){
+        m_avail_server.erase(iter);
+    }else{
+        Logger::critical("Closing a tcp server which haven't been registered!");
+    }
 }
 
 void TCPServer::Start() {
@@ -51,22 +76,15 @@ void TCPServer::Stop() {
     }
 }
 
-void TCPServer::StopAccept() {
-    if(m_acceptor){
-        m_acceptor->Join();
-        m_acceptor = nullptr;
-    }
-}
-
-bool TCPServer::Bind(InetAddr::ptr addr) noexcept {
-    if(bind(m_listen_sock_fd, addr->GetAddr(), addr->GetAddrLen())==0) {
+bool TCPServer::bind(InetAddr::ptr addr) noexcept {
+    if(::bind(m_listen_sock_fd, addr->GetAddr(), addr->GetAddrLen())==0) {
         return true;
     }
     return false;
 }
 
 void TCPServer::doAccept() {
-    while(!m_stopping) {
+    while(!IsStopping()) {
         int sockfd = accept_timeout(m_listen_sock_fd, nullptr, nullptr, m_acceptor_con_timeout);
         if(sockfd < 0) {
             if(sockfd == MYRPC_ERR_TIMEOUT_FLAG){ // 超时
@@ -81,4 +99,14 @@ void TCPServer::doAccept() {
         Socket::ptr sock = std::make_shared<Socket>(sockfd);
         m_fiberPool->Run(std::bind(&TCPServer::handleConnection, this, sock));
     }
+}
+
+void TCPServer::handleSIGINT(int sig) {
+    Logger::info("Caught SIGINT: {}", sig);
+
+    for(auto server_ptr: m_avail_server){
+        server_ptr->~TCPServer();
+    }
+
+    exit(-1);
 }

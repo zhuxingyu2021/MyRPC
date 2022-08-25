@@ -2,6 +2,7 @@
 
 #include <string>
 #include <cstdio>
+#include <iostream>
 
 using namespace MyRPC;
 
@@ -21,7 +22,7 @@ int main(int argc, char** argv){
 
     RpcRegistryServer server(config);
 
-    if(!server.Bind(config->GetRegistryServerIP())){
+    if(!server.bind(config->GetRegistryServerIP())){
         Logger::error("bind error: {}", strerror(errno));
         return -1;
     }

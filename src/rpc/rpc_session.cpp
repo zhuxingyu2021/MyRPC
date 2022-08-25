@@ -3,7 +3,7 @@
 
 using namespace MyRPC;
 
-RPCSession::MessageType RPCSession::ParseHeader() {
+RPCSession::MessageType RPCSession::RecvAndParseHeader() {
     uint8_t buf[HEADER_LENGTH];
     auto recv_result = m_sock.RecvAllTimeout(buf, HEADER_LENGTH, 0, m_sock_timeout);
 

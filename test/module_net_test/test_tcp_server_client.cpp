@@ -42,7 +42,7 @@ class EchoClient: public TCPClient<EchoClient>{
     using TCPClient<EchoClient>::TCPClient;
 public:
     char buf[1024];
-    void doConnect(const string& msg, bool* err){
+    void Post(const string& msg, bool* err){
         *err = false;
 
         try {
@@ -69,7 +69,7 @@ public:
 int main(){
     EchoServer server(8, TIME_OUT);
 
-    if(!server.Bind(make_shared<InetAddr>("127.0.0.1", 9999))){
+    if(!server.bind(make_shared<InetAddr>("127.0.0.1", 9999))){
         Logger::error("bind error");
         return -1;
     }
@@ -81,7 +81,7 @@ int main(){
     std::cin >> cmdline;
     while(cmdline != "q"){
         bool err;
-        client->doConnect(cmdline, &err);
+        client->Post(cmdline, &err);
         std::cin >> cmdline;
         if(err) break;
     }
