@@ -8,8 +8,8 @@ RPCSession::MessageType RPCSession::RecvAndParseHeader() {
     auto recv_result = m_sock.RecvAllTimeout(buf, HEADER_LENGTH, 0, m_sock_timeout);
 
     if(recv_result > 0) {
-        MYRPC_ASSERT_EXCEPTION(buf[0] == MAGIC_NUMBER, throw ProtocolException("Invalid magic number!"));
-        MYRPC_ASSERT_EXCEPTION(buf[1] == VERSION, throw ProtocolException("Invalid version number!"));
+        if(buf[0] != MAGIC_NUMBER) return ERROR_UNKNOWN_PROTOCOL;
+        if(buf[1] != VERSION) return ERROR_UNKNOWN_PROTOCOL;
 
         // 解析内容长度并返回消息类型
         uint32_t content_length_net;

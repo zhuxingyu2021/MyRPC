@@ -34,12 +34,13 @@ void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
         iter_session = res.first;
     }
 
-    FiberSync::Mutex wait_subtask_exit_mutex;
+    FiberSync::Mutex wait_subtask_exit_mutex; // 用于等待心跳检测子协程退出
     wait_subtask_exit_mutex.lock();
 
-    std::atomic<bool> heartbeat_flag = {false};
-    std::atomic<bool> heartbeat_stopped_flag = false;
+    std::atomic<bool> heartbeat_flag = {false}; // 若该变量为true，表示已接收到客户端的请求/心跳包
+    std::atomic<bool> heartbeat_stopped_flag = false; // 若该变量为true，表示心跳包超时，主动关闭当前连接
 
+    // 创建心跳检测子协程，用于检测心跳包是否超时，若超时则将heartbeat_stopped_flag设为true并退出
     m_fiberPool->Run([ this, &heartbeat_flag, &heartbeat_stopped_flag, &wait_subtask_exit_mutex](){
         do{
             sleep(m_keepalive);
@@ -52,16 +53,13 @@ void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
         RPCSession::MessageType message_type;
         try {
             message_type = proto.RecvAndParseHeader();
-        }catch(ProtocolException& e){
-#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
-            Logger::info("A connection form IP: {}, port: {} is closed because invalid data format: {}", proto.GetPeerIP()->GetIP(),
-                          proto.GetPeerIP()->GetPort(), e.what());
-#endif
-            break;
         }catch(std::exception& e){
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
             Logger::info("Internal Error: {}, connection form IP: {}, port: {}", e.what(), proto.GetPeerIP()->GetIP(),
                          proto.GetPeerIP()->GetPort());
             message_type = RPCSession::ERROR_OTHERS;
+#endif
+            break;
         }
 
         switch(message_type){
@@ -91,6 +89,16 @@ void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
                 Logger::info("A connection form IP: {}, port: {} is closed by client", proto.GetPeerIP()->GetIP(),
                              proto.GetPeerIP()->GetPort());
 #endif
+                goto end_loop;
+            case RPCSession::ERROR_UNKNOWN_PROTOCOL:
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
+                Logger::info("A connection form IP: {}, port: {} is closed because of unknown protocol", proto.GetPeerIP()->GetIP(),
+                             proto.GetPeerIP()->GetPort());
+#endif
+                {
+                    std::string err_msg = "Unknown protocol";
+                    proto.PrepareAndSend(RPCSession::MESSAGE_RESPOND_ERROR, err_msg);
+                }
                 goto end_loop;
             default:
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
@@ -129,7 +137,7 @@ void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
         PushRegistryInfo(local_service);
     }
 
-    // 等待子线程退出
+    // 等待心跳检测子协程退出
     heartbeat_flag = false;
     wait_subtask_exit_mutex.lock();
 }
@@ -151,7 +159,7 @@ void RpcRegistryServer::handleMessageRequestSubscribe(RPCSession& proto, std::ve
     }
 
     // 将查询结果发送给客户端
-    proto.Send(RPCSession::MESSAGE_RESPOND_OK, map_service_ip);
+    proto.PrepareAndSend(RPCSession::MESSAGE_RESPOND_OK, map_service_ip);
 
     // 订阅机制：把客户端IP加入服务订阅者表
     auto client_ip = proto.GetPeerIP();
@@ -178,7 +186,7 @@ void RpcRegistryServer::handleMessageRequestRegistration(RPCSession &proto, std:
     }
 
     // 返回OK应答
-    proto.Send(RPCSession::MESSAGE_RESPOND_OK);
+    proto.PrepareAndSend(RPCSession::MESSAGE_RESPOND_OK);
 
     // 向订阅了相应服务的客户端返回新注册的服务
     PushRegistryInfo(service_name_set);
@@ -223,7 +231,7 @@ void RpcRegistryServer::PushRegistryInfo(std::unordered_set<std::string> &servic
             }
 
             // 发送更新内容给客户端
-            proto->Send(RPCSession::MESSAGE_PUSH, map_service_ip);
+            proto->PrepareAndSend(RPCSession::MESSAGE_PUSH, map_service_ip);
         }
     }
 }

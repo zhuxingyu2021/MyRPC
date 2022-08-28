@@ -18,6 +18,7 @@ set(SRCFILE
         rpc/config.cpp
         rpc/rpc_session.cpp
         rpc/rpc_registry_server.cpp
+        rpc/rpc_server.cpp
 )
 
 find_package(Boost COMPONENTS coroutine REQUIRED)

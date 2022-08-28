@@ -12,7 +12,7 @@ namespace MyRPC{
     class Logger{
     public:
         template<class ...Args>
-        static void info(Args ...args){
+        static void info(Args&& ...args){
             auto tmp = enable_hook;
             enable_hook = false;
             spdlog::info(std::forward<Args>(args)...);
@@ -20,7 +20,7 @@ namespace MyRPC{
         }
 
         template<class ...Args>
-        static void debug(Args ...args){
+        static void debug(Args&& ...args){
             _global_logger_spinlock.lock();
             auto tmp = enable_hook;
             enable_hook = false;
@@ -30,7 +30,7 @@ namespace MyRPC{
         }
 
         template<class ...Args>
-        static void warn(Args ...args){
+        static void warn(Args&& ...args){
             auto tmp = enable_hook;
             enable_hook = false;
             spdlog::warn(std::forward<Args>(args)...);
@@ -38,7 +38,7 @@ namespace MyRPC{
         }
 
         template<class ...Args>
-        static void error(Args ...args){
+        static void error(Args&& ...args){
             auto tmp = enable_hook;
             enable_hook = false;
             spdlog::error(std::forward<Args>(args)...);
@@ -46,7 +46,7 @@ namespace MyRPC{
         }
 
         template<class ...Args>
-        static void critical(Args ...args){
+        static void critical(Args&& ...args){
             auto tmp = enable_hook;
             enable_hook = false;
             spdlog::critical(std::forward<Args>(args)...);

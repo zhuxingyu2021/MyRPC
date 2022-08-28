@@ -47,12 +47,15 @@ namespace MyRPC{
             MESSAGE_REQUEST_REGISTRATION,
 
             MESSAGE_RESPOND_OK,
+            MESSAGE_RESPOND_EXCEPTION,
+            MESSAGE_RESPOND_ERROR,
 
             MESSAGE_PUSH,
 
             ERROR,
             ERROR_TIMEOUT,
             ERROR_CLIENT_CLOSE_CONN,
+            ERROR_UNKNOWN_PROTOCOL,
             ERROR_OTHERS
         };
 
@@ -68,7 +71,7 @@ namespace MyRPC{
         }
 
         template<class ContentType>
-        void Send(MessageType msg_type, const ContentType& content){
+        StringBuffer Prepare(MessageType msg_type, const ContentType& content){
             StringBuilder sb;
 
             // 构造协议header（内容长度除外）
@@ -89,11 +92,10 @@ namespace MyRPC{
 
             memcpy(buffer.data + 3, &content_length_net, sizeof(uint32_t)); // 将内容长度写入package中
 
-            // 发送package
-            m_sock.SendAll(buffer.data, buffer.size, 0);
+            return buffer;
         }
 
-        void Send(MessageType msg_type){
+        StringBuffer Prepare(MessageType msg_type){
             StringBuilder sb;
 
             // 构造协议header（内容长度为0）
@@ -104,8 +106,17 @@ namespace MyRPC{
             memset(header.data + 3, 0, sizeof(uint32_t)); // 内容长度设置为0
             sb.Append(std::move(header));
 
-            // 发送package
-            m_sock.SendAll(header.data, header.size, 0);
+            return header;
+        }
+
+        inline void Send(const StringBuffer& buffer){
+            m_sock.SendAll(buffer.data, buffer.size, 0);
+        }
+
+        template <class ...Args>
+        void PrepareAndSend(Args... args){
+            StringBuffer sb = std::move(Prepare(std::forward<Args>(args)...));
+            Send(sb);
         }
 
         Socket& GetSocket() const{return m_sock;}

@@ -46,7 +46,7 @@ TCPServer::TCPServer(FiberPool::ptr fiberPool, useconds_t accept_timeout, bool i
 
 TCPServer::~TCPServer() {
     Stop();
-    MYRPC_SYS_ASSERT(close(m_listen_sock_fd));
+    MYRPC_SYS_ASSERT(close(m_listen_sock_fd) == 0);
 
     auto iter = std::find(m_avail_server.begin(), m_avail_server.end(),this);
     if(iter != m_avail_server.end()){

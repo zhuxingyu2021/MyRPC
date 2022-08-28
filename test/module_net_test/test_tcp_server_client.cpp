@@ -1,5 +1,4 @@
 #include "net/tcp_server.h"
-#include "net/tcp_client.h"
 #include "fiber/fiber_pool.h"
 
 #include <iostream>
@@ -38,10 +37,12 @@ protected:
     }
 };
 
-class EchoClient: public TCPClient<EchoClient>{
-    using TCPClient<EchoClient>::TCPClient;
+class EchoClient{
 public:
-    char buf[1024];
+    using ptr = std::shared_ptr<EchoClient>;
+
+    EchoClient(const InetAddr::ptr& remote_addr):sock(SocketWithoutFiber::Connect(remote_addr)){}
+
     void Post(const string& msg, bool* err){
         *err = false;
 
@@ -64,6 +65,10 @@ public:
             *err = true;
         }
     }
+
+private:
+    SocketWithoutFiber::ptr sock;
+    char buf[1024]{};
 };
 
 int main(){
@@ -75,13 +80,13 @@ int main(){
     }
     server.Start();
 
-    auto client = EchoClient::connect(make_shared<InetAddr>("127.0.0.1", 9999));
+    EchoClient client(make_shared<InetAddr>("127.0.0.1", 9999));
 
     std::string cmdline;
     std::cin >> cmdline;
     while(cmdline != "q"){
         bool err;
-        client->Post(cmdline, &err);
+        client.Post(cmdline, &err);
         std::cin >> cmdline;
         if(err) break;
     }
