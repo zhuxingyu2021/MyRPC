@@ -21,6 +21,7 @@ namespace MyRPC{
 
         StringBuffer(size_t cap):capacity(cap){data = new unsigned char[cap];}
         StringBuffer(StringBuffer&& sb) noexcept:capacity(sb.capacity) {
+            delete data;
             data = sb.data;
             size = sb.size;
             sb.data = nullptr; sb.size = 0;

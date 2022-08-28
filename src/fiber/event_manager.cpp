@@ -90,7 +90,7 @@ void EventManager::WaitEvent(int thread_id) {
             happened_event |= ((EPOLLIN | EPOLLOUT) & fiber_event);
         }
         int now_rw_event = happened_event & (EPOLLIN | EPOLLOUT);
-        if(now_rw_event & fiber_event == 0) continue;
+        if((now_rw_event & fiber_event) == 0) continue;
 
         // 获取还未触发的event，并重新注册。若event全部被触发，则删除。
         int left_event = fiber_event & (~now_rw_event);

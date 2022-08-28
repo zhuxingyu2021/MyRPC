@@ -44,7 +44,7 @@ namespace MyRPC{
             std::unique_lock<MutexType> lock(m_sock_mutex);
 
             ssize_t ret;
-            MYRPC_ASSERT_EXCEPTION((ret = send(m_socketfd, buf,len,flags))>=0, SocketException("TCP send"));
+            MYRPC_ASSERT_EXCEPTION((ret = send(m_socketfd, buf,len,flags))>=0, throw SocketException("TCP send"));
             return ret;
         }
 
@@ -52,7 +52,7 @@ namespace MyRPC{
             std::unique_lock<MutexType> lock(m_sock_mutex);
 
             ssize_t ret;
-            MYRPC_ASSERT_EXCEPTION((ret = recv(m_socketfd, buf,len,flags))>=0, SocketException("TCP recv"));
+            MYRPC_ASSERT_EXCEPTION((ret = recv(m_socketfd, buf,len,flags))>=0, throw SocketException("TCP recv"));
             return ret;
         }
 
@@ -60,7 +60,7 @@ namespace MyRPC{
             std::unique_lock<MutexType> lock(m_sock_mutex);
 
             ssize_t ret;
-            MYRPC_ASSERT_EXCEPTION((ret = recv_timeout(m_socketfd, buf,len,flags, timeout))!=-1, SocketException("TCP recv timeout"));
+            MYRPC_ASSERT_EXCEPTION((ret = recv_timeout(m_socketfd, buf,len,flags, timeout))!=-1, throw SocketException("TCP recv timeout"));
             return ret;
         }
 
@@ -70,7 +70,7 @@ namespace MyRPC{
             size_t send_sz = 0;
             ssize_t ret;
             do{
-                MYRPC_ASSERT_EXCEPTION((ret = send(m_socketfd, (const char*)buf+send_sz,len-send_sz,flags))>=0, SocketException("TCP send"));
+                MYRPC_ASSERT_EXCEPTION((ret = send(m_socketfd, (const char*)buf+send_sz,len-send_sz,flags))>=0, throw SocketException("TCP send"));
                 send_sz += ret;
             }while(send_sz < len);
         }
@@ -89,7 +89,7 @@ namespace MyRPC{
             ssize_t ret;
             MYRPC_ASSERT(len >= 0);
             do{
-                MYRPC_ASSERT_EXCEPTION((ret = recv(m_socketfd, buf,len,flags))>=0, SocketException("TCP recv"));
+                MYRPC_ASSERT_EXCEPTION((ret = recv(m_socketfd, buf,len,flags))>=0, throw SocketException("TCP recv"));
                 if(ret == 0) return 0; // 对方已关闭连接
                 recv_sz += ret;
             }while(recv_sz < len);
@@ -110,7 +110,7 @@ namespace MyRPC{
             ssize_t ret;
             MYRPC_ASSERT(len >= 0);
             do{
-                MYRPC_ASSERT_EXCEPTION((ret = recv_timeout(m_socketfd, buf,len,flags, timeout))!=-1, SocketException("TCP recv timeout"));
+                MYRPC_ASSERT_EXCEPTION((ret = recv_timeout(m_socketfd, buf,len,flags, timeout))!=-1, throw SocketException("TCP recv timeout"));
 
                 if(ret == 0) return 0; // 对方已关闭连接
                 if(ret == MYRPC_ERR_TIMEOUT_FLAG){
@@ -146,7 +146,10 @@ namespace MyRPC{
     };
 
     using Socket = MutexSocket<FiberSync::Mutex>;
-    using SocketWithoutFiber = MutexSocket<std::mutex>;
+    using SocketSTDMutex = MutexSocket<std::mutex>;
+
+    struct _no_lock_type{void lock(){} void unlock(){}};
+    using SocketNoLock = MutexSocket<_no_lock_type>;
 }
 
 #endif //MYRPC_SOCKET_H

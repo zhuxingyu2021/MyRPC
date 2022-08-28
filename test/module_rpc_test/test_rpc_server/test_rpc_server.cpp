@@ -28,6 +28,8 @@ int main(int argc, char** argv){
     }
     server.Start();
 
+    server.ConnectToRegistryServer();
+
     std::function<std::string(const std::string&)> func_echo = [](const std::string& in)->std::string{
         return in;
     };

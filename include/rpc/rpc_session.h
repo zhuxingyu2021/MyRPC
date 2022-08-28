@@ -11,8 +11,10 @@
 #include <arpa/inet.h>
 
 #include "noncopyable.h"
+#include "enum2string.h"
 
 namespace MyRPC{
+
 /*
  * 私有通信协议
  * +--------+--------+-----------------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+
@@ -28,6 +30,20 @@ namespace MyRPC{
  * 第四-七个字节是接收的内容长度。
  */
 
+    MYRPC_DEFINE_ENUM_WITH_STRING_CONVERSIONS(MessageType,
+                                              (MESSAGE_HEARTBEAT)
+                                              (MESSAGE_REQUEST_SUBSCRIBE)
+                                              (MESSAGE_REQUEST_REGISTRATION)
+                                              (MESSAGE_RESPOND_OK)
+                                              (MESSAGE_RESPOND_EXCEPTION)
+                                              (MESSAGE_RESPOND_ERROR)
+                                              (MESSAGE_PUSH)
+                                              (ERROR_TIMEOUT)
+                                              (ERROR_CLIENT_CLOSE_CONN)
+                                              (ERROR_UNKNOWN_PROTOCOL)
+                                              (ERROR_OTHERS)
+    )
+
     class RPCSession: public NonCopyable{
     public:
         using ptr = std::shared_ptr<RPCSession>;
@@ -39,25 +55,6 @@ namespace MyRPC{
 
         RPCSession(Socket& s, useconds_t socket_timeout = 0): m_sock(s), m_sock_timeout(socket_timeout), m_content(),
                                                               m_peer_ip(std::move(m_sock.GetPeerAddr())){}
-
-        enum MessageType{ // 请求类型，协议的第三个字节
-            MESSAGE_HEARTBEAT = 0,
-
-            MESSAGE_REQUEST_SUBSCRIBE,
-            MESSAGE_REQUEST_REGISTRATION,
-
-            MESSAGE_RESPOND_OK,
-            MESSAGE_RESPOND_EXCEPTION,
-            MESSAGE_RESPOND_ERROR,
-
-            MESSAGE_PUSH,
-
-            ERROR,
-            ERROR_TIMEOUT,
-            ERROR_CLIENT_CLOSE_CONN,
-            ERROR_UNKNOWN_PROTOCOL,
-            ERROR_OTHERS
-        };
 
         MessageType RecvAndParseHeader();
 
@@ -75,7 +72,8 @@ namespace MyRPC{
             StringBuilder sb;
 
             // 构造协议header（内容长度除外）
-            StringBuffer header(7);
+            StringBuffer header(HEADER_LENGTH);
+            header.size = HEADER_LENGTH;
             header.data[0] = MAGIC_NUMBER;
             header.data[1] = VERSION;
             header.data[2] = (uint8_t)msg_type;
@@ -96,15 +94,13 @@ namespace MyRPC{
         }
 
         StringBuffer Prepare(MessageType msg_type){
-            StringBuilder sb;
-
             // 构造协议header（内容长度为0）
-            StringBuffer header(7);
+            StringBuffer header(HEADER_LENGTH);
+            header.size = HEADER_LENGTH;
             header.data[0] = MAGIC_NUMBER;
             header.data[1] = VERSION;
             header.data[2] = (uint8_t)msg_type;
             memset(header.data + 3, 0, sizeof(uint32_t)); // 内容长度设置为0
-            sb.Append(std::move(header));
 
             return header;
         }

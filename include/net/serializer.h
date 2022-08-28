@@ -267,6 +267,16 @@ public:
             buffer.Append("null");
     }
 
+    template<class T>
+    static std::string ToString(T&& t){
+        StringBuilder sb;
+        JsonSerializer ser(sb);
+        ser.Save(std::forward<T>(t));
+        StringBuffer buf = std::move(sb.Concat());
+        std::string return_val((char*)buf.data, buf.size);
+        return return_val;
+    }
+
 private:
 
     StringBuilder& buffer;

@@ -41,7 +41,7 @@ class EchoClient{
 public:
     using ptr = std::shared_ptr<EchoClient>;
 
-    EchoClient(const InetAddr::ptr& remote_addr):sock(SocketWithoutFiber::Connect(remote_addr)){}
+    EchoClient(const InetAddr::ptr& remote_addr):sock(SocketSTDMutex::Connect(remote_addr)){}
 
     void Post(const string& msg, bool* err){
         *err = false;
@@ -67,7 +67,7 @@ public:
     }
 
 private:
-    SocketWithoutFiber::ptr sock;
+    SocketSTDMutex::ptr sock;
     char buf[1024]{};
 };
 

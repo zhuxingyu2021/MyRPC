@@ -3,7 +3,7 @@
 
 using namespace MyRPC;
 
-RPCSession::MessageType RPCSession::RecvAndParseHeader() {
+MessageType RPCSession::RecvAndParseHeader() {
     uint8_t buf[HEADER_LENGTH];
     auto recv_result = m_sock.RecvAllTimeout(buf, HEADER_LENGTH, 0, m_sock_timeout);
 
@@ -19,6 +19,7 @@ RPCSession::MessageType RPCSession::RecvAndParseHeader() {
         // 读取内容
         if(content_length > 0){
             StringBuffer content(content_length);
+            content.size = content_length;
             auto recv_result2 = m_sock.RecvAllTimeout(content.data, content_length, 0, m_sock_timeout);
             if(recv_result == 0) return ERROR_CLIENT_CLOSE_CONN; // 客户端关闭连接
             else if(recv_result < 0) MYRPC_ASSERT(false);
@@ -29,7 +30,7 @@ RPCSession::MessageType RPCSession::RecvAndParseHeader() {
             m_content = std::move(null_content);
         }
 
-        return RPCSession::MessageType(buf[2]);
+        return MessageType(buf[2]);
     }else if(recv_result == 0){
         // 客户端关闭连接
         return ERROR_CLIENT_CLOSE_CONN;

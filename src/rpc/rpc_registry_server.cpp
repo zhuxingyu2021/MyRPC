@@ -44,37 +44,37 @@ void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
     m_fiberPool->Run([ this, &heartbeat_flag, &heartbeat_stopped_flag, &wait_subtask_exit_mutex](){
         do{
             sleep(m_keepalive);
-        }while(heartbeat_flag.exchange(false));
+        }while(heartbeat_flag.exchange(false)); // 如果在m_keepalive秒内接收到心跳包，就再等待m_keepalive秒
         heartbeat_stopped_flag = true;
         wait_subtask_exit_mutex.unlock();
     });
 
     while (!IsStopping()) {
-        RPCSession::MessageType message_type;
+        MessageType message_type;
         try {
             message_type = proto.RecvAndParseHeader();
         }catch(std::exception& e){
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
             Logger::info("Internal Error: {}, connection form IP: {}, port: {}", e.what(), proto.GetPeerIP()->GetIP(),
                          proto.GetPeerIP()->GetPort());
-            message_type = RPCSession::ERROR_OTHERS;
+            message_type = ERROR_OTHERS;
 #endif
             break;
         }
 
         switch(message_type){
-            case RPCSession::MESSAGE_HEARTBEAT:
+            case MESSAGE_HEARTBEAT:
                 heartbeat_flag = true;
                 break;
-            case RPCSession::MESSAGE_REQUEST_SUBSCRIBE:
+            case MESSAGE_REQUEST_SUBSCRIBE:
                 heartbeat_flag = true;
                 handleMessageRequestSubscribe(proto, local_subscribe_service);
                 break;
-            case RPCSession::MESSAGE_REQUEST_REGISTRATION:
+            case MESSAGE_REQUEST_REGISTRATION:
                 heartbeat_flag = true;
                 handleMessageRequestRegistration(proto, local_provide_service);
                 break;
-            case RPCSession::ERROR_TIMEOUT:
+            case ERROR_TIMEOUT:
                 if (heartbeat_stopped_flag) {
                     // 心跳停止
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
@@ -84,20 +84,20 @@ void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
                     goto end_loop;
                 }
                 break;
-            case RPCSession::ERROR_CLIENT_CLOSE_CONN:
+            case ERROR_CLIENT_CLOSE_CONN:
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
                 Logger::info("A connection form IP: {}, port: {} is closed by client", proto.GetPeerIP()->GetIP(),
                              proto.GetPeerIP()->GetPort());
 #endif
                 goto end_loop;
-            case RPCSession::ERROR_UNKNOWN_PROTOCOL:
+            case ERROR_UNKNOWN_PROTOCOL:
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
                 Logger::info("A connection form IP: {}, port: {} is closed because of unknown protocol", proto.GetPeerIP()->GetIP(),
                              proto.GetPeerIP()->GetPort());
 #endif
                 {
                     std::string err_msg = "Unknown protocol";
-                    proto.PrepareAndSend(RPCSession::MESSAGE_RESPOND_ERROR, err_msg);
+                    proto.PrepareAndSend(MESSAGE_RESPOND_ERROR, err_msg);
                 }
                 goto end_loop;
             default:
@@ -159,7 +159,7 @@ void RpcRegistryServer::handleMessageRequestSubscribe(RPCSession& proto, std::ve
     }
 
     // 将查询结果发送给客户端
-    proto.PrepareAndSend(RPCSession::MESSAGE_RESPOND_OK, map_service_ip);
+    proto.PrepareAndSend(MESSAGE_RESPOND_OK, map_service_ip);
 
     // 订阅机制：把客户端IP加入服务订阅者表
     auto client_ip = proto.GetPeerIP();
@@ -185,8 +185,13 @@ void RpcRegistryServer::handleMessageRequestRegistration(RPCSession &proto, std:
         }
     }
 
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
+    Logger::info("Received an registration from client IP: {}, port: {}, registered service: {}", proto.GetPeerIP()->GetIP(),
+                 proto.GetPeerIP()->GetPort(), JsonSerializer::ToString(service_name_set));
+#endif
+
     // 返回OK应答
-    proto.PrepareAndSend(RPCSession::MESSAGE_RESPOND_OK);
+    proto.PrepareAndSend(MESSAGE_RESPOND_OK);
 
     // 向订阅了相应服务的客户端返回新注册的服务
     PushRegistryInfo(service_name_set);
@@ -231,7 +236,7 @@ void RpcRegistryServer::PushRegistryInfo(std::unordered_set<std::string> &servic
             }
 
             // 发送更新内容给客户端
-            proto->PrepareAndSend(RPCSession::MESSAGE_PUSH, map_service_ip);
+            proto->PrepareAndSend(MESSAGE_PUSH, map_service_ip);
         }
     }
 }
