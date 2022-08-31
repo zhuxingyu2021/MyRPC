@@ -26,7 +26,7 @@ protected:
                 } else if (recv_sz < 0) {
                     //Logger::info("recv timeout, retrying...");
                 } else{
-                    Logger::info("socket fd:{}, client close connection", sock->GetSocketfd());
+                    Logger::info("socket fd:{}, m_client close connection", sock->GetSocketfd());
                     break;
                 }
             }
@@ -72,9 +72,9 @@ private:
 };
 
 int main(){
-    EchoServer server(8, TIME_OUT);
+    EchoServer server(make_shared<InetAddr>("127.0.0.1", 9999),8, TIME_OUT);
 
-    if(!server.bind(make_shared<InetAddr>("127.0.0.1", 9999))){
+    if(!server.bind()){
         Logger::error("bind error");
         return -1;
     }

@@ -11,7 +11,7 @@
 
 #include "noncopyable.h"
 
-#include "fiber/synchronization.h"
+#include "fiber/fiber_sync.h"
 #include <mutex>
 
 #include "net/inetaddr.h"

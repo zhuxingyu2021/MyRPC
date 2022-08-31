@@ -1,4 +1,4 @@
-#include "fiber/synchronization.h"
+#include "fiber/fiber_sync.h"
 #include "rpc/rpc_registry_server.h"
 #include "rpc/rpc_session.h"
 #include "rpc/exception.h"
@@ -11,9 +11,9 @@
 
 using namespace MyRPC;
 
-RpcRegistryServer::RpcRegistryServer(const Config::ptr& config) :TCPServer(config->GetThreadsNum(), 1000*config->GetTimeout(),
-                                                                    config->IsIPv6()), m_keepalive(config->GetKeepalive()),
-                                                                    m_timeout(1000*config->GetTimeout()){
+RpcRegistryServer::RpcRegistryServer(const Config::ptr& config) :TCPServer(config->GetRegistryServerAddr(),
+                                                                           config->GetThreadsNum(), 1000 * config->GetTimeout()),
+                                                                           m_keepalive(config->GetKeepalive()){
 }
 
 void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
@@ -86,7 +86,7 @@ void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
                 break;
             case ERROR_CLIENT_CLOSE_CONN:
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
-                Logger::info("A connection form IP: {}, port: {} is closed by client", proto.GetPeerIP()->GetIP(),
+                Logger::info("A connection form IP: {}, port: {} is closed by m_client", proto.GetPeerIP()->GetIP(),
                              proto.GetPeerIP()->GetPort());
 #endif
                 goto end_loop;
@@ -146,7 +146,7 @@ void RpcRegistryServer::handleMessageRequestSubscribe(RPCSession& proto, std::ve
     // 从客户端接收订阅的服务名称 格式：std::unordered_set<std::string>，服务名称的数组
     std::unordered_set<std::string> service_name_set;
     proto.ParseContent(service_name_set);
-    // 返回提供相应服务的服务器IP地址 格式：std::multimap<std::string, InetAddr>，服务名称 -> 服务器IP地址
+    // 返回提供相应服务的服务器IP地址 格式：std::multimap<std::string, InetAddr::ptr>，服务名称 -> 服务器IP地址
 
     // 查询相应服务器的IP地址
     std::multimap<std::string, InetAddr::ptr> map_service_ip;
@@ -158,8 +158,11 @@ void RpcRegistryServer::handleMessageRequestSubscribe(RPCSession& proto, std::ve
         if(ret.first == ret.second) map_service_ip.emplace(service_name, nullptr); // 如果查询不到，返回null
     }
 
+
     // 将查询结果发送给客户端
-    proto.PrepareAndSend(MESSAGE_RESPOND_OK, map_service_ip);
+    // 格式：std::tuple<std::unordered_set<std::string>, std::multimap<std::string, InetAddr::ptr>>
+    std::tuple<std::unordered_set<std::string>&, std::multimap<std::string, InetAddr::ptr>&> to_send = {service_name_set, map_service_ip};
+    proto.PrepareAndSend(MESSAGE_RESPOND_OK, to_send);
 
     // 订阅机制：把客户端IP加入服务订阅者表
     auto client_ip = proto.GetPeerIP();
@@ -186,7 +189,7 @@ void RpcRegistryServer::handleMessageRequestRegistration(RPCSession &proto, std:
     }
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
-    Logger::info("Received an registration from client IP: {}, port: {}, registered service: {}", proto.GetPeerIP()->GetIP(),
+    Logger::info("Received an registration from m_client IP: {}, port: {}, registered service: {}", proto.GetPeerIP()->GetIP(),
                  proto.GetPeerIP()->GetPort(), JsonSerializer::ToString(service_name_set));
 #endif
 
@@ -236,7 +239,9 @@ void RpcRegistryServer::PushRegistryInfo(std::unordered_set<std::string> &servic
             }
 
             // 发送更新内容给客户端
-            proto->PrepareAndSend(MESSAGE_PUSH, map_service_ip);
+            // 格式：std::tuple<std::unordered_set<std::string>, std::multimap<std::string, InetAddr::ptr>>
+            std::tuple<std::unordered_set<std::string>&, std::multimap<std::string, InetAddr::ptr>&> to_send = {service_name_set, map_service_ip};
+            proto->PrepareAndSend(MESSAGE_PUSH, to_send);
         }
     }
 }

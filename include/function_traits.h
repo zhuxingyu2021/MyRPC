@@ -6,11 +6,7 @@
 
 namespace MyRPC{
     template< class T >
-    class function_traits
-    {
-        static_assert( sizeof( T ) == 0,
-                       "function_traits<T>: T is not a function type" );
-    };
+    struct function_traits:function_traits<decltype(&std::remove_reference_t<T>::operator())>{};
 
     template< class R, class... Ts >
     struct function_traits< R( Ts... ) >
@@ -46,9 +42,22 @@ namespace MyRPC{
 
     template< class R, class... Ts >
     struct function_traits< R( Ts... ) const && > : function_traits< R( Ts... ) > {};
-    
+
+    // std::function类型
     template< class R, class... Ts>
     struct function_traits<std::function<R(Ts...)>> : function_traits< R( Ts... ) > {};
+
+    // 函数指针类型
+    template< class R, class... Ts>
+    struct function_traits<R (*)(Ts...)> : function_traits< R( Ts... ) > {};
+
+    template< class R, class ClassType, class... Ts>
+    struct function_traits<R (ClassType::*)(Ts...)> : function_traits< R( Ts... ) > {
+        using class_type = ClassType;
+    };
+
+    template< class R, class ClassType, class... Ts>
+    struct function_traits<R (ClassType::*)(Ts...) const> : function_traits< R (ClassType::*)(Ts...) > {};
 }
 
 #endif //MYRPC_FUNCTION_TRAITS_H

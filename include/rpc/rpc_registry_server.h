@@ -6,7 +6,7 @@
 #include "rpc/config.h"
 #include "rpc/rpc_session.h"
 
-#include "fiber/synchronization.h"
+#include "fiber/fiber_sync.h"
 
 #include <memory>
 #include <string>
@@ -24,7 +24,6 @@ namespace MyRPC{
 
     private:
         int m_keepalive;
-        useconds_t m_timeout;
 
         // 服务提供者表
         // Service Name -> Service Provider 1 (IP)

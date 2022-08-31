@@ -13,12 +13,13 @@
 #include "noncopyable.h"
 
 namespace MyRPC{
-    class InetAddr: public NonCopyable{
+    class InetAddr{
     public:
         using ptr = std::shared_ptr<InetAddr>;
         InetAddr() = default;
 
         InetAddr(const std::string& ip, uint16_t port, bool ipv6=false);
+        InetAddr(const InetAddr&) = default;
 
         bool operator==(const InetAddr& operand) const{
             if(m_ipv6 == operand.m_ipv6){

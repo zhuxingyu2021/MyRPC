@@ -28,17 +28,17 @@ int MyRPC::_sigint_handler_initializer = [](){
 }();
 
 
-TCPServer::TCPServer(int thread_num, useconds_t accept_timeout, bool ipv6) :m_fiberPool(std::make_shared<FiberPool>(thread_num)), m_running(false),
-m_ipv6(ipv6), m_acceptor_con_timeout(accept_timeout), m_acceptor(nullptr){
-    m_listen_sock_fd = socket(ipv6 ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
+TCPServer::TCPServer(const InetAddr::ptr& bind_addr, int thread_num, useconds_t timeout) : m_fiberPool(std::make_shared<FiberPool>(thread_num)),
+                                                                                           m_running(false), m_timeout(timeout), m_acceptor(nullptr), m_bind_addr(bind_addr){
+    m_listen_sock_fd = socket(bind_addr->IsIPv6() ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
     MYRPC_ASSERT_EXCEPTION(m_listen_sock_fd >= 0, throw SocketException("TCPServer socket creation"));
 
     m_avail_server.push_back(this);
 }
 
-TCPServer::TCPServer(FiberPool::ptr fiberPool, useconds_t accept_timeout, bool ipv6) : m_fiberPool(fiberPool), m_running(false), m_ipv6(ipv6),
-    m_acceptor_con_timeout(accept_timeout), m_acceptor(nullptr){
-    m_listen_sock_fd = socket(ipv6 ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
+TCPServer::TCPServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, useconds_t timeout) : m_fiberPool(fiberPool), m_running(false),
+                                                                                                     m_timeout(timeout), m_acceptor(nullptr), m_bind_addr(bind_addr){
+    m_listen_sock_fd = socket(bind_addr->IsIPv6() ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
     MYRPC_ASSERT_EXCEPTION(m_listen_sock_fd >= 0, throw SocketException("TCPServer socket creation"));
 
     m_avail_server.push_back(this);
@@ -76,8 +76,8 @@ void TCPServer::Stop() {
     }
 }
 
-bool TCPServer::bind(InetAddr::ptr addr) noexcept {
-    if(::bind(m_listen_sock_fd, addr->GetAddr(), addr->GetAddrLen())==0) {
+bool TCPServer::bind() noexcept {
+    if(::bind(m_listen_sock_fd, m_bind_addr->GetAddr(), m_bind_addr->GetAddrLen())==0) {
         return true;
     }
     return false;
@@ -85,7 +85,7 @@ bool TCPServer::bind(InetAddr::ptr addr) noexcept {
 
 void TCPServer::doAccept() {
     while(!IsStopping()) {
-        int sockfd = accept_timeout(m_listen_sock_fd, nullptr, nullptr, m_acceptor_con_timeout);
+        int sockfd = accept_timeout(m_listen_sock_fd, nullptr, nullptr, m_timeout);
         if(sockfd < 0) {
             if(sockfd == MYRPC_ERR_TIMEOUT_FLAG){ // 超时
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_NET_LEVEL

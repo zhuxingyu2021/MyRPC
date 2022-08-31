@@ -6,6 +6,7 @@
 #include "spinlock.h"
 
 #include "net/tcp_server.h"
+#include "net/tcp_client.h"
 #include "rpc/rpc_session.h"
 #include "rpc/config.h"
 
@@ -19,7 +20,7 @@ namespace MyRPC{
     class RPCServer:public TCPServer{
     public:
         using ptr = std::shared_ptr<RPCServer>;
-        explicit RPCServer(Config::ptr config);
+        explicit RPCServer(InetAddr::ptr bind_addr, Config::ptr config);
 
         template<class Func>
         void RegisterMethod(const std::string& service_name,Func&& func){
@@ -52,35 +53,19 @@ namespace MyRPC{
 
     private:
         int m_keepalive;
-        useconds_t m_timeout;
-
-        InetAddr::ptr m_registry_server_ip;
 
         // 服务表，用于记录及查询服务对应的函数
         std::unordered_map<std::string, std::function<StringBuffer(RPCSession&)>> m_service_table;
 
         FiberSync::RWMutex m_service_table_mutex;
 
-        class RegistryClientSession{
+        class RegistryClientSession: public TCPClient{
         public:
-            RegistryClientSession(RPCServer* server):m_server(server){}
-            bool Connect(){
-                if(m_connection_closed) {
-                    m_sock = Socket::Connect(m_server->m_registry_server_ip, m_server->m_timeout);
-                    if (m_sock) {
-                        m_server->m_fiberPool->Run(std::bind(&RegistryClientSession::doConnect, this));
-                        m_connection_closed = false;
-                        return true;
-                    }
-                    return false;
-                }
-                return true;
-            }
-
+            RegistryClientSession(InetAddr::ptr server_addr, FiberPool::ptr& fiberPool, useconds_t timeout, int keep_alive):
+                                                        TCPClient(server_addr, fiberPool, timeout),m_keepalive(keep_alive){}
             void Update(std::string_view service_name);
         private:
-            RPCServer* m_server;
-            Socket::ptr m_sock = nullptr;
+            int m_keepalive;
 
             // 需要更新到注册服务器的新服务
             std::list<std::string> m_service_queue;
@@ -88,11 +73,15 @@ namespace MyRPC{
 
             std::atomic<bool> m_connection_closed = {true};
 
-            int64_t m_connection_handler_thread_id = -1;
+            int m_connection_handler_thread_id = -1;
 
-            void doConnect();
+        protected:
+
+            virtual void handleConnect() override;
         };
         RegistryClientSession m_registry;
+
+        void handleMessageRequestRPC(RPCSession&);
     };
 }
 

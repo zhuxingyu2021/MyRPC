@@ -34,6 +34,7 @@ namespace MyRPC{
                                               (MESSAGE_HEARTBEAT)
                                               (MESSAGE_REQUEST_SUBSCRIBE)
                                               (MESSAGE_REQUEST_REGISTRATION)
+                                              (MESSAGE_REQUEST_RPC)
                                               (MESSAGE_RESPOND_OK)
                                               (MESSAGE_RESPOND_EXCEPTION)
                                               (MESSAGE_RESPOND_ERROR)
@@ -58,17 +59,45 @@ namespace MyRPC{
 
         MessageType RecvAndParseHeader();
 
+        StringBuffer GetContent(){
+            StringBuffer ret_buf(std::move(m_content));
+            return ret_buf;
+        }
+
         template<class ContentType>
-        void ParseContent(ContentType& content){
-            if(m_content.size > 0) {
+        inline static void ParseContent(StringBuffer& content_buffer, ContentType& content){
+            if(content_buffer.size > 0) {
                 // 反序列化
-                Deserializer des(m_content);
+                Deserializer des(content_buffer);
                 des.Load(content);
             }
         }
 
         template<class ContentType>
-        StringBuffer Prepare(MessageType msg_type, const ContentType& content){
+        void ParseContent(ContentType&& content){
+            ParseContent(m_content, std::forward<ContentType>(content));
+        }
+
+        void ParseServiceName(std::string& service_name){
+            // 反序列化
+            Deserializer des(m_content);
+            des.Load(service_name);
+        }
+
+        static StringBuffer Prepare(MessageType msg_type){
+            // 构造协议header（内容长度为0）
+            StringBuffer header(HEADER_LENGTH);
+            header.size = HEADER_LENGTH;
+            header.data[0] = MAGIC_NUMBER;
+            header.data[1] = VERSION;
+            header.data[2] = (uint8_t)msg_type;
+            memset(header.data + 3, 0, sizeof(uint32_t)); // 内容长度设置为0
+
+            return header;
+        }
+
+        template<class ContentType>
+        static StringBuffer Prepare(MessageType msg_type, const ContentType& content){
             StringBuilder sb;
 
             // 构造协议header（内容长度除外）
@@ -93,16 +122,31 @@ namespace MyRPC{
             return buffer;
         }
 
-        StringBuffer Prepare(MessageType msg_type){
-            // 构造协议header（内容长度为0）
+        template<class ContentType>
+        static StringBuffer Prepare(MessageType msg_type, const std::string& service_name, const ContentType& content){
+            StringBuilder sb;
+
+            // 构造协议header（内容长度除外）
             StringBuffer header(HEADER_LENGTH);
             header.size = HEADER_LENGTH;
             header.data[0] = MAGIC_NUMBER;
             header.data[1] = VERSION;
             header.data[2] = (uint8_t)msg_type;
-            memset(header.data + 3, 0, sizeof(uint32_t)); // 内容长度设置为0
+            sb.Append(std::move(header));
 
-            return header;
+            // 序列化
+            Serializer ser(sb);
+            ser.Save(service_name);
+            ser.Save(content);
+
+            // 构造协议package并计算内容长度
+            StringBuffer buffer(sb.Concat());
+
+            auto content_length_net = htonl(buffer.size - HEADER_LENGTH); // 计算内容长度，并转换为网络字节序
+
+            memcpy(buffer.data + 3, &content_length_net, sizeof(uint32_t)); // 将内容长度写入package中
+
+            return buffer;
         }
 
         inline void Send(const StringBuffer& buffer){

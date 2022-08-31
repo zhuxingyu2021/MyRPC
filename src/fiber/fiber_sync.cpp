@@ -1,4 +1,4 @@
-#include "fiber/synchronization.h"
+#include "fiber/fiber_sync.h"
 
 #include <sys/eventfd.h>
 #include <fcntl.h>

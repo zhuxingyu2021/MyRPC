@@ -1,4 +1,4 @@
-#include "rpc/rpc_server.h"
+#include "rpc/rpc_registry_server.h"
 
 #include <string>
 #include <cstdio>
@@ -20,20 +20,13 @@ int main(int argc, char** argv){
         config = std::move(std::make_shared<Config>());
     }
 
-    RPCServer server(config);
+    RpcRegistryServer server(config);
 
-    if(!server.bind(std::make_shared<InetAddr>("127.0.0.1", 5678))){
+    if(!server.bind()){
         Logger::error("bind error: {}", strerror(errno));
         return -1;
     }
     server.Start();
-
-    server.ConnectToRegistryServer();
-
-    std::function<std::string(const std::string&)> func_echo = [](const std::string& in)->std::string{
-        return in;
-    };
-    server.RegisterMethod("echo", func_echo);
 
     server.Loop();
 }

@@ -20,25 +20,25 @@ namespace MyRPC{
 
         /**
          * @brief TCPServer类的构造函数，该方法会调用socket系统函数，若失败，会抛出SocketException异常
+         * @param bind_addr bind调用的地址
          * @param fiberPool 协程池
-         * @param accept_timeout accept调用的超时时间，单位微秒，0表示不设置超时时间
-         * @param ipv6 bind调用的地址是否是ipv6地址
+         * @param timeout TCP系统调用调用的超时时间，单位微秒，0表示不设置超时时间
          */
-        TCPServer(FiberPool::ptr fiberPool, useconds_t accept_timeout=0, bool ipv6=false);
+        explicit TCPServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, useconds_t timeout=0);
 
         /**
          * @brief TCPServer类的构造函数，该方法会调用socket系统函数，若失败，会抛出SocketException异常
+         * @param bind_addr bind调用的地址
          * @param thread_num 协程池允许的最大线程数量
-         * @param accept_timeout accept调用的超时时间，单位微秒，0表示不设置超时时间
-         * @param ipv6 bind调用的地址是否是ipv6地址
+         * @param timeout TCP系统调用的超时时间，单位微秒，0表示不设置超时时间
          */
-        TCPServer(int thread_num=std::thread::hardware_concurrency(), useconds_t accept_timeout=0, bool ipv6=false);
+        explicit TCPServer(const InetAddr::ptr& bind_addr, int thread_num=std::thread::hardware_concurrency(), useconds_t timeout=0);
 
         virtual ~TCPServer();
 
         static void handleSIGINT(int);
 
-        bool bind(InetAddr::ptr addr) noexcept;
+        bool bind() noexcept;
 
         /**
          * @brief 开启协程池，开启Acceptor协程，启动TCP服务器
@@ -54,10 +54,6 @@ namespace MyRPC{
 
         void Loop(){m_fiberPool->Wait();}
 
-        void SetAcceptTimeout(useconds_t accept_timeout){
-            m_acceptor_con_timeout = accept_timeout;
-        }
-
     protected:
         virtual void handleConnection(const Socket::ptr& sock) {
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_NET_LEVEL
@@ -67,20 +63,22 @@ namespace MyRPC{
 #endif
         }
 
-        FiberPool::ptr m_fiberPool;
-
         /**
          * @brief 判断当前服务器是否将要被关闭。（关闭原因可能是调用Stop函数/析构函数/SIGINT事件）
          */
         bool IsStopping() const{return m_stopping.load();}
+
+
+        FiberPool::ptr m_fiberPool;
+        useconds_t m_timeout; // TCP超时时间
+
     private:
         bool m_ipv6;
 
-        InetAddr::ptr m_addr;
+        InetAddr::ptr m_bind_addr;
 
         int m_listen_sock_fd = -1; // 用于监听端口的socket
         FiberPool::FiberController::ptr m_acceptor;
-        useconds_t m_acceptor_con_timeout; // Accept超时时间
 
         bool m_running;
         std::atomic<bool> m_stopping = {false};

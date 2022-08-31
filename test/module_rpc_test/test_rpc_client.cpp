@@ -1,8 +1,7 @@
-#include "rpc/rpc_registry_server.h"
+#include "rpc/rpc_client.h"
 
-#include <string>
-#include <cstdio>
 #include <iostream>
+#include <string>
 
 using namespace MyRPC;
 
@@ -20,13 +19,15 @@ int main(int argc, char** argv){
         config = std::move(std::make_shared<Config>());
     }
 
-    RpcRegistryServer server(config);
+    RPCClient client(config);
 
-    if(!server.bind(config->GetRegistryServerIP())){
-        Logger::error("bind error: {}", strerror(errno));
-        return -1;
+    if(!client.ConnectToRegistryServer()){
+        Logger::error("Can't connect to registry server!");
+        exit(-1);
     }
-    server.Start();
 
-    server.Loop();
+    auto future = client.InvokeAsync<std::string>("echo", std::string("Hello world!"));
+
+    std::cout << future.get() << std::endl;
+
 }

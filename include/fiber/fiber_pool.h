@@ -65,8 +65,6 @@ namespace MyRPC{
             int thread_id; // 线程ID
 
             std::atomic<bool> stopped {false}; // 任务是否已停止
-
-            int event_fd;
         };
         std::list<Task::ptr> m_tasks; // 任务队列
         SpinLock m_tasks_lock; // 任务队列锁

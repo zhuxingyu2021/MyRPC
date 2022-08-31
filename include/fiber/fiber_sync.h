@@ -1,5 +1,5 @@
-#ifndef MYRPC_SYNCHRONIZATION_H
-#define MYRPC_SYNCHRONIZATION_H
+#ifndef MYRPC_FIBER_SYNC_H
+#define MYRPC_FIBER_SYNC_H
 
 #include <atomic>
 #include <unistd.h>
@@ -99,4 +99,4 @@ namespace MyRPC{
     }
 }
 
-#endif //MYRPC_SYNCHRONIZATION_H
+#endif //MYRPC_FIBER_SYNC_H

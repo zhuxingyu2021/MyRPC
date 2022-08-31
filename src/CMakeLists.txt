@@ -10,7 +10,7 @@ set(SRCFILE
         fiber/fiber.cpp
         fiber/event_manager.cpp
         fiber/fiber_pool.cpp
-        fiber/synchronization.cpp
+        fiber/fiber_sync.cpp
 
         net/inetaddr.cpp
         net/tcp_server.cpp
@@ -19,6 +19,8 @@ set(SRCFILE
         rpc/rpc_session.cpp
         rpc/rpc_registry_server.cpp
         rpc/rpc_server.cpp
+        rpc/rpc_client.cpp
+        rpc/rpc_client_connection.cpp
 )
 
 find_package(Boost COMPONENTS coroutine REQUIRED)
