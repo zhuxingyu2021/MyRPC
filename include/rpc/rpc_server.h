@@ -43,7 +43,7 @@ namespace MyRPC{
                 }
                 m_registry.Update(service_name);
             };
-            m_fiberPool-> Run(std::bind(register_func, service_name, std::forward<Func>(func)));
+            m_fiber_pool-> Run(std::bind(register_func, service_name, std::forward<Func>(func)));
         }
 
         bool ConnectToRegistryServer(){return m_registry.Connect();}

@@ -11,7 +11,7 @@ using namespace MyRPC;
 RPCServer::RPCServer(InetAddr::ptr bind_addr, Config::ptr config) :TCPServer(bind_addr, config->GetThreadsNum(),
                                                                              1000*config->GetTimeout()), m_keepalive(config->GetKeepalive()),
                                                                              m_registry(config->GetRegistryServerAddr(),
-                                                                             m_fiberPool, 1000*config->GetTimeout(), m_keepalive){
+                                                                             m_fiber_pool, 1000*config->GetTimeout(), m_keepalive){
 }
 
 void RPCServer::handleConnection(const Socket::ptr &sock) {
@@ -26,7 +26,7 @@ void RPCServer::handleConnection(const Socket::ptr &sock) {
     std::atomic<bool> heartbeat_stopped_flag = false; // 若该变量为true，表示心跳包超时，主动关闭当前连接
 
     // 创建心跳检测子协程，用于检测心跳包是否超时，若超时则将heartbeat_stopped_flag设为true并退出
-    m_fiberPool->Run([ this, &heartbeat_flag, &heartbeat_stopped_flag, &wait_subtask_exit_mutex](){
+    m_fiber_pool->Run([ this, &heartbeat_flag, &heartbeat_stopped_flag, &wait_subtask_exit_mutex](){
         do{
             sleep(m_keepalive);
         }while(heartbeat_flag.exchange(false)); // 如果在m_keepalive秒内接收到心跳包，就再等待m_keepalive秒
@@ -79,12 +79,12 @@ void RPCServer::RegistryClientSession::handleConnect() {
     wait_subtask_exit_mutex.lock();
     bool kill_subtask = false;
     // 开启子协程，定时发送Heartbeat包
-    m_fiberPool->Run([this, &proto, &kill_subtask, &wait_subtask_exit_mutex](){
+    m_fiber_pool->Run([this, &proto, &kill_subtask, &wait_subtask_exit_mutex](){
         usleep(m_keepalive * 800000);
         while(!kill_subtask){
             proto.PrepareAndSend(MESSAGE_HEARTBEAT);
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
-            Logger::info("Query server: IP: {}, port: {}, heartbeats package have already sent",
+            Logger::info("Register server: IP: {}, port: {}, heartbeats package have already sent",
                          m_server_addr->GetIP(), m_server_addr->GetPort());
 #endif
 
@@ -150,7 +150,7 @@ void RPCServer::RegistryClientSession::Update(std::string_view service_name) {
 
     m_service_queue.emplace_back(service_name);
     if (is_queue_empty && m_connection_handler_thread_id >= 0) {
-        m_fiberPool->Notify(m_connection_handler_thread_id);
+        m_fiber_pool->Notify(m_connection_handler_thread_id);
     }
 }
 

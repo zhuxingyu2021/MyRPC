@@ -14,7 +14,7 @@ namespace MyRPC{
         using ptr = std::shared_ptr<TCPClient>;
 
         TCPClient(InetAddr::ptr& server_addr, FiberPool::ptr& fiberPool, useconds_t timeout=0):
-                m_server_addr(server_addr), m_fiberPool(fiberPool), m_timeout(timeout){}
+                m_server_addr(server_addr), m_fiber_pool(fiberPool), m_timeout(timeout){}
 
         virtual ~TCPClient(){disConnect();}
 
@@ -23,7 +23,7 @@ namespace MyRPC{
             if(m_connection_closed) {
                 m_sock = Socket::Connect(m_server_addr, m_timeout);
                 if (m_sock) {
-                    m_fiberPool->Run(std::bind(&TCPClient::handleConnect, this));
+                    m_fiber_pool->Run(std::bind(&TCPClient::handleConnect, this));
                     m_connection_closed = false;
                     return true;
                 }
@@ -53,7 +53,7 @@ namespace MyRPC{
         Socket::ptr m_sock;
 
         useconds_t m_timeout;
-        FiberPool::ptr m_fiberPool;
+        FiberPool::ptr m_fiber_pool;
 
         std::atomic<bool> m_connection_closed = {true};
     private:

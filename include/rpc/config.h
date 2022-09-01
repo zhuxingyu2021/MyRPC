@@ -34,7 +34,7 @@ namespace MyRPC{
         int m_threads_num = 8;
 
         int m_timeout = 2000; // 超时时间 单位ms
-        int m_keepalive = 5;
+        int m_keepalive = 10; // Heartbeat检测间隔 单位s
 
         InetAddr::ptr m_registry_server_addr;
 

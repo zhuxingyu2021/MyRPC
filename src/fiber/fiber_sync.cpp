@@ -40,7 +40,7 @@ void Mutex::lock() {
         // 在成功获得锁之前阻塞自己
         do{
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_LOCK_LEVEL
-            Logger::debug("Thread: {}, Fiber: {} is failed to acquire a lock, block mutex id: {}, thread has waiter: {}", FiberPool::GetCurrentThreadId(),
+            Logger::debug("Thread: {}, Fiber: {} is failed to acquire a lock, block mutex id: {}, waiter count in same thread: {}", FiberPool::GetCurrentThreadId(),
                           Fiber::GetCurrentId(), m_mutex_id, wait_for_acquire_mutex_set.count(m_mutex_id) );
 #endif
 

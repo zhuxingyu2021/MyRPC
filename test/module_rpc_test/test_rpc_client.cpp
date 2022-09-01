@@ -25,6 +25,7 @@ int main(int argc, char** argv){
         Logger::error("Can't connect to registry server!");
         exit(-1);
     }
+    client.Start();
 
     auto future = client.InvokeAsync<std::string>("echo", std::string("Hello world!"));
 

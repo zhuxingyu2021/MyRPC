@@ -13,13 +13,13 @@ int main() {
     vector<int> vec1 = {32, 901, 12, 29, -323};
     serializer.Save(vec1);
     StringBuffer buf1 = s.Concat();
-    std::cout <<std::string(buf1.data, buf1.size) << std::endl <<"==========================================================" << std::endl;
+    std::cout << buf1.ToString() << std::endl <<"==========================================================" << std::endl;
     s.Clear();
 
     array<string, 3> array1 = {"12o", "hELLO!", "Yeah!"};
     serializer.Save(array1);
     StringBuffer buf2 = s.Concat();
-    std::cout <<std::string(buf2.data, buf2.size) << std::endl <<"==========================================================" << std::endl;
+    std::cout << buf2.ToString() << std::endl <<"==========================================================" << std::endl;
     s.Clear();
 
     std::unordered_map<float, string> map1 = {{9.23,   "12"},
@@ -27,7 +27,7 @@ int main() {
                                               {68.238, std::to_string(3.192)}};
     serializer.Save(map1);
     StringBuffer buf3 = s.Concat();
-    std::cout <<std::string(buf3.data, buf3.size) << std::endl <<"==========================================================" << std::endl;
+    std::cout << buf3.ToString() << std::endl <<"==========================================================" << std::endl;
     s.Clear();
 
     std::pair<vector<int>, vector<int>> pair1;
@@ -42,7 +42,7 @@ int main() {
 
     serializer.Save(pair1);
     StringBuffer buf4 = s.Concat();
-    std::cout <<std::string(buf4.data, buf4.size) << std::endl <<"==========================================================" << std::endl;
+    std::cout << buf4.ToString() << std::endl <<"==========================================================" << std::endl;
     s.Clear();
 
     string hello = "Hello!";
@@ -50,13 +50,13 @@ int main() {
 
     serializer.Save(tuple1);
     StringBuffer buf5 = s.Concat();
-    std::cout <<std::string(buf5.data, buf5.size) << std::endl <<"==========================================================" << std::endl;
+    std::cout << buf5.ToString() << std::endl <<"==========================================================" << std::endl;
     s.Clear();
 
     set<string> set1= {"323", "dqwd", "ca", "ld"};
     serializer.Save(set1);
     StringBuffer buf6 = s.Concat();
-    std::cout <<std::string(buf6.data, buf6.size) << std::endl <<"==========================================================" << std::endl;
+    std::cout << buf6.ToString() << std::endl <<"==========================================================" << std::endl;
     s.Clear();
 
 
@@ -69,7 +69,7 @@ int main() {
 
     serializer.Save(map2);
     StringBuffer buf7 = s.Concat();
-    std::cout <<std::string(buf7.data, buf7.size) << std::endl <<"==========================================================" << std::endl;
+    std::cout << buf7.ToString() << std::endl <<"==========================================================" << std::endl;
 
     s.Clear();
 
@@ -80,7 +80,7 @@ int main() {
     vec2.emplace_back(new std::map<std::string, vector<int>>(map3));
     serializer.Save(vec2);
     StringBuffer buf8 = s.Concat();
-    std::cout <<std::string(buf8.data, buf8.size) << std::endl <<"==========================================================" << std::endl;
+    std::cout << buf8.ToString() << std::endl <<"==========================================================" << std::endl;
 
     s.Clear();
 
@@ -98,6 +98,6 @@ int main() {
 
     serializer.Save(t);
     StringBuffer buf9 = s.Concat();
-    std::cout <<std::string(buf9.data, buf9.size) << std::endl <<"==========================================================" << std::endl;
+    std::cout << buf9.ToString() << std::endl <<"==========================================================" << std::endl;
 
 }

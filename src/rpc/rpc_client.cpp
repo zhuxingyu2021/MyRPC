@@ -20,12 +20,12 @@ void RPCClient::RegistryClientSession::handleConnect() {
     wait_subtask_exit_mutex.lock();
     bool kill_subtask = false;
     // 开启子协程，定时发送Heartbeat包
-    m_fiberPool->Run([this, &proto, &kill_subtask, &wait_subtask_exit_mutex](){
+    m_fiber_pool->Run([this, &proto, &kill_subtask, &wait_subtask_exit_mutex](){
         usleep(m_keepalive * 800000);
         while(!kill_subtask){
             proto.PrepareAndSend(MESSAGE_HEARTBEAT);
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
-            Logger::info("Query server: IP: {}, port: {}, heartbeats package have already sent",
+            Logger::info("Register server: IP: {}, port: {}, heartbeats package have already sent",
                          m_server_addr->GetIP(), m_server_addr->GetPort());
 #endif
 
@@ -37,7 +37,7 @@ void RPCClient::RegistryClientSession::handleConnect() {
     FiberSync::Mutex wait_subscribe_task_exit_mutex; // 用于等待订阅子协程退出
     wait_subscribe_task_exit_mutex.lock();
     // 开启子协程，不断向注册服务器发送订阅消息
-    m_fiberPool->Run([this, &kill_subtask, &wait_subscribe_task_exit_mutex, &proto, &wait_recv_queue](){
+    m_fiber_pool->Run([this, &kill_subtask, &wait_subscribe_task_exit_mutex, &proto, &wait_recv_queue](){
         while(!kill_subtask){
             std::unordered_set<std::string> new_service;
             {
@@ -56,6 +56,11 @@ void RPCClient::RegistryClientSession::handleConnect() {
                 m_service_queue.clear();
             }
             proto.PrepareAndSend(MESSAGE_REQUEST_SUBSCRIBE, new_service);
+
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
+            Logger::info("Connection to registry server: IP: {}, port: {}, have sent message to register service: {}",
+                         m_server_addr->GetIP(), m_server_addr->GetPort(), JsonSerializer::ToString(new_service));
+#endif
         }
         wait_subscribe_task_exit_mutex.unlock();
     }, m_connection_handler_thread_id);
@@ -74,6 +79,12 @@ void RPCClient::RegistryClientSession::handleConnect() {
 
                 auto& service_name_set = std::get<0>(result);
                 auto& service_addr_map = std::get<1>(result);
+
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
+                Logger::info("Connection to registry server: IP: {}, port: {}, update service: {} with message type:{}",
+                             m_server_addr->GetIP(), m_server_addr->GetPort(), JsonSerializer::ToString(service_name_set),
+                             ToString(message_type));
+#endif
 
                 // 修改服务提供者表
                 {
@@ -149,13 +160,13 @@ void RPCClient::RegistryClientSession::handleConnect() {
 
 bool RPCClient::RegistryClientSession::Query(std::string_view service_name) {
     if(!IsClosed()) {
-        m_service_queue_mutex.lock();
+        std::unique_lock<SpinLock> lock(m_service_queue_mutex);
         bool is_queue_empty = m_service_queue.empty();
         auto service = m_service_queue.emplace_back(std::make_shared<ServiceQueueNode>(service_name));
-        m_service_queue_mutex.unlock();
+        lock.unlock();
 
         if (is_queue_empty && m_connection_handler_thread_id >= 0) {
-            m_fiberPool->Notify(m_connection_handler_thread_id);
+            m_fiber_pool->Notify(m_connection_handler_thread_id);
         }
 
         service->wait_mutex.lock();

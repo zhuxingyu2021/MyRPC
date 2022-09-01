@@ -31,33 +31,31 @@ int EventManager::AddIOEvent(int fd, EventType event) {
 
     int op; // epoll_ctl 的第二个参数
 
-    // 查找fd对应的event是否已存在
-    auto iter = m_fd_event_map.find(fd);
-    if(iter != m_fd_event_map.end())
+    // 当前文件描述符对应的IO事件
+    auto iter = m_adder_map.find(fd);
+    if(iter != m_adder_map.end())
     {
-        assert(iter->second.first == Fiber::GetCurrentId());
+        assert(iter->second[event] == 0);
 
         // event已存在，则修改event
-        EventType new_event = (EventType)(iter->second.second | event);
-        //m_fd_event_map[fd] = std::make_pair(Fiber::GetCurrentId(), new_event);
-        m_fd_event_map.emplace(std::piecewise_construct,
-                               std::forward_as_tuple(fd), std::forward_as_tuple(Fiber::GetCurrentId(), new_event));
+        iter->second[event] = Fiber::GetCurrentId();
 
-        event_epoll.events = EPOLLET | new_event;
+        event_epoll.events = EPOLLET | EPOLLIN | EPOLLOUT;
         event_epoll.data.fd = fd;
 
         op = EPOLL_CTL_MOD;
     }
     else{
-        // event不存在，创建event
-        //m_fd_event_map[fd] = std::make_pair(Fiber::GetCurrentId(), event);
-        m_fd_event_map.emplace(std::piecewise_construct,
-                               std::forward_as_tuple(fd), std::forward_as_tuple(Fiber::GetCurrentId(), event));
-        event_epoll.events = EPOLLET | event;
+        // 目前当前文件描述符没有IO事件
+        std::array<int64_t,2> tmp = {0, 0};
+        tmp[event] = Fiber::GetCurrentId();
+        m_adder_map.emplace(fd, tmp);
+
+        int event_in_epoll = (event == READ) ? EPOLLIN : EPOLLOUT;
+        event_epoll.events = EPOLLET | event_in_epoll;
         event_epoll.data.fd = fd;
 
         op = EPOLL_CTL_ADD;
-        ++m_event_count;
     }
 
     // 调用epoll_ctl
@@ -73,9 +71,10 @@ void EventManager::WaitEvent(int thread_id) {
         auto happened_event = m_events[i].events;
         auto fd = m_events[i].data.fd;
 
-        auto[fiber_id, fiber_event] = m_fd_event_map[fd];
+        auto& event_fiber_map = m_adder_map[fd];
+        auto [read_fiber_id, write_fiber_id] = event_fiber_map;
 
-        if(fiber_id == -1){ // eventfd唤醒
+        if(event_fiber_map[READ] < 0){ // eventfd唤醒
             auto tmp = enable_hook;
             enable_hook = false;
 
@@ -86,28 +85,34 @@ void EventManager::WaitEvent(int thread_id) {
             continue;
         }
 
+        // 在当前文件描述符上添加的IO事件
+        int reg_event = ((event_fiber_map[READ] > 0) ? EPOLLIN: 0) | ((event_fiber_map[WRITE] > 0) ? EPOLLOUT: 0);
+
         if (happened_event & (EPOLLERR | EPOLLHUP)){
-            happened_event |= ((EPOLLIN | EPOLLOUT) & fiber_event);
+            happened_event |= ((EPOLLIN | EPOLLOUT) & reg_event);
         }
         int now_rw_event = happened_event & (EPOLLIN | EPOLLOUT);
-        if((now_rw_event & fiber_event) == 0) continue;
+        if((now_rw_event & reg_event) == 0) continue;
 
         // 获取还未触发的event，并重新注册。若event全部被触发，则删除。
-        int left_event = fiber_event & (~now_rw_event);
+        int left_event = happened_event & (~now_rw_event);
         int op = left_event?EPOLL_CTL_MOD: EPOLL_CTL_DEL;
         if(!left_event) { // 若event全部被触发，则删除相应的event
-            --m_event_count;
-            m_fd_event_map.erase(fd);
+            m_adder_map.erase(fd);
         }else{
-            m_fd_event_map[fd].second = static_cast<EventType>(left_event);
+            event_fiber_map[(now_rw_event == EPOLLIN) ? READ: WRITE] = 0;
         }
         m_events[i].events = left_event | EPOLLET;
 
         MYRPC_SYS_ASSERT(epoll_ctl(m_epoll_fd, op, fd, &m_events[i]) == 0);
 
-        if((now_rw_event & READ) | (now_rw_event & WRITE)){
-            // 恢复协程执行
-            resume(fiber_id);
+        if(now_rw_event & EPOLLIN){
+            // 读事件发生，恢复相应协程执行
+            resume(read_fiber_id);
+        }
+        if(now_rw_event & EPOLLOUT){
+            // 写事件发生，恢复相应协程执行
+            resume(write_fiber_id);
         }
     }
 }
@@ -117,47 +122,51 @@ void EventManager::resume(int64_t fiber_id) {
 }
 
 int EventManager::RemoveIOEvent(int fd, EventManager::EventType event) {
-    // 查找fd对应的event是否已存在
-    auto iter = m_fd_event_map.find(fd);
-    if(iter == m_fd_event_map.end())
+    // 查找fd上是否有事件
+    auto iter = m_adder_map.find(fd);
+    if(iter == m_adder_map.end())
     {
-        // event不存在，则返回
+        // fd上没有事件，返回
         return 0;
     }
     else{
-        // event已存在
-        EventType new_event = (EventType)(iter->second.second & ~event);
+        int new_event = 0; // 删除event后当前fd剩余的事件
+        if(event == READ){
+            new_event |= ((iter->second[WRITE] > 0) ? EPOLLOUT: 0);
+        }else if(event == WRITE){
+            new_event |= ((iter->second[READ] > 0) ? EPOLLIN: 0);
+        }
+
         struct epoll_event event_epoll; // epoll_ctl 的第4个参数
         memset(&event_epoll, 0, sizeof(epoll_event));
         event_epoll.data.fd = fd;
         event_epoll.events = EPOLLET | new_event;
 
         if(new_event == 0) {
-            --m_event_count;
-            m_fd_event_map.erase(fd);
+            m_adder_map.erase(fd);
             return epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, &event_epoll);
         }else{
-            //m_fd_event_map[fd] = std::make_pair(iter->second.first, new_event);
-            (*iter).second.second = new_event;
+            iter->second[event] = 0;
+
             return epoll_ctl(m_epoll_fd, EPOLL_CTL_MOD, fd, &event_epoll);
         }
     }
 }
 
 bool EventManager::IsExistIOEvent(int fd, EventManager::EventType event) const {
-    // 查找fd对应的event是否已存在
-    auto iter = m_fd_event_map.find(fd);
-    if(iter == m_fd_event_map.end())
+    // 查找fd上是否有事件
+    auto iter = m_adder_map.find(fd);
+    if(iter == m_adder_map.end())
     {
-        // event不存在，则返回
+        // fd上没有事件，返回
         return false;
     }else{
-        return (iter->second.second & event) != 0;
+        return iter->second[event] > 0;
     }
 }
 
 int EventManager::AddWakeupEventfd(int fd) {
-    if(m_fd_event_map.find(fd) == m_fd_event_map.end()) {
+    if(m_adder_map.find(fd) == m_adder_map.end()) {
 
         // 将Eventfd设置为非阻塞模式
         int flags;
@@ -167,15 +176,12 @@ int EventManager::AddWakeupEventfd(int fd) {
             MYRPC_SYS_ASSERT(fcntl(fd, F_SETFL, flags) == 0)
         }
 
-        EventType eventfd_event = EventManager::READ; // 需要从eventfd读数据
-        //m_fd_event_map[fd] = std::make_pair(-1, eventfd_event);
-        m_fd_event_map.emplace(std::piecewise_construct,
-                               std::forward_as_tuple(fd), std::forward_as_tuple(-1, eventfd_event));
+        m_adder_map.emplace(fd, std::array<int64_t,2>{-1,0});
 
         epoll_event event_epoll; // epoll_ctl 的4个参数
         memset(&event_epoll, 0, sizeof(epoll_event));
         event_epoll.data.fd = fd;
-        event_epoll.events = EPOLLET | eventfd_event;
+        event_epoll.events = EPOLLET | EPOLLIN; // 等待读事件的发生
 
         // 调用epoll_ctl
         return epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fd, &event_epoll);

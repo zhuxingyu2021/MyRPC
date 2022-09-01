@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <functional>
+#include <array>
 #include "fiber.h"
 
 #include "noncopyable.h"
@@ -21,9 +22,8 @@ namespace MyRPC{
         ~EventManager();
 
         enum EventType{
-            READ = EPOLLIN,
-            WRITE = EPOLLOUT,
-            READ_WRITE = EPOLLIN|EPOLLOUT
+            READ = 0,
+            WRITE = 1
         };
 
         /**
@@ -58,11 +58,6 @@ namespace MyRPC{
          */
         void WaitEvent(int thread_id);
 
-        /**
-         * @brief 获得事件数量
-         */
-        int GetNumEvents(){return m_event_count;}
-
     protected:
         // 恢复执行协程ID为fiber_id的协程
         // Note: 该方法没有实现，必须被子类重写
@@ -70,14 +65,15 @@ namespace MyRPC{
 
     private:
         int m_epoll_fd;
-        int m_event_count = 0;
         epoll_event m_events[MAX_EVENTS];
 
         int m_notify_event_fd; // 用于从epoll_wait中唤醒
 
-        // fd -> (Fiber Id, Event)
-        // 可以根据文件描述符查到谁添加了这个IO事件，以及IO事件的事件类型
-        std::unordered_map<int, std::pair<int64_t ,EventType>> m_fd_event_map;
+        // m_adder_map: fd -> (READ Fiber ID, WRITE Fiber ID)
+        // m_adder_map: 可以根据文件描述符查到谁添加了读/写IO事件
+        // 如果没有IO事件，那么对应的Fiber ID = 0
+        // 如果是唤醒事件，READ Fiber ID < 0
+        std::unordered_map<int, std::array<int64_t,2>> m_adder_map;
     };
 
 }

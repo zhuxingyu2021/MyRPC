@@ -83,6 +83,10 @@ namespace MyRPC{
             return str;
         }
 
+        std::string ToString() const{
+            return std::string((char*)data, size);
+        }
+
     private:
         int m_read_offset = 0; // 已读取的字符数量
     };

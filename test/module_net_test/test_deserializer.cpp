@@ -18,7 +18,7 @@ int main() {
     des1.Load(map1);
     serializer.Save(map1);
     StringBuffer bufs1 = serialize_sb.Concat();
-    std::cout <<std::string(bufs1.data, bufs1.size) << std::endl <<"==========================================================" << std::endl;
+    std::cout << bufs1.ToString() << std::endl <<"==========================================================" << std::endl;
     serialize_sb.Clear();
 
     StringBuilder sb2;
@@ -29,7 +29,7 @@ int main() {
     des2.Load(vec);
     serializer.Save(vec);
     StringBuffer bufs2 = serialize_sb.Concat();
-    std::cout <<std::string(bufs2.data, bufs2.size) << std::endl <<"==========================================================" << std::endl;
+    std::cout <<bufs2.ToString() << std::endl <<"==========================================================" << std::endl;
     serialize_sb.Clear();
 
 
@@ -41,7 +41,7 @@ int main() {
     des3.Load(pair1);
     serializer.Save(pair1);
     StringBuffer bufs3 = serialize_sb.Concat();
-    std::cout <<std::string(bufs3.data, bufs3.size) << std::endl <<"==========================================================" << std::endl;
+    std::cout << bufs3.ToString() << std::endl <<"==========================================================" << std::endl;
     serialize_sb.Clear();
 
 
@@ -53,7 +53,7 @@ int main() {
     des4.Load(vec2);
     serializer.Save(vec2);
     StringBuffer bufs4 = serialize_sb.Concat();
-    std::cout <<std::string(bufs4.data, bufs4.size) << std::endl <<"==========================================================" << std::endl;
+    std::cout << bufs4.ToString() << std::endl <<"==========================================================" << std::endl;
     serialize_sb.Clear();
 
 
@@ -65,7 +65,7 @@ int main() {
     des5.Load(tuple1);
     serializer.Save(tuple1);
     StringBuffer bufs5 = serialize_sb.Concat();
-    std::cout <<std::string(bufs5.data, bufs5.size) << std::endl <<"==========================================================" << std::endl;
+    std::cout << bufs5.ToString() << std::endl <<"==========================================================" << std::endl;
     serialize_sb.Clear();
 
 

@@ -28,7 +28,9 @@ namespace MyRPC{
         explicit RPCClient(Config::ptr config);
 
         bool ConnectToRegistryServer(){return m_registry.Connect();}
-        bool ConnectToRPCServer();
+
+        void Start() { m_fiber_pool->Start(); }
+        void Stop() { m_fiber_pool->Stop();}
 
         template <class ReturnType, class ...Args>
         std::future<ReturnType> InvokeAsync(const std::string& service_name, Args&&... args){

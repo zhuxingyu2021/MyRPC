@@ -28,7 +28,7 @@ int MyRPC::_sigint_handler_initializer = [](){
 }();
 
 
-TCPServer::TCPServer(const InetAddr::ptr& bind_addr, int thread_num, useconds_t timeout) : m_fiberPool(std::make_shared<FiberPool>(thread_num)),
+TCPServer::TCPServer(const InetAddr::ptr& bind_addr, int thread_num, useconds_t timeout) : m_fiber_pool(std::make_shared<FiberPool>(thread_num)),
                                                                                            m_running(false), m_timeout(timeout), m_acceptor(nullptr), m_bind_addr(bind_addr){
     m_listen_sock_fd = socket(bind_addr->IsIPv6() ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
     MYRPC_ASSERT_EXCEPTION(m_listen_sock_fd >= 0, throw SocketException("TCPServer socket creation"));
@@ -36,7 +36,7 @@ TCPServer::TCPServer(const InetAddr::ptr& bind_addr, int thread_num, useconds_t 
     m_avail_server.push_back(this);
 }
 
-TCPServer::TCPServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, useconds_t timeout) : m_fiberPool(fiberPool), m_running(false),
+TCPServer::TCPServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, useconds_t timeout) : m_fiber_pool(fiberPool), m_running(false),
                                                                                                      m_timeout(timeout), m_acceptor(nullptr), m_bind_addr(bind_addr){
     m_listen_sock_fd = socket(bind_addr->IsIPv6() ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
     MYRPC_ASSERT_EXCEPTION(m_listen_sock_fd >= 0, throw SocketException("TCPServer socket creation"));
@@ -60,8 +60,8 @@ void TCPServer::Start() {
     if(!m_running) {
 
         MYRPC_ASSERT_EXCEPTION(listen(m_listen_sock_fd, SOMAXCONN) == 0, throw SocketException("socket listen"));
-        m_acceptor = m_fiberPool->Run(std::bind(&TCPServer::doAccept, this));
-        m_fiberPool->Start();
+        m_acceptor = m_fiber_pool->Run(std::bind(&TCPServer::doAccept, this));
+        m_fiber_pool->Start();
 
         m_running = true;
     }
@@ -70,8 +70,8 @@ void TCPServer::Start() {
 void TCPServer::Stop() {
     if(m_running){
         m_stopping = true;
-        m_fiberPool->Wait();
-        m_fiberPool->Stop();
+        m_fiber_pool->Wait();
+        m_fiber_pool->Stop();
         m_running = false;
     }
 }
@@ -97,7 +97,7 @@ void TCPServer::doAccept() {
             else break;
         }
         Socket::ptr sock = std::make_shared<Socket>(sockfd);
-        m_fiberPool->Run(std::bind(&TCPServer::handleConnection, this, sock));
+        m_fiber_pool->Run(std::bind(&TCPServer::handleConnection, this, sock));
     }
 }
 

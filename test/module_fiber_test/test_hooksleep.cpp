@@ -37,7 +37,7 @@ int main(){
     g->Join();
 
 
-    Logger::info("usleep Test Start!");
+    Logger::info("nanosleep Test Start!");
     Logger::info("Syscall nanosleep({}) started!", 100000000);
     struct timespec ts = {0, 100000000};
     nanosleep(&ts, NULL);

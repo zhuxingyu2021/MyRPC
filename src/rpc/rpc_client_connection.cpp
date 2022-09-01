@@ -6,17 +6,16 @@
 using namespace MyRPC;
 
 RPCClientException::ErrorType RPCClientConnection::SendRecv(const StringBuffer& to_send, StringBuffer& recv) {
-    m_rpc_queue_mutex.lock();
+    std::unique_lock<FiberSync::Mutex> lock(m_rpc_queue_mutex);
     if(IsClosed()){
         // 如果连接已经被关闭
-        m_rpc_queue_mutex.unlock();
         return RPCClientException::HAVENT_BEEN_CALLED;
     }
     bool is_queue_empty = m_rpc_queue.empty();
     auto node_ptr = m_rpc_queue.emplace_back(new RPCQueueNode(to_send));
-    m_rpc_queue_mutex.unlock();
+    lock.unlock();
 
-    if(is_queue_empty) m_fiberPool->Notify(m_connection_handler_thread_id);
+    if(is_queue_empty) m_fiber_pool->Notify(m_connection_handler_thread_id);
 
     // 等待接收到信息
     node_ptr->m_waiter.lock();
@@ -42,12 +41,12 @@ void RPCClientConnection::handleConnect() {
     FiberSync::Mutex wait_heartbeat_task_exit_mutex; // 用于等待心跳定时发送子协程退出
     wait_heartbeat_task_exit_mutex.lock();
     // 开启子协程，定时发送Heartbeat包
-    m_fiberPool->Run([this, &kill_subtask, &wait_heartbeat_task_exit_mutex](){
+    m_fiber_pool->Run([this, &kill_subtask, &wait_heartbeat_task_exit_mutex](){
         usleep(m_keepalive * 800000);
         while(!kill_subtask){
             m_session->PrepareAndSend(MESSAGE_HEARTBEAT);
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
-            Logger::info("Query server: IP: {}, port: {}, heartbeats package have already sent",
+            Logger::info("Register server: IP: {}, port: {}, heartbeats package have already sent",
                          m_server_addr->GetIP(), m_server_addr->GetPort());
 #endif
             usleep(m_keepalive * 800000);
@@ -58,7 +57,7 @@ void RPCClientConnection::handleConnect() {
     FiberSync::Mutex wait_send_msg_task_exit_mutex; // 用于等待消息发送子协程退出
     wait_send_msg_task_exit_mutex.lock();
     // 开启子协程，从消息队列中读取消息并发送
-    m_fiberPool->Run([this, &kill_subtask, &wait_send_msg_task_exit_mutex, &wait_recv_queue](){
+    m_fiber_pool->Run([this, &kill_subtask, &wait_send_msg_task_exit_mutex, &wait_recv_queue](){
         while(!kill_subtask){
             {
                 // 从消息队列中读取数据
@@ -96,7 +95,7 @@ void RPCClientConnection::handleConnect() {
                 break;
             default:
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
-                Logger::error("Connection to registry server: IP: {}, port: {}, error message:{}",
+                Logger::error("Connection to rpc server: IP: {}, port: {}, error message:{}",
                               m_server_addr->GetIP(), m_server_addr->GetPort(), ToString(message_type));
 #endif
                 goto end_while;

@@ -52,7 +52,7 @@ namespace MyRPC{
          */
         void Stop();
 
-        void Loop(){m_fiberPool->Wait();}
+        void Loop(){m_fiber_pool->Wait();}
 
     protected:
         virtual void handleConnection(const Socket::ptr& sock) {
@@ -69,7 +69,7 @@ namespace MyRPC{
         bool IsStopping() const{return m_stopping.load();}
 
 
-        FiberPool::ptr m_fiberPool;
+        FiberPool::ptr m_fiber_pool;
         useconds_t m_timeout; // TCP超时时间
 
     private:

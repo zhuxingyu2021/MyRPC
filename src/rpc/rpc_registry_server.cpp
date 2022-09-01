@@ -41,7 +41,7 @@ void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
     std::atomic<bool> heartbeat_stopped_flag = false; // 若该变量为true，表示心跳包超时，主动关闭当前连接
 
     // 创建心跳检测子协程，用于检测心跳包是否超时，若超时则将heartbeat_stopped_flag设为true并退出
-    m_fiberPool->Run([ this, &heartbeat_flag, &heartbeat_stopped_flag, &wait_subtask_exit_mutex](){
+    m_fiber_pool->Run([ this, &heartbeat_flag, &heartbeat_stopped_flag, &wait_subtask_exit_mutex](){
         do{
             sleep(m_keepalive);
         }while(heartbeat_flag.exchange(false)); // 如果在m_keepalive秒内接收到心跳包，就再等待m_keepalive秒
@@ -86,7 +86,7 @@ void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
                 break;
             case ERROR_CLIENT_CLOSE_CONN:
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
-                Logger::info("A connection form IP: {}, port: {} is closed by m_client", proto.GetPeerIP()->GetIP(),
+                Logger::info("A connection form IP: {}, port: {} is closed by client", proto.GetPeerIP()->GetIP(),
                              proto.GetPeerIP()->GetPort());
 #endif
                 goto end_loop;
