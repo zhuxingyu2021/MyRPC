@@ -84,7 +84,7 @@ void RPCServer::RegistryClientSession::handleConnect() {
         while(!kill_subtask){
             proto.PrepareAndSend(MESSAGE_HEARTBEAT);
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
-            Logger::info("Register server: IP: {}, port: {}, heartbeats package have already sent",
+            Logger::info("Register server: IP: {}, port: {}, heartbeats package has already sent",
                          m_server_addr->GetIP(), m_server_addr->GetPort());
 #endif
 

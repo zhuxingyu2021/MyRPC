@@ -15,7 +15,7 @@ RPCClientException::ErrorType RPCClientConnection::SendRecv(const StringBuffer& 
     auto node_ptr = m_rpc_queue.emplace_back(new RPCQueueNode(to_send));
     lock.unlock();
 
-    if(is_queue_empty) m_fiber_pool->Notify(m_connection_handler_thread_id);
+    if(is_queue_empty && m_connection_handler_thread_id >= 0) m_fiber_pool->Notify(m_connection_handler_thread_id);
 
     // 等待接收到信息
     node_ptr->m_waiter.lock();
@@ -46,7 +46,7 @@ void RPCClientConnection::handleConnect() {
         while(!kill_subtask){
             m_session->PrepareAndSend(MESSAGE_HEARTBEAT);
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
-            Logger::info("Register server: IP: {}, port: {}, heartbeats package have already sent",
+            Logger::info("RPC server: IP: {}, port: {}, heartbeats package has already sent",
                          m_server_addr->GetIP(), m_server_addr->GetPort());
 #endif
             usleep(m_keepalive * 800000);
@@ -87,11 +87,11 @@ void RPCClientConnection::handleConnect() {
         switch(message_type){
             case MESSAGE_RESPOND_OK:
                 // 读取服务器发过来的数据
-                m_rpc_queue.front()->m_ret = m_session->GetContent();
-                m_rpc_queue.front()->m_waiter.unlock(); // 唤醒等待在消息队列上的协程
+                wait_recv_queue.front()->m_ret = m_session->GetContent();
+                wait_recv_queue.front()->m_waiter.unlock(); // 唤醒等待在消息队列上的协程
 
                 // 删除队头
-                m_rpc_queue.pop_front();
+                wait_recv_queue.pop();
                 break;
             default:
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL

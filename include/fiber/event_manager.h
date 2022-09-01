@@ -2,7 +2,6 @@
 #define MYRPC_EVENT_MANAGER_H
 
 #include <memory>
-#include <sys/epoll.h>
 #include <unordered_map>
 #include <unordered_set>
 #include <functional>
@@ -65,7 +64,6 @@ namespace MyRPC{
 
     private:
         int m_epoll_fd;
-        epoll_event m_events[MAX_EVENTS];
 
         int m_notify_event_fd; // 用于从epoll_wait中唤醒
 

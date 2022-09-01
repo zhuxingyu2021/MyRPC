@@ -27,7 +27,7 @@ Fiber::Fiber(std::function<void()>&& func) : m_fiber_id(++fiber_count), m_func(s
 
 Fiber::~Fiber() {
     if (m_status != TERMINAL) {
-        Logger::warn("Fiber{} exited abnormally!", m_fiber_id);
+        Logger::warn("Fiber: {} exited abnormally!", m_fiber_id);
     }
     delete m_func_pull_type;
 }

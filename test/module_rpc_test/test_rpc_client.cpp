@@ -27,8 +27,14 @@ int main(int argc, char** argv){
     }
     client.Start();
 
-    auto future = client.InvokeAsync<std::string>("echo", std::string("Hello world!"));
+    std::promise<int> promise_add;
+    auto future_add = client.InvokeAsync(promise_add, "add", 10, -5);
 
-    std::cout << future.get() << std::endl;
+    std::cout << future_add.get() << std::endl;
+
+    std::promise<std::string> promise_echo;
+    auto future_echo = client.InvokeAsync(promise_echo, "echo", std::string("Hello world!"));
+
+    std::cout << future_echo.get() << std::endl;
 
 }

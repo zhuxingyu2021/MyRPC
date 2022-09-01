@@ -1,8 +1,9 @@
-#ifndef MYRPC_FUNCTION_TRAITS_H
-#define MYRPC_FUNCTION_TRAITS_H
+#ifndef MYRPC_TRAITS_H
+#define MYRPC_TRAITS_H
 
 #include <tuple>
 #include <functional>
+#include <future>
 
 namespace MyRPC{
     template< class T >
@@ -43,14 +44,11 @@ namespace MyRPC{
     template< class R, class... Ts >
     struct function_traits< R( Ts... ) const && > : function_traits< R( Ts... ) > {};
 
-    // std::function类型
-    template< class R, class... Ts>
-    struct function_traits<std::function<R(Ts...)>> : function_traits< R( Ts... ) > {};
-
     // 函数指针类型
     template< class R, class... Ts>
     struct function_traits<R (*)(Ts...)> : function_traits< R( Ts... ) > {};
 
+    // 成员函数
     template< class R, class ClassType, class... Ts>
     struct function_traits<R (ClassType::*)(Ts...)> : function_traits< R( Ts... ) > {
         using class_type = ClassType;
@@ -58,6 +56,17 @@ namespace MyRPC{
 
     template< class R, class ClassType, class... Ts>
     struct function_traits<R (ClassType::*)(Ts...) const> : function_traits< R (ClassType::*)(Ts...) > {};
+
+
+    template< class T >
+    struct promise_traits{
+        static_assert(std::is_void_v<T> == true , "Only work for promise type");
+    };
+
+    template< class T >
+    struct promise_traits<std::promise<T>>{
+        using type = T;
+    };
 }
 
-#endif //MYRPC_FUNCTION_TRAITS_H
+#endif //MYRPC_TRAITS_H

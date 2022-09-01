@@ -2,6 +2,7 @@
 #define MYRPC_RPC_CLIENT_H
 
 #include "noncopyable.h"
+#include "traits.h"
 
 #include "fiber/fiber_sync.h"
 #include "fiber/fiber_pool.h"
@@ -32,16 +33,15 @@ namespace MyRPC{
         void Start() { m_fiber_pool->Start(); }
         void Stop() { m_fiber_pool->Stop();}
 
-        template <class ReturnType, class ...Args>
-        std::future<ReturnType> InvokeAsync(const std::string& service_name, Args&&... args){
-            using promise_type = std::promise<ReturnType>;
-            std::shared_ptr<promise_type> promise = std::make_shared<promise_type>();
+        template <class Promise, class ...Args>
+        auto InvokeAsync(Promise& promise,const std::string& service_name, Args&&... args){
+            using ReturnType = typename promise_traits<Promise>::type;
 
             // 序列化函数参数
             auto service_arg = std::make_tuple(std::forward<Args>(args)...);
             auto to_send = std::make_shared<StringBuffer>(RPCSession::Prepare(MESSAGE_REQUEST_RPC, service_name, service_arg));
 
-            m_fiber_pool->Run([promise, this, service_name, to_send](){
+            m_fiber_pool->Run([&promise, this, service_name, to_send](){
                 // 根据ServiceName，查找服务器IP地址
                 InetAddr::ptr server_addr;
                 {
@@ -53,13 +53,13 @@ namespace MyRPC{
 
                         // 向Registry Server查询服务器IP
                         if(m_registry.IsClosed()){ // 如果Registry Server关闭
-                            promise->set_exception(
+                            promise.set_exception(
                                     std::make_exception_ptr(RPCClientException(RPCClientException::REGISTRY_SERVER_CLOSED)));
                             return;
                         }
                         if(!m_registry.Query(service_name)) {
                             // 查询结果：不存在service_name
-                            promise->set_exception(
+                            promise.set_exception(
                                     std::make_exception_ptr(RPCClientException(RPCClientException::SERVICE_NOT_FOUND)));
                             return;
                         }
@@ -72,38 +72,41 @@ namespace MyRPC{
                 {
                     // 根据服务器的IP地址，查找对应的连接
                     auto server_addr_str = server_addr->ToString();
-                    m_conn_table_mutex.lock_shared();
+                    std::shared_lock<FiberSync::RWMutex> lock_shared(m_conn_table_mutex);
                     auto iter = m_conn_table.find(server_addr_str);
+                    decltype(iter->second) conn;
                     if (iter == m_conn_table.end()){
                         // 没有连接到对应的服务器
-                        m_conn_table_mutex.unlock_shared();
+                        lock_shared.unlock();
 
                         // 尝试连接
-                        auto conn = std::make_shared<RPCClientConnection>(server_addr, m_fiber_pool, m_timeout, m_keepalive);
+                        conn = std::make_shared<RPCClientConnection>(server_addr, m_fiber_pool, m_timeout, m_keepalive);
                         if(!conn->Connect()){
                             // 若超时，则抛出异常
-                            promise->set_exception(std::make_exception_ptr(RPCClientException(RPCClientException::CONNECT_TIME_OUT)));
+                            promise.set_exception(std::make_exception_ptr(RPCClientException(RPCClientException::CONNECT_TIME_OUT)));
                             return;
                         }else {
-                            m_conn_table.emplace(std::move(server_addr_str), std::move(conn));
+                            m_conn_table.emplace(std::move(server_addr_str), conn);
                         }
                     }else{
-                        auto conn = iter->second;
-                        m_conn_table_mutex.unlock_shared();
+                        lock_shared.unlock();
 
-                        StringBuffer recv_buf;
-                        ReturnType ret_val;
-
-                        // 将序列化的函数参数发送到服务器
-                        conn->SendRecv(*to_send, recv_buf);
-
-                        // 解析服务器的返回值并返回
-                        RPCSession::ParseContent(recv_buf, ret_val);
-                        promise->set_value(ret_val);
+                        conn = iter->second;
                     }
+
+                    StringBuffer recv_buf;
+                    ReturnType ret_val;
+
+                    // 将序列化的函数参数发送到服务器
+                    conn->SendRecv(*to_send, recv_buf);
+
+                    // 解析服务器的返回值并返回
+                    RPCSession::ParseContent(recv_buf, ret_val);
+                    promise.set_value(ret_val);
+
                 }
             });
-            return promise->get_future();
+            return promise.get_future();
         }
 
     private:

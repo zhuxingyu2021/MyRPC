@@ -191,7 +191,7 @@ void RpcRegistryServer::handleMessageRequestRegistration(RPCSession &proto, std:
     }
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
-    Logger::info("Received an registration from m_client IP: {}, port: {}, registered service: {}", proto.GetPeerIP()->GetIP(),
+    Logger::info("Received an registration from client IP: {}, port: {}, registered service: {}", proto.GetPeerIP()->GetIP(),
                  proto.GetPeerIP()->GetPort(), JsonSerializer::ToString(service_name_map));
 #endif
 

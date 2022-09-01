@@ -1,7 +1,7 @@
 #ifndef MYRPC_RPC_SERVER_H
 #define MYRPC_RPC_SERVER_H
 
-#include "function_traits.h"
+#include "traits.h"
 #include "stringbuffer.h"
 #include "spinlock.h"
 

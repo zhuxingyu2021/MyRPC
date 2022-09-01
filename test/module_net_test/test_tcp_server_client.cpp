@@ -26,7 +26,7 @@ protected:
                 } else if (recv_sz < 0) {
                     //Logger::info("recv timeout, retrying...");
                 } else{
-                    Logger::info("socket fd:{}, m_client close connection", sock->GetSocketfd());
+                    Logger::info("socket fd:{}, client close connection", sock->GetSocketfd());
                     break;
                 }
             }

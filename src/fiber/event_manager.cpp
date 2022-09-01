@@ -2,6 +2,7 @@
 #include "macro.h"
 #include <cstring>
 #include <sys/fcntl.h>
+#include <sys/epoll.h>
 #include "fiber/fiber.h"
 #include "fiber/hook_io.h"
 
@@ -59,10 +60,16 @@ int EventManager::AddIOEvent(int fd, EventType event) {
     }
 
     // 调用epoll_ctl
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_EPOLL_LEVEL
+    auto _e = event_epoll.events;
+    Logger::debug("Fiber: {}, call epoll_ctl({}, 0x{:x}, {}, ...), epoll events:0x{:x}", Fiber::GetCurrentId(), m_epoll_fd, op, fd, _e);
+#endif
     return epoll_ctl(m_epoll_fd, op, fd, &event_epoll);
 }
 
 void EventManager::WaitEvent(int thread_id) {
+    epoll_event m_events[MAX_EVENTS];
+
     auto n = epoll_wait(m_epoll_fd, m_events, MAX_EVENTS, TIME_OUT);
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_EPOLL_LEVEL
     Logger::debug("Thread: {}, epoll_wait() returned {}", thread_id ,n);
@@ -95,7 +102,7 @@ void EventManager::WaitEvent(int thread_id) {
         if((now_rw_event & reg_event) == 0) continue;
 
         // 获取还未触发的event，并重新注册。若event全部被触发，则删除。
-        int left_event = happened_event & (~now_rw_event);
+        int left_event = reg_event & (~now_rw_event);
         int op = left_event?EPOLL_CTL_MOD: EPOLL_CTL_DEL;
         if(!left_event) { // 若event全部被触发，则删除相应的event
             m_adder_map.erase(fd);
@@ -104,6 +111,10 @@ void EventManager::WaitEvent(int thread_id) {
         }
         m_events[i].events = left_event | EPOLLET;
 
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_EPOLL_LEVEL
+        auto _e = m_events[i].events;
+        Logger::debug("Fiber: {}, call epoll_ctl({}, 0x{:x}, {}, ...), epoll events:0x{:x}", Fiber::GetCurrentId(), m_epoll_fd, op, fd, _e);
+#endif
         MYRPC_SYS_ASSERT(epoll_ctl(m_epoll_fd, op, fd, &m_events[i]) == 0);
 
         if(now_rw_event & EPOLLIN){
@@ -137,6 +148,7 @@ int EventManager::RemoveIOEvent(int fd, EventManager::EventType event) {
             new_event |= ((iter->second[READ] > 0) ? EPOLLIN: 0);
         }
 
+        int op; // epoll_ctl 的第2个参数
         struct epoll_event event_epoll; // epoll_ctl 的第4个参数
         memset(&event_epoll, 0, sizeof(epoll_event));
         event_epoll.data.fd = fd;
@@ -144,12 +156,17 @@ int EventManager::RemoveIOEvent(int fd, EventManager::EventType event) {
 
         if(new_event == 0) {
             m_adder_map.erase(fd);
-            return epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, &event_epoll);
+            op = EPOLL_CTL_DEL;
         }else{
             iter->second[event] = 0;
-
-            return epoll_ctl(m_epoll_fd, EPOLL_CTL_MOD, fd, &event_epoll);
+            op = EPOLL_CTL_MOD;
         }
+
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_EPOLL_LEVEL
+        auto _e = event_epoll.events;
+        Logger::debug("Fiber: {}, call epoll_ctl({}, 0x{:x}, {}, ...), epoll events:0x{:x}", Fiber::GetCurrentId(), m_epoll_fd, op, fd, _e);
+#endif
+        return epoll_ctl(m_epoll_fd, op, fd, &event_epoll);
     }
 }
 
