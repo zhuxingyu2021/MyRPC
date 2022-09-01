@@ -129,7 +129,7 @@ void RpcRegistryServer::handleConnection(const Socket::ptr& sock) {
         {
             std::unique_lock<FiberSync::RWMutex> lock(m_service_provider_map_mutex);
             for (auto iter: local_provide_service) {
-                local_service.insert(iter->first);
+                local_service.emplace(iter->first);
                 m_service_provider_map.erase(iter);
             }
         }
@@ -175,22 +175,24 @@ void RpcRegistryServer::handleMessageRequestSubscribe(RPCSession& proto, std::ve
 }
 
 void RpcRegistryServer::handleMessageRequestRegistration(RPCSession &proto, std::vector<decltype(m_service_provider_map)::iterator>& local_provide_service) {
-    // 从客户端接收注册的服务名称 格式：std::unordered_set<std::string>，服务名称的数组
+    // 从客户端接收注册的服务名称，以及服务对应端口 格式：std::unordered_map<std::string, uint16_t>，服务名 -> 提供服务的端口
+    std::unordered_map<std::string, uint16_t> service_name_map;
     std::unordered_set<std::string> service_name_set;
-    proto.ParseContent(service_name_set);
+    proto.ParseContent(service_name_map);
 
     // 把客户端IP加入服务提供者表
-    auto client_ip = proto.GetPeerIP();
+    const auto& client_addr = proto.GetPeerIP();
     {
         std::unique_lock<FiberSync::RWMutex> lock(m_service_provider_map_mutex);
-        for(const auto& service_name: service_name_set){
-            local_provide_service.push_back(m_service_provider_map.emplace(service_name, client_ip));
+        for(const auto& [service_name, port]: service_name_map){
+            local_provide_service.push_back(m_service_provider_map.emplace(service_name, new InetAddr(client_addr->GetIP(), port, client_addr->IsIPv6())));
+            service_name_set.insert(service_name);
         }
     }
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
     Logger::info("Received an registration from m_client IP: {}, port: {}, registered service: {}", proto.GetPeerIP()->GetIP(),
-                 proto.GetPeerIP()->GetPort(), JsonSerializer::ToString(service_name_set));
+                 proto.GetPeerIP()->GetPort(), JsonSerializer::ToString(service_name_map));
 #endif
 
     // 返回OK应答
@@ -205,7 +207,7 @@ void RpcRegistryServer::PushRegistryInfo(std::unordered_set<std::string> &servic
     // 查询服务名对应的服务订阅者
     std::multimap<std::string, std::string> subscriber_service_map; // subscriber IP -> service name
     std::vector<std::string> subscribers; // 服务名对应的订阅者
-    for (const auto &service_name: service_name_set) {
+    for (const auto & service_name: service_name_set) {
         std::shared_lock<FiberSync::RWMutex> shared_lock(m_service_subscriber_map_mutex);
 
         // 对于更新的服务，查询服务订阅者

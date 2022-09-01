@@ -95,7 +95,7 @@ void RPCServer::RegistryClientSession::handleConnect() {
 
     while(!IsClosing()) {
 
-        std::unordered_set<std::string> new_service;
+        std::unordered_map<std::string, uint16_t> new_service;
         {
             std::unique_lock<SpinLock> spin_lock(m_service_queue_mutex);
             while (!IsClosing() && m_service_queue.empty()) { // 如果没有新的服务需要被注册，就等待直到有新的服务到来
@@ -105,7 +105,7 @@ void RPCServer::RegistryClientSession::handleConnect() {
             }
             if(IsClosing()) break;
 
-            for (const auto &service: m_service_queue) new_service.emplace(service);
+            for (const auto &service: m_service_queue) new_service.emplace(service, m_port);
             m_service_queue.clear();
         }
 

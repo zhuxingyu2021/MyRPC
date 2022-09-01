@@ -38,7 +38,7 @@ namespace MyRPC{
 
         static void handleSIGINT(int);
 
-        bool bind() noexcept;
+        virtual bool bind() noexcept;
 
         /**
          * @brief 开启协程池，开启Acceptor协程，启动TCP服务器
@@ -72,10 +72,10 @@ namespace MyRPC{
         FiberPool::ptr m_fiber_pool;
         useconds_t m_timeout; // TCP超时时间
 
+        InetAddr::ptr m_bind_addr;
+
     private:
         bool m_ipv6;
-
-        InetAddr::ptr m_bind_addr;
 
         int m_listen_sock_fd = -1; // 用于监听端口的socket
         FiberPool::FiberController::ptr m_acceptor;

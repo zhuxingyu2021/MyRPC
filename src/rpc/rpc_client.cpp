@@ -133,6 +133,9 @@ void RPCClient::RegistryClientSession::handleConnect() {
             }
             break;
 
+            case ERROR_TIMEOUT:
+                continue;
+
             default:
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
                 Logger::error("Connection to registry server: IP: {}, port: {}, error message:{}",

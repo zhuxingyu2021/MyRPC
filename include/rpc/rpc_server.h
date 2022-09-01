@@ -22,6 +22,11 @@ namespace MyRPC{
         using ptr = std::shared_ptr<RPCServer>;
         explicit RPCServer(InetAddr::ptr bind_addr, Config::ptr config);
 
+        bool bind() noexcept override{
+            m_registry.m_port = m_bind_addr->GetPort();
+            return TCPServer::bind();
+        }
+
         template<class Func>
         void RegisterMethod(const std::string& service_name,Func&& func){
             auto register_func = [this](std::string service_name, Func func){
@@ -64,6 +69,8 @@ namespace MyRPC{
             RegistryClientSession(InetAddr::ptr server_addr, FiberPool::ptr& fiberPool, useconds_t timeout, int keep_alive):
                                                         TCPClient(server_addr, fiberPool, timeout),m_keepalive(keep_alive){}
             void Update(std::string_view service_name);
+
+            uint16_t m_port = 0; // 服务器端口
         private:
             int m_keepalive;
 

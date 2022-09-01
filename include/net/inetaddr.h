@@ -58,7 +58,10 @@ namespace MyRPC{
 
         const bool IsIPv6() const{return m_ipv6;}
 
-        std::string ToString() const{return m_ip_str + ":" + std::to_string(m_port);}
+        static std::string BuildString(const std::string& ip_str, int port){
+            return ip_str + ":" + std::to_string(port);
+        }
+        std::string ToString() const{return BuildString(m_ip_str, m_port);}
 
         friend JsonSerializer;
         friend JsonDeserializer;
