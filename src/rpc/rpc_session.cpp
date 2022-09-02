@@ -21,8 +21,8 @@ MessageType RPCSession::RecvAndParseHeader() {
             StringBuffer content(content_length);
             content.size = content_length;
             auto recv_result2 = m_sock.RecvAllTimeout(content.data, content_length, 0, m_sock_timeout);
-            if(recv_result == 0) return ERROR_CLIENT_CLOSE_CONN; // 客户端关闭连接
-            else if(recv_result < 0) MYRPC_ASSERT(false);
+            if(recv_result2 == 0) return ERROR_CLIENT_CLOSE_CONN; // 客户端关闭连接
+            else if(recv_result2 < 0) MYRPC_ASSERT(false);
 
             m_content = std::move(content);
         }else{

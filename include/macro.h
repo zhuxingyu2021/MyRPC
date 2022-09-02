@@ -12,7 +12,7 @@
 #define MYRPC_DEBUG_FIBER_POOL_LEVEL 7
 
 // 设置调试级别
-#define MYRPC_DEBUG_LEVEL MYRPC_DEBUG_NET_LEVEL
+#define MYRPC_DEBUG_LEVEL 0
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_ON_LEVEL
 #define MYRPC_ASSERT(x) if(!(x)) { \
@@ -37,7 +37,8 @@ namespace MyRPC::Initializer {
 #endif
 
 #define MYRPC_ASSERT_EXCEPTION(x, throw) if(!(x)) { \
-    throw; \
+     Logger::warn("Assertion failed, in file:{}, line:{}", __FILE__, __LINE__); \
+     throw; \
 }
 
 #define MYRPC_NO_IMPLEMENTATION_ERROR() { \

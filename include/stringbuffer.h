@@ -24,12 +24,14 @@ namespace MyRPC{
             delete data;
             data = sb.data;
             size = sb.size;
+            m_read_offset = sb.m_read_offset;
             sb.data = nullptr; sb.size = 0;
         }
         StringBuffer& operator=(StringBuffer&& sb) noexcept{
             capacity = sb.capacity;
             data = sb.data;
             size = sb.size;
+            m_read_offset = sb.m_read_offset;
             sb.data = nullptr; sb.size = 0;
             return *this;
         }
