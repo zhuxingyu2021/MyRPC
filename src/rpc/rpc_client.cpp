@@ -151,6 +151,14 @@ void RPCClient::RegistryClientSession::handleConnect() {
     wait_subtask_exit_mutex.lock();
     m_connection_closed = true;
 
+    // 处理消息队列中未处理的消息
+    {
+        std::unique_lock<SpinLock> lock(m_service_queue_mutex);
+        for(const auto& node_ptr: m_service_queue){
+            node_ptr->wait_mutex.unlock(); // 唤醒等待协程
+        }
+    }
+
     if(!IsClosing()) {
         do {
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
