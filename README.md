@@ -201,10 +201,6 @@ make
 服务端：
 ```c++
     server.ConnectToRegistryServer();
-
-    std::function<std::map<int,std::string>(const Person&)> func_get_friends_list = [](const std::string& in)->std::string{
-        return in;
-    };
     
     // 向注册中心注册服务，服务名：get_phone_number
     server.RegisterMethod("get_phone_number", [](const Person& p)->std::string{
