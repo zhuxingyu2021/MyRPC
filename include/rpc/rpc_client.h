@@ -46,8 +46,8 @@ namespace MyRPC{
                 InetAddr::ptr server_addr;
                 {
                     std::shared_lock<FiberSync::RWMutex> lock_shared(m_service_table_mutex);
-                    auto iter = m_service_table.find(service_name);
-                    while (iter == m_service_table.end()) {
+                    auto sn_req = m_service_table.equal_range(service_name);
+                    while (sn_req.first == sn_req.second) {
                         // 没有找到对应的服务
                         lock_shared.unlock();
 
@@ -64,8 +64,19 @@ namespace MyRPC{
                             return;
                         }
                         lock_shared.lock();
-                        iter = m_service_table.find(service_name);
+                        // iter = m_service_table.find(service_name);
+                        sn_req = m_service_table.equal_range(service_name);
                     }
+                    // TODO 一致性哈希
+                    // 目前的负载均衡方案：随机选择一个服务器进行连接
+                    int sn_req_sz = std::distance(sn_req.first, sn_req.second);
+                    int select = rand()%sn_req_sz;
+                    auto iter = sn_req.first;
+                    while(select>0){
+                        ++iter;
+                        --select;
+                    }
+
                     server_addr = iter->second;
                 }
 
