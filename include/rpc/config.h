@@ -29,6 +29,7 @@ namespace MyRPC{
         int GetTimeout() const{return m_timeout;}
         int GetKeepalive() const{return m_keepalive;}
         const InetAddr::ptr& GetRegistryServerAddr() const{return m_registry_server_addr;}
+        const std::string& GetLoadBalancer() const{return m_load_balancer;}
 
     private:
         int m_threads_num = 8;
@@ -37,12 +38,14 @@ namespace MyRPC{
         int m_keepalive = 600; // Heartbeat检测间隔 单位s
 
         InetAddr::ptr m_registry_server_addr;
+        std::string m_load_balancer;
 
         LOAD_BEGIN
             LOAD_ALIAS_ITEM(ThreadsNum, m_threads_num)
             LOAD_ALIAS_ITEM(SocketTimeout, m_timeout)
             LOAD_ALIAS_ITEM(KeepAlive, m_keepalive)
             LOAD_ALIAS_ITEM(RegistryServerAddr, m_registry_server_addr)
+            LOAD_ALIAS_ITEM(LoadBalancer, m_load_balancer)
         LOAD_END
 
         SAVE_BEGIN
@@ -50,6 +53,7 @@ namespace MyRPC{
             SAVE_ALIAS_ITEM(SocketTimeout, m_timeout)
             SAVE_ALIAS_ITEM(KeepAlive, m_keepalive)
             SAVE_ALIAS_ITEM(RegistryServerAddr, m_registry_server_addr)
+            SAVE_ALIAS_ITEM(LoadBalancer, m_load_balancer)
         SAVE_END
     };
 }

@@ -9,7 +9,7 @@ RPCClientException::ErrorType RPCClientConnection::SendRecv(const StringBuffer& 
     std::unique_lock<FiberSync::Mutex> lock(m_rpc_queue_mutex);
     if(IsClosed()){
         // 如果连接已经被关闭
-        return RPCClientException::HAVENT_BEEN_CALLED;
+        return RPCClientException::SERVER_CLOSED;
     }
     bool is_queue_empty = m_rpc_queue.empty();
     auto node_ptr = m_rpc_queue.emplace_back(new RPCQueueNode(to_send));

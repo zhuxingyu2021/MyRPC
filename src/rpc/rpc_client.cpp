@@ -1,10 +1,52 @@
 #include "rpc/rpc_client.h"
 #include <queue>
 
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <net/if.h>
+
 using namespace MyRPC;
+
+std::string GetLocalHost() {
+    int sockfd;
+    struct ifconf ifconf;
+    struct ifreq *ifreq = nullptr;
+    char buf[512];//缓冲区
+    //初始化ifconf
+    ifconf.ifc_len =512;
+    ifconf.ifc_buf = buf;
+    if ((sockfd = socket(AF_INET,SOCK_DGRAM,0))<0)
+    {
+        return std::string{};
+    }
+    ioctl(sockfd, SIOCGIFCONF, &ifconf); //获取所有接口信息
+    //接下来一个一个的获取IP地址
+    ifreq = (struct ifreq*)ifconf.ifc_buf;
+    for (int i=(ifconf.ifc_len/sizeof (struct ifreq)); i>0; i--)
+    {
+        if(ifreq->ifr_flags == AF_INET){ //for ipv4
+            if (ifreq->ifr_name == std::string("eth0")) {
+                return std::string(inet_ntoa(((struct sockaddr_in*)&(ifreq->ifr_addr))->sin_addr));
+            }
+            ifreq++;
+        }
+    }
+    return std::string{};
+}
 
 RPCClient::RPCClient(Config::ptr config) :m_fiber_pool(std::make_shared<FiberPool>(config->GetThreadsNum())),
 m_timeout(1000*config->GetTimeout()), m_keepalive(config->GetKeepalive()), m_registry(config->GetRegistryServerAddr(), *this){
+    if(config->GetLoadBalancer() == "HashLoadBalancer"){
+        std::string host = GetLocalHost();
+        if(!host.empty()){
+            m_lb = std::make_unique<HashLoadBalancerImpl>(host);
+        }
+        return;
+    }
+    m_lb = std::make_unique<RandomLoadBalancerImpl>();
 }
 
 

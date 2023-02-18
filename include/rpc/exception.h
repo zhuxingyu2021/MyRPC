@@ -25,6 +25,7 @@ public:
                                               (REGISTRY_SERVER_CLOSED)
                                               (CONNECT_TIME_OUT)
                                               (SERVER_EXCEPTION)
+                                              (SERVER_CLOSED)
     )
 
     RPCClientException(ErrorType err):err_(err), msg_("Error Type: " + ToString(err)){}

@@ -13,6 +13,7 @@
 
 #include "rpc/rpc_session.h"
 #include "rpc/rpc_client_connection.h"
+#include "rpc/load_balance.h"
 
 #include <memory>
 #include <string>
@@ -44,6 +45,8 @@ namespace MyRPC{
             m_fiber_pool->Run([&promise, this, service_name, to_send](){
                 // 根据ServiceName，查找服务器IP地址
                 InetAddr::ptr server_addr;
+
+                decltype(m_service_table)::iterator it_service; // 需要连接的服务器IP地址在service_table中的位置
                 {
                     std::shared_lock<FiberSync::RWMutex> lock_shared(m_service_table_mutex);
                     auto sn_req = m_service_table.equal_range(service_name);
@@ -67,52 +70,59 @@ namespace MyRPC{
                         // iter = m_service_table.find(service_name);
                         sn_req = m_service_table.equal_range(service_name);
                     }
-                    // TODO 一致性哈希
-                    // 目前的负载均衡方案：随机选择一个服务器进行连接
-                    int sn_req_sz = std::distance(sn_req.first, sn_req.second);
-                    int select = rand()%sn_req_sz;
-                    auto iter = sn_req.first;
-                    while(select>0){
-                        ++iter;
-                        --select;
-                    }
+                    // 负载均衡
+                    it_service = m_lb->Select(sn_req.first, sn_req.second, service_name);
 
-                    server_addr = iter->second;
+                    server_addr = it_service->second;
                 }
 
                 {
                     // 根据服务器的IP地址，查找对应的连接
                     auto server_addr_str = server_addr->ToString();
                     std::shared_lock<FiberSync::RWMutex> lock_shared(m_conn_table_mutex);
-                    auto iter = m_conn_table.find(server_addr_str);
-                    decltype(iter->second) conn;
-                    if (iter == m_conn_table.end()){
+                    auto it_conn = m_conn_table.find(server_addr_str);
+                    decltype(it_conn->second) conn;
+                    if (it_conn == m_conn_table.end()){
                         // 没有连接到对应的服务器
                         lock_shared.unlock();
 
                         // 尝试连接
                         conn = std::make_shared<RPCClientConnection>(server_addr, m_fiber_pool, m_timeout, m_keepalive);
                         if(!conn->Connect()){
-                            // 若超时，则抛出异常
+                            // 若超时，则从客户端中删除该服务器，并抛出异常
+                            std::unique_lock<FiberSync::RWMutex> lock(m_service_table_mutex);
+                            m_service_table.erase(it_service);
                             promise.set_exception(std::make_exception_ptr(RPCClientException(RPCClientException::CONNECT_TIME_OUT)));
                             return;
                         }else {
-                            m_conn_table.emplace(std::move(server_addr_str), conn);
+                            std::unique_lock<FiberSync::RWMutex> lock(m_conn_table_mutex);
+                            it_conn = m_conn_table.emplace(std::move(server_addr_str), conn).first;
                         }
                     }else{
+                        conn = it_conn->second;
                         lock_shared.unlock();
-
-                        conn = iter->second;
                     }
 
                     StringBuffer recv_buf;
                     ReturnType ret_val;
 
                     // 将序列化的函数参数发送到服务器
-                    conn->SendRecv(*to_send, recv_buf);
+                    auto err_type = conn->SendRecv(*to_send, recv_buf);
+                    if(err_type == RPCClientException::SERVER_CLOSED){
+                        // 删除服务器IP地址对应的连接
+                        std::unique_lock<FiberSync::RWMutex> lock(m_conn_table_mutex);
+                        m_conn_table.erase(it_conn);
+                        promise.set_exception(std::make_exception_ptr(RPCClientException(RPCClientException::SERVER_CLOSED)));
+                        return;
+                    }
 
                     // 解析服务器的返回值并返回
-                    RPCSession::ParseContent(recv_buf, ret_val);
+                    try {
+                        RPCSession::ParseContent(recv_buf, ret_val);
+                    }catch(std::exception& e){
+                        promise.set_exception(std::make_exception_ptr(e));
+                        return;
+                    }
                     promise.set_value(ret_val);
 
                 }
@@ -128,7 +138,7 @@ namespace MyRPC{
         // Service Name -> Service Provider 1 (IP)
         //              -> Service Provider 2 (IP)
         //              -> ...
-        std::unordered_multimap<std::string, InetAddr::ptr> m_service_table;
+        std::multimap<std::string, InetAddr::ptr> m_service_table;
         FiberSync::RWMutex m_service_table_mutex;
 
         // 连接表
@@ -139,6 +149,8 @@ namespace MyRPC{
         FiberSync::RWMutex m_conn_table_mutex;
 
         FiberPool::ptr m_fiber_pool;
+
+        std::unique_ptr<LoadBalancer> m_lb;
 
         class RegistryClientSession: public TCPClient {
         public:
