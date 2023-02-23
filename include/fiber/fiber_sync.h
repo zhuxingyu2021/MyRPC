@@ -14,9 +14,7 @@
 
 #include "fiber/fiber.h"
 
-#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_LOCK_LEVEL
 #include "fiber/fiber_pool.h"
-#endif
 
 namespace MyRPC{
     namespace FiberSync {
@@ -112,9 +110,12 @@ namespace MyRPC{
                     Fiber::Suspend();
                     mutex.lock();
                     m_wait_queue_lock.lock();
-                }while(m_wait_queue.front().first != Fiber::GetCurrentId());
+                }while((m_wait_queue.front().first != Fiber::GetCurrentId()) && (!m_notify_all));
 
                 m_wait_queue.pop();
+                if(m_notify_all && m_wait_queue.empty()){
+                    m_notify_all = false;
+                }
                 m_wait_queue_lock.unlock();
             }
             void notify_one(){
@@ -126,10 +127,13 @@ namespace MyRPC{
             }
             void notify_all(){
                 //TODO Implementation
-                MYRPC_NO_IMPLEMENTATION_ERROR();
+                m_notify_all = true;
+                FiberPool::GetThis()->NotifyAll();
             }
 
         private:
+            std::atomic<bool> m_notify_all = {false};
+
             std::queue<std::pair<int64_t, int>> m_wait_queue; // FiberID ThreadID
             SpinLock m_wait_queue_lock;
         };
