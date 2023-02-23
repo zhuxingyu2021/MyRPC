@@ -4,6 +4,7 @@
 #include <atomic>
 #include <unistd.h>
 #include <set>
+#include <queue>
 
 #include "noncopyable.h"
 #include "macro.h"
@@ -13,9 +14,7 @@
 
 #include "fiber/fiber.h"
 
-#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_LOCK_LEVEL
 #include "fiber/fiber_pool.h"
-#endif
 
 namespace MyRPC{
     namespace FiberSync {
@@ -41,10 +40,11 @@ namespace MyRPC{
         private:
             std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
 
-            std::atomic<int> m_waiter = 0;
+            std::atomic<int64_t> m_lock_id = {0};
 
-            int m_event_fd;
             int m_mutex_id;
+            std::queue<std::pair<int64_t, int>> m_wait_queue; // FiberID ThreadID
+            SpinLock m_wait_queue_lock;
         };
 
         /*
@@ -96,6 +96,47 @@ namespace MyRPC{
         };
 
         // TODO: Semaphore ConditionVariable
+
+        template <class MutexType>
+        class ConditionVariable : public NonCopyable{
+        public:
+            void wait(MutexType& mutex) {
+                m_wait_queue_lock.lock();
+                m_wait_queue.push(std::make_pair(Fiber::GetCurrentId(), FiberPool::GetCurrentThreadId()));
+
+                do{
+                    m_wait_queue_lock.unlock();
+                    mutex.unlock();
+                    Fiber::Suspend();
+                    mutex.lock();
+                    m_wait_queue_lock.lock();
+                }while((m_wait_queue.front().first != Fiber::GetCurrentId()) && (!m_notify_all));
+
+                m_wait_queue.pop();
+                if(m_notify_all && m_wait_queue.empty()){
+                    m_notify_all = false;
+                }
+                m_wait_queue_lock.unlock();
+            }
+            void notify_one(){
+                m_wait_queue_lock.lock();
+                if(!m_wait_queue.empty()) {
+                    FiberPool::GetThis()->Notify(m_wait_queue.front().second);
+                }
+                m_wait_queue_lock.unlock();
+            }
+            void notify_all(){
+                //TODO Implementation
+                m_notify_all = true;
+                FiberPool::GetThis()->NotifyAll();
+            }
+
+        private:
+            std::atomic<bool> m_notify_all = {false};
+
+            std::queue<std::pair<int64_t, int>> m_wait_queue; // FiberID ThreadID
+            SpinLock m_wait_queue_lock;
+        };
     }
 }
 

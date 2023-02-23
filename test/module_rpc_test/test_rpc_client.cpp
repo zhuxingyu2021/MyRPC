@@ -28,7 +28,7 @@ int main(int argc, char** argv){
     client.Start();
 
     std::promise<int> promise_add;
-    auto future_add = client.InvokeAsync(promise_add, "add", 10, -5);
+    auto future_add = client.InvokeAsync(promise_add, "add", 20, -5);
 
     std::cout << future_add.get() << std::endl;
 

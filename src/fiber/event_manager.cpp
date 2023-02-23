@@ -41,7 +41,7 @@ int EventManager::AddIOEvent(int fd, EventType event) {
         // event已存在，则修改event
         iter->second[event] = Fiber::GetCurrentId();
 
-        event_epoll.events = EPOLLET | EPOLLIN | EPOLLOUT;
+        event_epoll.events = EPOLLIN | EPOLLOUT;
         event_epoll.data.fd = fd;
 
         op = EPOLL_CTL_MOD;
@@ -53,7 +53,7 @@ int EventManager::AddIOEvent(int fd, EventType event) {
         m_adder_map.emplace(fd, tmp);
 
         int event_in_epoll = (event == READ) ? EPOLLIN : EPOLLOUT;
-        event_epoll.events = EPOLLET | event_in_epoll;
+        event_epoll.events = event_in_epoll;
         event_epoll.data.fd = fd;
 
         op = EPOLL_CTL_ADD;
@@ -109,7 +109,7 @@ void EventManager::WaitEvent(int thread_id) {
         }else{
             event_fiber_map[(now_rw_event == EPOLLIN) ? READ: WRITE] = 0;
         }
-        m_events[i].events = left_event | EPOLLET;
+        m_events[i].events = left_event;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_EPOLL_LEVEL
         auto _e = m_events[i].events;
@@ -152,7 +152,7 @@ int EventManager::RemoveIOEvent(int fd, EventManager::EventType event) {
         struct epoll_event event_epoll; // epoll_ctl 的第4个参数
         memset(&event_epoll, 0, sizeof(epoll_event));
         event_epoll.data.fd = fd;
-        event_epoll.events = EPOLLET | new_event;
+        event_epoll.events = new_event;
 
         if(new_event == 0) {
             m_adder_map.erase(fd);
@@ -198,7 +198,7 @@ int EventManager::AddWakeupEventfd(int fd) {
         epoll_event event_epoll; // epoll_ctl 的4个参数
         memset(&event_epoll, 0, sizeof(epoll_event));
         event_epoll.data.fd = fd;
-        event_epoll.events = EPOLLET | EPOLLIN; // 等待读事件的发生
+        event_epoll.events = EPOLLIN; // 等待读事件的发生
 
         // 调用epoll_ctl
         return epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fd, &event_epoll);

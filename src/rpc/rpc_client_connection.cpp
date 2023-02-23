@@ -1,30 +1,25 @@
 #include "rpc/rpc_client_connection.h"
 
 #include <shared_mutex>
-#include <queue>
 
 using namespace MyRPC;
 
 RPCClientException::ErrorType RPCClientConnection::SendRecv(const StringBuffer& to_send, StringBuffer& recv) {
-    std::unique_lock<FiberSync::Mutex> lock(m_rpc_queue_mutex);
     if(IsClosed()){
         // 如果连接已经被关闭
         return RPCClientException::SERVER_CLOSED;
     }
-    bool is_queue_empty = m_rpc_queue.empty();
-    auto node_ptr = m_rpc_queue.emplace_back(new RPCQueueNode(to_send));
-    lock.unlock();
 
-    if(is_queue_empty && m_connection_handler_thread_id >= 0) m_fiber_pool->Notify(m_connection_handler_thread_id);
+    // 发送消息到发送队列
+    m_send_queue.Emplace(new RPCQueueNode(to_send));
 
-    // 等待接收到信息
-    node_ptr->m_waiter.lock();
-    node_ptr->m_waiter.lock();
+    // 从接收队列中接收消息
+    auto ret_ptr = m_recv_queue.Pop();
 
-    if(node_ptr->m_ret){
-        recv = std::move(node_ptr->m_ret.value());
+    if(ret_ptr->m_ret){
+        recv = std::move(ret_ptr->m_ret.value());
     }
-    return node_ptr->m_err;
+    return ret_ptr->m_err;
 }
 
 void RPCClientConnection::handleConnect() {
@@ -54,44 +49,18 @@ void RPCClientConnection::handleConnect() {
         wait_heartbeat_task_exit_mutex.unlock();
     }, m_connection_handler_thread_id);
 
-    FiberSync::Mutex wait_send_msg_task_exit_mutex; // 用于等待消息发送子协程退出
-    wait_send_msg_task_exit_mutex.lock();
-    // 开启子协程，从消息队列中读取消息并发送
-    m_fiber_pool->Run([this, &kill_subtask, &wait_send_msg_task_exit_mutex, &wait_recv_queue](){
-        while(!kill_subtask){
-            {
-                // 从消息队列中读取数据
-                std::unique_lock<FiberSync::Mutex> lock(m_rpc_queue_mutex);
-                while (!kill_subtask && m_rpc_queue.empty()) { // 如果消息队列为空，就等待直到有新的消息进来
-                    lock.unlock();
-                    Fiber::Suspend();
-                    lock.lock();
-                }
-                if(kill_subtask) break;
-
-                for(auto iter = m_rpc_queue.begin(); iter != m_rpc_queue.end(); ++iter){
-                    // 发送消息队列的每一个消息，并将它加入等待接收队列中
-                    m_session->Send((*iter)->m_send);
-                    wait_recv_queue.emplace(std::move(*iter));
-                }
-
-                m_rpc_queue.clear(); // 清空消息队列
-            }
-            wait_send_msg_task_exit_mutex.unlock();
-        }
-    }, m_connection_handler_thread_id);
-
     // 从服务器中接收返回数据
     while(!IsClosing()){
+        auto node = m_send_queue.Pop(); // 从发送队列中读取要发送的数据
+        m_session->Send(node->m_send); // 发送数据
         auto message_type = m_session->RecvAndParseHeader();
         switch(message_type){
             case MESSAGE_RESPOND_OK:
                 // 读取服务器发过来的数据
-                wait_recv_queue.front()->m_ret = m_session->GetContent();
-                wait_recv_queue.front()->m_waiter.unlock(); // 唤醒等待在消息队列上的协程
+                node->m_ret = m_session->GetContent();
 
-                // 删除队头
-                wait_recv_queue.pop();
+                // 将数据放到接收队列
+                m_recv_queue.Push(node);
                 break;
             default:
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_RPC_LEVEL
@@ -107,17 +76,10 @@ void RPCClientConnection::handleConnect() {
     kill_subtask = true;
     m_connection_handler_thread_id = -1;
     wait_heartbeat_task_exit_mutex.lock();
-    wait_send_msg_task_exit_mutex.lock();
 
     m_connection_closed = true;
 
-    // 处理消息队列中未处理的消息
-    {
-        std::unique_lock<FiberSync::Mutex> lock(m_rpc_queue_mutex);
-        for(const auto& node_ptr: m_rpc_queue){
-            node_ptr->m_waiter.unlock(); // 唤醒等待在消息队列上的协程
-        }
-    }
+    m_recv_queue.Close();
 
 
     delete m_session;

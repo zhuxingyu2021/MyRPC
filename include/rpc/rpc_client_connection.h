@@ -2,6 +2,7 @@
 #define MYRPC_RPC_CLIENT_CONNECTION_H
 
 #include "fiber/fiber_sync.h"
+#include "fiber/sync_queue.h"
 
 #include "net/tcp_client.h"
 #include "net/inetaddr.h"
@@ -34,18 +35,16 @@ namespace MyRPC{
 
         struct RPCQueueNode{
             using ptr = std::shared_ptr<RPCQueueNode>;
-            RPCQueueNode(const StringBuffer& to_send):m_send(to_send), m_waiter(){}
+            RPCQueueNode(const StringBuffer& to_send):m_send(to_send){}
 
             const StringBuffer& m_send;
             std::optional<StringBuffer> m_ret = std::nullopt;
             RPCClientException::ErrorType m_err = RPCClientException::HAVENT_BEEN_CALLED;
-
-            FiberSync::Mutex m_waiter;
         };
 
         // RPC消息队列
-        std::list<RPCQueueNode::ptr> m_rpc_queue;
-        FiberSync::Mutex m_rpc_queue_mutex;
+        SyncQueue<RPCQueueNode::ptr> m_send_queue;
+        SyncQueue<RPCQueueNode::ptr> m_recv_queue;
     };
 }
 
