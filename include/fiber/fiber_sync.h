@@ -4,6 +4,7 @@
 #include <atomic>
 #include <unistd.h>
 #include <set>
+#include <queue>
 
 #include "noncopyable.h"
 #include "macro.h"
@@ -41,10 +42,11 @@ namespace MyRPC{
         private:
             std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
 
-            std::atomic<int> m_waiter = 0;
+            std::atomic<int64_t> m_lock_id = {0};
 
-            int m_event_fd;
             int m_mutex_id;
+            std::queue<std::pair<int64_t, int>> m_wait_queue; // FiberID ThreadID
+            SpinLock m_wait_queue_lock;
         };
 
         /*
@@ -96,6 +98,41 @@ namespace MyRPC{
         };
 
         // TODO: Semaphore ConditionVariable
+
+        template <class MutexType>
+        class ConditionVariable : public NonCopyable{
+        public:
+            void wait(MutexType& mutex) {
+                m_wait_queue_lock.lock();
+                m_wait_queue.push(std::make_pair(Fiber::GetCurrentId(), FiberPool::GetCurrentThreadId()));
+
+                do{
+                    m_wait_queue_lock.unlock();
+                    mutex.unlock();
+                    Fiber::Suspend();
+                    mutex.lock();
+                    m_wait_queue_lock.lock();
+                }while(m_wait_queue.front().first != Fiber::GetCurrentId());
+
+                m_wait_queue.pop();
+                m_wait_queue_lock.unlock();
+            }
+            void notify_one(){
+                m_wait_queue_lock.lock();
+                if(!m_wait_queue.empty()) {
+                    FiberPool::GetThis()->Notify(m_wait_queue.front().second);
+                }
+                m_wait_queue_lock.unlock();
+            }
+            void notify_all(){
+                //TODO Implementation
+                MYRPC_NO_IMPLEMENTATION_ERROR();
+            }
+
+        private:
+            std::queue<std::pair<int64_t, int>> m_wait_queue; // FiberID ThreadID
+            SpinLock m_wait_queue_lock;
+        };
     }
 }
 
