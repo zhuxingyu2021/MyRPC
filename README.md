@@ -217,13 +217,6 @@ make
     
     std::cout << future_get_phone_number.get() << std::endl;
 ```
-## 计划
-后续将实现以下功能：
-
-- [ ] 支持更多的序列化方式。
-- [x] 提供更多的负载均衡方案，如一致性哈希
-- [ ] 更多集群容错策略，目前的容错策略：快速失败
-- [ ] 限流熔断
 
 ## 反馈与参与
 * Bug、建议都欢迎提在[Issues](https://github.com/zhuxingyu2021/MyRPC/issues)或者发送邮件至wode057406422181@gmail.com
