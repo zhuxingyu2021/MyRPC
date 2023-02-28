@@ -10,7 +10,7 @@
 
 using namespace MyRPC;
 
-EventManager::EventManager() {
+EventManager::EventManager():m_task_queue(MYRPC_MAXTASK_PER_THREAD) {
     // 初始化epoll
     m_epoll_fd = epoll_create(1);
     MYRPC_SYS_ASSERT(m_epoll_fd != -1);
@@ -39,7 +39,7 @@ int EventManager::AddIOEvent(int fd, EventType event) {
         assert(iter->second[event] == 0);
 
         // event已存在，则修改event
-        iter->second[event] = Fiber::GetCurrentId();
+        iter->second[event] = Fiber::GetSharedFromThis();
 
         event_epoll.events = EPOLLIN | EPOLLOUT;
         event_epoll.data.fd = fd;
@@ -48,8 +48,8 @@ int EventManager::AddIOEvent(int fd, EventType event) {
     }
     else{
         // 目前当前文件描述符没有IO事件
-        std::array<int64_t,2> tmp = {0, 0};
-        tmp[event] = Fiber::GetCurrentId();
+        std::array<Fiber::ptr,2> tmp = {0};
+        tmp[event] = Fiber::GetSharedFromThis();
         m_adder_map.emplace(fd, tmp);
 
         int event_in_epoll = (event == READ) ? EPOLLIN : EPOLLOUT;
@@ -78,10 +78,7 @@ void EventManager::WaitEvent(int thread_id) {
         auto happened_event = m_events[i].events;
         auto fd = m_events[i].data.fd;
 
-        auto& event_fiber_map = m_adder_map[fd];
-        auto [read_fiber_id, write_fiber_id] = event_fiber_map;
-
-        if(event_fiber_map[READ] < 0){ // eventfd唤醒
+        if(m_wake_up_set.count(fd) > 0){ // eventfd唤醒
             auto tmp = enable_hook;
             enable_hook = false;
 
@@ -91,6 +88,9 @@ void EventManager::WaitEvent(int thread_id) {
             enable_hook = tmp;
             continue;
         }
+
+        auto& event_fiber_map = m_adder_map[fd];
+        auto [read_fiber, write_fiber] = event_fiber_map;
 
         // 在当前文件描述符上添加的IO事件
         int reg_event = ((event_fiber_map[READ] > 0) ? EPOLLIN: 0) | ((event_fiber_map[WRITE] > 0) ? EPOLLOUT: 0);
@@ -119,17 +119,31 @@ void EventManager::WaitEvent(int thread_id) {
 
         if(now_rw_event & EPOLLIN){
             // 读事件发生，恢复相应协程执行
-            resume(read_fiber_id);
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
+            Logger::debug("Thread: {}, Fiber: {} is ready to run #1", thread_id, read_fiber->GetId());
+#endif
+            auto ret_val = read_fiber->Resume();
+            if(read_fiber->GetStatus() == Fiber::READY)
+                m_task_queue.push(read_fiber);
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
+            Logger::debug("Thread: {}, Fiber: {} is swapped out #1, return value:{}, status:{}", thread_id,
+                          read_fiber->GetId(), ret_val, read_fiber->GetStatus());
+#endif
         }
         if(now_rw_event & EPOLLOUT){
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
+            Logger::debug("Thread: {}, Fiber: {} is ready to run #1", thread_id, write_fiber->GetId());
+#endif
             // 写事件发生，恢复相应协程执行
-            resume(write_fiber_id);
+            auto ret_val = write_fiber->Resume();
+            if(write_fiber->GetStatus() == Fiber::READY)
+                m_task_queue.push(write_fiber);
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
+            Logger::debug("Thread: {}, Fiber: {} is swapped out #1, return value:{}, status:{}", thread_id,
+                          write_fiber->GetId(), ret_val, write_fiber->GetStatus());
+#endif
         }
     }
-}
-
-void EventManager::resume(int64_t fiber_id) {
-    MYRPC_NO_IMPLEMENTATION_ERROR();
 }
 
 int EventManager::RemoveIOEvent(int fd, EventManager::EventType event) {
@@ -193,7 +207,7 @@ int EventManager::AddWakeupEventfd(int fd) {
             MYRPC_SYS_ASSERT(fcntl(fd, F_SETFL, flags) == 0)
         }
 
-        m_adder_map.emplace(fd, std::array<int64_t,2>{-1,0});
+        m_wake_up_set.emplace(fd);
 
         epoll_event event_epoll; // epoll_ctl 的4个参数
         memset(&event_epoll, 0, sizeof(epoll_event));

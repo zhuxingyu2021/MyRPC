@@ -60,8 +60,8 @@ void TCPServer::Start() {
     if(!m_running) {
 
         MYRPC_ASSERT_EXCEPTION(listen(m_listen_sock_fd, SOMAXCONN) == 0, throw SocketException("socket listen"));
-        m_acceptor = m_fiber_pool->Run(std::bind(&TCPServer::doAccept, this));
         m_fiber_pool->Start();
+        m_acceptor = m_fiber_pool->Run(std::bind(&TCPServer::doAccept, this));
 
         m_running = true;
     }

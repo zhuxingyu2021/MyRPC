@@ -9,6 +9,9 @@
 #include "fiber.h"
 
 #include "noncopyable.h"
+#include <boost/lockfree/spsc_queue.hpp>
+
+#define MYRPC_MAXTASK_PER_THREAD 512
 
 namespace MyRPC{
 
@@ -57,21 +60,18 @@ namespace MyRPC{
          */
         void WaitEvent(int thread_id);
 
-    protected:
-        // 恢复执行协程ID为fiber_id的协程
-        // Note: 该方法没有实现，必须被子类重写
-        virtual void resume(int64_t fiber_id);
+        // 线程的任务队列
+        boost::lockfree::spsc_queue<Fiber::ptr> m_task_queue;
 
     private:
         int m_epoll_fd;
 
         int m_notify_event_fd; // 用于从epoll_wait中唤醒
 
-        // m_adder_map: fd -> (READ Fiber ID, WRITE Fiber ID)
+        // m_adder_map: fd -> (READ Fiber, WRITE Fiber)
         // m_adder_map: 可以根据文件描述符查到谁添加了读/写IO事件
-        // 如果没有IO事件，那么对应的Fiber ID = 0
-        // 如果是唤醒事件，READ Fiber ID < 0
-        std::unordered_map<int, std::array<int64_t,2>> m_adder_map;
+        std::unordered_map<int, std::array<Fiber::ptr,2>> m_adder_map;
+        std::unordered_set<int> m_wake_up_set;
     };
 
 }

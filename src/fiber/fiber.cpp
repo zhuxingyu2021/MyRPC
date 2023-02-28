@@ -134,4 +134,8 @@ void Fiber::Main(push_type &p) {
     p(0);
 }
 
+Fiber::ptr Fiber::GetSharedFromThis() {
+    return GET_THIS()->shared_from_this();
+}
+
 }

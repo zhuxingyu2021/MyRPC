@@ -53,21 +53,7 @@ namespace MyRPC{
         void Wait();
 
     private:
-        struct Task{
-            using ptr = std::shared_ptr<Task>;
 
-            template<class Func>
-            Task(Func&& func, int tid):fiber(new Fiber(std::forward<Func>(func))), thread_id(tid){}
-            Task() = delete;
-            ~Task() = default;
-
-            Fiber::unique_ptr fiber; // 协程指针
-            int thread_id; // 线程ID
-
-            std::atomic<bool> stopped {false}; // 任务是否已停止
-        };
-        std::list<Task::ptr> m_tasks; // 任务队列
-        SpinLock m_tasks_lock; // 任务队列锁
     public:
 
         class FiberController{
@@ -75,14 +61,14 @@ namespace MyRPC{
             using ptr = std::shared_ptr<FiberController>;
 
             friend FiberPool;
-            FiberController(Task::ptr _ptr): m_task_ptr(_ptr){}
+            FiberController(Fiber::ptr _ptr): m_task_ptr(_ptr){}
 
             /**
              * @brief 判断协程是否已停止
              * @return 若协程已停止，返回true，否则返回false
              */
             bool IsStopped() {
-                return m_task_ptr->stopped;
+                return m_task_ptr->GetStatus() == Fiber::TERMINAL;
             }
 
             /**
@@ -95,9 +81,9 @@ namespace MyRPC{
              * @brief 获取协程ID
              * @return 协程ID
              */
-            int64_t GetId(){return m_task_ptr->fiber->GetId();}
+            int64_t GetId(){return m_task_ptr->GetId();}
         private:
-            Task::ptr m_task_ptr;
+            Fiber::ptr m_task_ptr;
         };
 
         /**
@@ -108,12 +94,12 @@ namespace MyRPC{
          */
         template<class Func>
         FiberController::ptr Run(Func&& func, int thread_id = -1){
-            Task::ptr ptr(new Task(std::forward<Func>(func), thread_id));
-            {
-                std::lock_guard<SpinLock> lock(m_tasks_lock);
-                m_tasks.push_back(ptr);
-                ++m_tasks_cnt;
-            }
+            if(thread_id == -1)
+                thread_id = rand() % m_threads_num;
+
+            Fiber::ptr ptr(new Fiber(std::forward<Func>(func)));
+            m_threads_context_ptr[thread_id]->m_task_queue.push(ptr);
+            ++m_tasks_cnt;
             NotifyAll();
             return std::make_shared<FiberPool::FiberController>(ptr);
         }
@@ -139,18 +125,7 @@ namespace MyRPC{
     private:
         int m_threads_num; // 线程数量
 
-        class ThreadContext:public EventManager{
-        public:
-            ThreadContext():EventManager(){}
-
-            // Fiber Id -> Task
-            // 线程的任务队列
-            std::unordered_map<int64_t, Task::ptr> my_tasks;
-        protected:
-            void resume(int64_t fiber_id) override;
-        };
-
-        std::vector<ThreadContext*> m_threads_context_ptr;
+        std::vector<EventManager*> m_threads_context_ptr;
 
         std::vector<std::shared_future<int>> m_threads_future;
 

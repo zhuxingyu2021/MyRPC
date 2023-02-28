@@ -8,7 +8,7 @@
 #include "noncopyable.h"
 
 namespace MyRPC {
-    class Fiber : public NonCopyable {
+    class Fiber : public NonCopyable, public std::enable_shared_from_this<Fiber>{
     public:
         using ptr = std::shared_ptr<Fiber>;
         using unique_ptr = std::unique_ptr<Fiber>;
@@ -80,6 +80,8 @@ namespace MyRPC {
          * @breif 获得当前协程ID，必须由协程调用
          */
          static int64_t GetCurrentId();
+
+         static Fiber::ptr GetSharedFromThis();
 
     private:
         // 协程id
