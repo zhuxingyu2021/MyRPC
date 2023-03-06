@@ -9,7 +9,7 @@
 using namespace MyRPC;
 
 #define THREADS_NUM 8
-#define FIBER_COUNT 4096
+#define FIBER_COUNT 1024
 
 int main(){
     FiberPool fp(THREADS_NUM);

@@ -3,7 +3,6 @@
 
 #include <memory>
 #include <functional>
-#include <boost/coroutine2/coroutine.hpp>
 
 #include "noncopyable.h"
 
@@ -12,8 +11,8 @@ namespace MyRPC {
     public:
         using ptr = std::shared_ptr<Fiber>;
         using unique_ptr = std::unique_ptr<Fiber>;
-        using pull_type = boost::coroutines2::coroutine<int64_t>::pull_type;
-        using push_type = boost::coroutines2::coroutine<int64_t>::push_type;
+
+        const size_t init_stack_size = 4096;
 
         enum status{
             READY = 1,
@@ -77,11 +76,27 @@ namespace MyRPC {
          static status GetCurrentStatus();
 
         /**
-         * @breif 获得当前协程ID，必须由协程调用
+         * @brief 获得当前协程ID，必须由协程调用
          */
          static int64_t GetCurrentId();
 
          static Fiber::ptr GetSharedFromThis();
+
+         /**
+          * @brief 获得栈大小，必须由协程调用
+          */
+         static size_t GetStacksize();
+
+         /**
+          * @brief 获得栈剩余空间的大小，必须由协程调用
+          */
+         static size_t GetStackFreeSize();
+
+         /**
+          * @brief 将栈空间扩充到两倍，必须由协程调用
+          * @return 返回true表示成功，false表示失败
+          */
+         static bool ExtendStackCapacity();
 
     private:
         // 协程id
@@ -90,12 +105,20 @@ namespace MyRPC {
         status m_status;
         // 需要执行的函数
         std::function<void()> m_func;
-        // 协程，使用boost coroutine2实现
-        pull_type* m_func_pull_type = nullptr;
-        push_type* m_func_push_type = nullptr;
+        // 协程栈
+        char* m_stack = nullptr;
+        size_t m_stack_size;
+
+        // 上下文
+        // m_ctx内存布局：
+        // 0-12: 子协程 rsp r15 r14 r13 r12 r9 r8 rbp rsi rdx rcx rbx rax
+        // 13-25: 主协程 rsp r15 r14 r13 r12 r9 r8 rbp rsi rdx rcx rbx rax
+        void* m_ctx[26];
+        void* m_ctx_bottom = nullptr;
+        void init_stack_and_ctx();
 
         // 协程的主函数
-        static void Main(push_type&);
+        static void Main();
 
     };
 

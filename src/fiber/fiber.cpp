@@ -4,7 +4,16 @@
 #include "fiber/hook_sleep.h"
 #include "fiber/hook_io.h"
 
+extern "C"{
+    extern void ctx_resume(void* ctx);
+    extern void ctx_yield(void* ctx);
+}
+
 namespace MyRPC {
+
+class StackUnwindException{
+    // 用于栈回溯
+};
 
 std::atomic<int64_t> fiber_count = 0;
 
@@ -21,15 +30,41 @@ enable_hook = false;}
 
 #define GET_THIS() p_fiber
 
-Fiber::Fiber(const std::function<void()>& func) : m_fiber_id(++fiber_count), m_func(func), m_status(READY) {}
+#define STACK_ALIGN_BYTES (16) // x86_64的栈帧必须是16字节对齐的
+#define STACK_BOTTOM_ADDR ((void**)(m_stack+m_stack_size)-STACK_ALIGN_BYTES/8)
+#define STACK_BOTTOM (*STACK_BOTTOM_ADDR)
 
-Fiber::Fiber(std::function<void()>&& func) : m_fiber_id(++fiber_count), m_func(std::move(func)), m_status(READY) {}
+void Fiber::init_stack_and_ctx() {
+    m_ctx_bottom = m_ctx + 26;
+    STACK_BOTTOM = (void*)&Fiber::Main;
+    memset(m_ctx, 0, 26 * sizeof(void*));
+    m_ctx[0] = STACK_BOTTOM_ADDR; // 子协程的rsp指向协程栈的栈底
+    m_ctx[7] = m_ctx[0]; // 设置子协程的rbp
+}
+
+Fiber::Fiber(const std::function<void()>& func) : m_fiber_id(++fiber_count), m_func(func), m_status(READY) {
+    m_stack_size = init_stack_size;
+    m_stack = (char*) aligned_alloc(4096, sizeof(char) * init_stack_size);
+    if(m_stack)
+        init_stack_and_ctx();
+}
+
+Fiber::Fiber(std::function<void()>&& func) : m_fiber_id(++fiber_count), m_func(std::move(func)), m_status(READY) {
+    m_stack_size = init_stack_size;
+    m_stack = (char*) aligned_alloc(4096, sizeof(char) * init_stack_size);;
+    if(m_stack)
+        init_stack_and_ctx();
+}
 
 Fiber::~Fiber() {
-    if (m_status != TERMINAL) {
-        Logger::warn("Fiber: {} exited abnormally!", m_fiber_id);
+    if (m_status == EXEC) {
+        MYRPC_CRITIAL_ERROR("Try to close a running fiber, id: " + std::to_string(m_fiber_id));
+    }else if(m_status != TERMINAL && m_status != ERROR){
+        // stack unwinding
+        MYRPC_NO_IMPLEMENTATION_ERROR();
     }
-    delete m_func_pull_type;
+    if(m_stack != nullptr)
+        free(m_stack);
 }
 
 void Fiber::Suspend(int64_t return_value) {
@@ -37,10 +72,9 @@ void Fiber::Suspend(int64_t return_value) {
     if (ptr) {
         ptr->m_status = READY;
 
-        MYRPC_ASSERT(ptr->m_func_push_type != nullptr);
         SWAP_OUT();
         // 切换上下文
-        (*(ptr->m_func_push_type))(return_value);
+        ctx_yield(ptr->m_ctx_bottom);
     }
 }
 
@@ -49,22 +83,18 @@ void Fiber::Block(int64_t return_value) {
     if (ptr) {
         ptr->m_status = BLOCKED;
 
-        MYRPC_ASSERT(ptr->m_func_push_type != nullptr);
         SWAP_OUT();
         // 切换上下文
-        (*(ptr->m_func_push_type))(return_value);
+        ctx_yield(ptr->m_ctx_bottom);
     }
 }
 
 void Fiber::Exit(int64_t return_value) {
     auto ptr = GET_THIS();
     if (ptr) {
-        ptr->m_status = TERMINAL;
-
-        MYRPC_ASSERT(ptr->m_func_push_type != nullptr);
-        SWAP_OUT();
-        // 切换上下文
-        (*(ptr->m_func_push_type))(return_value);
+        // 栈回溯
+        StackUnwindException _uw;
+        throw _uw;
     }
 }
 
@@ -72,13 +102,9 @@ int64_t Fiber::Resume() {
     if (m_status == READY || m_status == BLOCKED) {
         SWAP_IN();
         m_status = EXEC;
-        if (!m_func_pull_type) {
-            m_func_pull_type = new pull_type(Main);
-            MYRPC_ASSERT(m_func_pull_type != nullptr);
-        } else {
-            (*m_func_pull_type)();
-        }
-        return m_func_pull_type->get();
+
+        // 切换上下文
+        ctx_resume(m_ctx_bottom);
     } else if (m_status == EXEC) {
         Logger::warn("Trying to resume fiber{} which is in execution!", m_fiber_id);
     } else {
@@ -88,13 +114,12 @@ int64_t Fiber::Resume() {
 }
 
 void Fiber::Reset() {
-    if (m_status == TERMINAL || m_status == BLOCKED) {
+    if (m_status == TERMINAL || m_status == ERROR) {
         m_status = READY;
-        delete m_func_pull_type;
-        m_func_pull_type = nullptr;
-        m_func_push_type = nullptr;
+        init_stack_and_ctx();
     } else {
-        Logger::warn("Trying to reset fiber{} which is not terminated or blocked!", m_fiber_id);
+        // stack unwinding
+        MYRPC_NO_IMPLEMENTATION_ERROR();
     }
 }
 
@@ -114,28 +139,78 @@ int64_t Fiber::GetCurrentId() {
     return 0;
 }
 
-void Fiber::Main(push_type &p) {
-    GET_THIS()->m_func_push_type = &p;
+void Fiber::Main() {
+    auto ptr = GET_THIS();
     {
         try {
-            GET_THIS()->m_func();
+            ptr->m_func();
         }
         catch (std::exception &e) {
-            Logger::warn("Fiber id:{} throws an exception {}.", GET_THIS()->m_fiber_id, e.what());
+            Logger::warn("Fiber id:{} throws an exception {}.", ptr->m_fiber_id, e.what());
+        }
+        catch(StackUnwindException &e){
+            // Do nothing
         }
         catch (...) {
-            Logger::warn("Fiber id:{} throws an exception.", GET_THIS()->m_fiber_id);
+            Logger::warn("Fiber id:{} throws an exception.", ptr->m_fiber_id);
         }
     }
-    GET_THIS()->m_status = TERMINAL;
+    ptr->m_status = TERMINAL;
     SWAP_OUT();
 
-    // 默认返回值为0
-    p(0);
+    // 上下文切换
+    ctx_yield(ptr->m_ctx_bottom);
 }
 
 Fiber::ptr Fiber::GetSharedFromThis() {
     return GET_THIS()->shared_from_this();
+}
+
+size_t Fiber::GetStacksize() {
+    return GET_THIS()->m_stack_size;
+}
+
+size_t Fiber::GetStackFreeSize() {
+    char* stack = GET_THIS()->m_stack;
+    char* rsp;
+    asm volatile("movq %%rsp, %0":"=g"(rsp));
+    return (size_t)(rsp-stack);
+}
+
+bool Fiber::ExtendStackCapacity() {
+    /*
+    Fiber* volatile ptr = GET_THIS();
+    size_t volatile new_stack_size = ptr->m_stack_size * 2;
+    char* volatile new_stack = (char*) std::aligned_alloc(4096, sizeof(char) * new_stack_size);
+
+    char volatile *rsp;
+    char volatile *rbp;
+    char *new_rsp, *new_rbp;
+    asm volatile("movq %%rsp, %0":"=g"(rsp));
+    asm volatile("movq %%rbp, %0":"=g"(rbp));
+
+    size_t rsp_ofs, rbp_ofs;
+    if(!new_stack)
+        return false;
+
+    memcpy(new_stack+ptr->m_stack_size, ptr->m_stack, ptr->m_stack_size);
+
+    rsp_ofs = (ptr->m_stack + ptr->m_stack_size) - rsp;
+    rbp_ofs = (ptr->m_stack + ptr->m_stack_size) - rbp;
+
+    new_rsp = new_stack + new_stack_size - rsp_ofs;
+    new_rbp = new_stack + new_stack_size - rbp_ofs;
+
+
+    asm volatile("movq %0, %%rsp":"=r"(new_rsp));
+    asm volatile("movq %0, %%rbp":"=r"(new_rbp));
+
+    auto tmp = ptr->m_stack;
+    ptr->m_stack = new_stack;
+    ptr->m_stack_size = new_stack_size;
+    free(tmp);*/
+
+    MYRPC_NO_IMPLEMENTATION_ERROR();
 }
 
 }
