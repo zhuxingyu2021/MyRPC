@@ -11,6 +11,7 @@ set(SRCFILE
         fiber/event_manager.cpp
         fiber/fiber_pool.cpp
         fiber/fiber_sync.cpp
+        fiber/ctx_switch.S
 
         net/inetaddr.cpp
         net/tcp_server.cpp

@@ -46,4 +46,9 @@ Logger::critical("No Implementation Error! In file {}, line: {}", __FILE__, __LI
 exit(-1); \
 }
 
+#define MYRPC_CRITIAL_ERROR(msg) { \
+Logger::critical("{}! In file {}, line: {}",(msg),  __FILE__, __LINE__); \
+exit(-1);                                   \
+}
+
 #endif //MYRPC_MACRO_H

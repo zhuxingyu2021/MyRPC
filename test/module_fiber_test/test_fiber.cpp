@@ -1,7 +1,8 @@
 # include "fiber/fiber.h"
 # include "macro.h"
 
-# include <iostream>
+# include <stdio.h>
+#include <iostream>
 
 using namespace MyRPC;
 
