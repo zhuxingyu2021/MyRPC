@@ -15,6 +15,10 @@ class StackUnwindException{
     // 用于栈回溯
 };
 
+static void  unwind(){
+    throw StackUnwindException();
+}
+
 std::atomic<int64_t> fiber_count = 0;
 
 thread_local bool enable_hook = false;
@@ -44,14 +48,14 @@ void Fiber::init_stack_and_ctx() {
 
 Fiber::Fiber(const std::function<void()>& func) : m_fiber_id(++fiber_count), m_func(func), m_status(READY) {
     m_stack_size = init_stack_size;
-    m_stack = (char*) aligned_alloc(4096, sizeof(char) * init_stack_size);
+    m_stack = (char*) aligned_alloc(64, sizeof(char) * init_stack_size);
     if(m_stack)
         init_stack_and_ctx();
 }
 
 Fiber::Fiber(std::function<void()>&& func) : m_fiber_id(++fiber_count), m_func(std::move(func)), m_status(READY) {
     m_stack_size = init_stack_size;
-    m_stack = (char*) aligned_alloc(4096, sizeof(char) * init_stack_size);;
+    m_stack = (char*) aligned_alloc(64, sizeof(char) * init_stack_size);;
     if(m_stack)
         init_stack_and_ctx();
 }
@@ -61,7 +65,15 @@ Fiber::~Fiber() {
         MYRPC_CRITIAL_ERROR("Try to close a running fiber, id: " + std::to_string(m_fiber_id));
     }else if(m_status != TERMINAL && m_status != ERROR){
         // stack unwinding
-        MYRPC_NO_IMPLEMENTATION_ERROR();
+        void** rsp = (void**)m_ctx[0];
+
+        // push (void**)&unwind
+        --rsp;
+        *rsp = (void**)&unwind;
+        m_ctx[0] = (char*)rsp;
+
+        // 切换上下文
+        ctx_resume(m_ctx_bottom);
     }
     if(m_stack != nullptr)
         free(m_stack);
@@ -118,8 +130,16 @@ void Fiber::Reset() {
         m_status = READY;
         init_stack_and_ctx();
     } else {
-        // stack unwinding
-        MYRPC_NO_IMPLEMENTATION_ERROR();
+        // Stack Unwinding
+        void** rsp = (void**)m_ctx[0];
+
+        // push (void**)&unwind
+        --rsp;
+        *rsp = (void**)&unwind;
+        m_ctx[0] = (char*)rsp;
+
+        // 切换上下文
+        ctx_resume(m_ctx_bottom);
     }
 }
 
@@ -150,6 +170,9 @@ void Fiber::Main() {
         }
         catch(StackUnwindException &e){
             // Do nothing
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_LEVEL
+            Logger::debug("Fiber id: {} stack unwinding", ptr->m_fiber_id);
+#endif
         }
         catch (...) {
             Logger::warn("Fiber id:{} throws an exception.", ptr->m_fiber_id);

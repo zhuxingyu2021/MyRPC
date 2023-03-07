@@ -2,12 +2,7 @@
 **一个轻量级的RPC框架**
 
 ## 构建
-**依赖库：** Boost下的coroutine模块
 
-**依赖库安装方法：**
-```shell
-sudo apt install libboost-coroutine-dev
-```
 **框架构建方法：**
 ```shell
 git clone https://github.com/zhuxingyu2021/MyRPC
