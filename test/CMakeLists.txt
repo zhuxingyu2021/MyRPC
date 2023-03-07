@@ -8,6 +8,7 @@ endmacro()
 
 make_test(module_fiber_test test_fiber)
 make_test(module_fiber_test test_fiber_stack)
+make_test(module_fiber_test test_fiber_stack_unwind)
 make_test(module_fiber_test test_fiberpool)
 make_test(module_fiber_test test_hooksleep)
 make_test(module_fiber_test test_hookio)

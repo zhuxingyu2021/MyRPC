@@ -12,7 +12,7 @@ namespace MyRPC {
         using ptr = std::shared_ptr<Fiber>;
         using unique_ptr = std::unique_ptr<Fiber>;
 
-        const size_t init_stack_size = 4096;
+        const size_t init_stack_size = 8192;
 
         enum status{
             READY = 1,
