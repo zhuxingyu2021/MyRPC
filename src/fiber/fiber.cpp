@@ -5,8 +5,7 @@
 #include "fiber/hook_io.h"
 
 extern "C"{
-    extern void ctx_resume(void* ctx);
-    extern void ctx_yield(void* ctx);
+    extern void myrpc_ctx_switch(void* switch_out_ctx, void* switch_in_ctx);
 }
 
 namespace MyRPC {
@@ -34,16 +33,44 @@ enable_hook = false;}
 
 #define GET_THIS() p_fiber
 
+#if defined(__x86_64__) || defined(_M_X64)
 #define STACK_ALIGN_BYTES (16) // x86_64的栈帧必须是16字节对齐的
 #define STACK_BOTTOM_ADDR ((void**)(m_stack+m_stack_size)-STACK_ALIGN_BYTES/8)
 #define STACK_BOTTOM (*STACK_BOTTOM_ADDR)
 
+#define MAINCO_CTX_OFS 28
+#define SUBCO_CTX_OFS 0
+#define SP_CTX_OFS 0
+#define FP_CTX_OFS 1
+
+#elif defined(__aarch64__)
+
+#define STACK_ALIGN_BYTES (16) // arm64的栈帧必须是16字节对齐的
+#define STACK_BOTTOM_ADDR ((void**)(m_stack+m_stack_size))
+#define STACK_BOTTOM (*STACK_BOTTOM_ADDR)
+
+#define MAINCO_CTX_OFS 22
+#define SUBCO_CTX_OFS 0
+#define SP_CTX_OFS 12
+#define FP_CTX_OFS 10
+#define RET_CTX_OFS 13
+
+#endif
+
+#define RESUME(ctx_addr) myrpc_ctx_switch((ctx_addr) + MAINCO_CTX_OFS, (ctx_addr) + SUBCO_CTX_OFS);
+#define YIELD(ctx_addr) myrpc_ctx_switch((ctx_addr) + SUBCO_CTX_OFS, (ctx_addr) + MAINCO_CTX_OFS);
+
 void Fiber::init_stack_and_ctx() {
-    m_ctx_bottom = m_ctx + 26;
-    STACK_BOTTOM = (void*)&Fiber::Main;
     memset(m_ctx, 0, 26 * sizeof(void*));
-    m_ctx[0] = STACK_BOTTOM_ADDR; // 子协程的rsp指向协程栈的栈底
-    m_ctx[7] = m_ctx[0]; // 设置子协程的rbp
+    m_ctx[SUBCO_CTX_OFS + SP_CTX_OFS] = STACK_BOTTOM_ADDR; // 子协程的rsp指向协程栈的栈底
+    m_ctx[SUBCO_CTX_OFS + FP_CTX_OFS] = m_ctx[SUBCO_CTX_OFS + SP_CTX_OFS]; // 设置子协程的rbp = rsp
+
+    // 第一次切换到协程时，需要跳转到Fiber::Main位置
+#if defined(__x86_64__) || defined(_M_X64)
+    STACK_BOTTOM = (void*)&Fiber::Main;
+#elif defined(__aarch64__)
+    m_ctx[SUBCO_CTX_OFS + RET_CTX_OFS] = (void*)&Fiber::Main;
+#endif
 }
 
 Fiber::Fiber(const std::function<void()>& func) : m_fiber_id(++fiber_count), m_func(func), m_status(READY) {
@@ -65,15 +92,18 @@ Fiber::~Fiber() {
         MYRPC_CRITIAL_ERROR("Try to close a running fiber, id: " + std::to_string(m_fiber_id));
     }else if(m_status != TERMINAL && m_status != ERROR){
         // stack unwinding
-        void** rsp = (void**)m_ctx[0];
+#if defined(__x86_64__) || defined(_M_X64)
+        void** rsp = (void**)m_ctx[SUBCO_CTX_OFS + SP_CTX_OFS];
 
         // push (void**)&unwind
         --rsp;
         *rsp = (void**)&unwind;
-        m_ctx[0] = (char*)rsp;
-
+        m_ctx[SUBCO_CTX_OFS + SP_CTX_OFS] = (char*)rsp;
+#elif defined(__aarch64__)
+        m_ctx[SUBCO_CTX_OFS + RET_CTX_OFS] = (void**)&unwind;
+#endif
         // 切换上下文
-        ctx_resume(m_ctx_bottom);
+        RESUME(m_ctx);
     }
     if(m_stack != nullptr)
         free(m_stack);
@@ -86,7 +116,7 @@ void Fiber::Suspend(int64_t return_value) {
 
         SWAP_OUT();
         // 切换上下文
-        ctx_yield(ptr->m_ctx_bottom);
+        YIELD(ptr->m_ctx);
     }
 }
 
@@ -97,7 +127,7 @@ void Fiber::Block(int64_t return_value) {
 
         SWAP_OUT();
         // 切换上下文
-        ctx_yield(ptr->m_ctx_bottom);
+        YIELD(ptr->m_ctx);
     }
 }
 
@@ -116,7 +146,7 @@ int64_t Fiber::Resume() {
         m_status = EXEC;
 
         // 切换上下文
-        ctx_resume(m_ctx_bottom);
+        RESUME(m_ctx);
     } else if (m_status == EXEC) {
         Logger::warn("Trying to resume fiber{} which is in execution!", m_fiber_id);
     } else {
@@ -131,15 +161,19 @@ void Fiber::Reset() {
         init_stack_and_ctx();
     } else {
         // Stack Unwinding
-        void** rsp = (void**)m_ctx[0];
+#if defined(__x86_64__) || defined(_M_X64)
+        void** rsp = (void**)m_ctx[SUBCO_CTX_OFS + SP_CTX_OFS];
 
         // push (void**)&unwind
         --rsp;
         *rsp = (void**)&unwind;
-        m_ctx[0] = (char*)rsp;
+        m_ctx[SUBCO_CTX_OFS + SP_CTX_OFS] = (char*)rsp;
+#elif defined(__aarch64__)
+        m_ctx[SUBCO_CTX_OFS + RET_CTX_OFS] = (void**)&unwind;
+#endif
 
         // 切换上下文
-        ctx_resume(m_ctx_bottom);
+        RESUME(m_ctx);
     }
 }
 
@@ -182,7 +216,7 @@ void Fiber::Main() {
     SWAP_OUT();
 
     // 上下文切换
-    ctx_yield(ptr->m_ctx_bottom);
+    YIELD(ptr->m_ctx);
 }
 
 Fiber::ptr Fiber::GetSharedFromThis() {

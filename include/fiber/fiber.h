@@ -110,11 +110,21 @@ namespace MyRPC {
         size_t m_stack_size;
 
         // 上下文
+        // 仅需要保存callee-saved寄存器
+
+#if defined(__x86_64__) || defined(_M_X64)
+        // x86_64: rsp, rbp, rbx, r12-r15, xmm6-xmm15
         // m_ctx内存布局：
-        // 0-12: 子协程 rsp r15 r14 r13 r12 r9 r8 rbp rsi rdx rcx rbx rax
-        // 13-25: 主协程 rsp r15 r14 r13 r12 r9 r8 rbp rsi rdx rcx rbx rax
-        void* m_ctx[26];
-        void* m_ctx_bottom = nullptr;
+        // 0-27: 子协程 rsp rbp r12 r13 r14 r15 rbx (preserved) xmm6 xmm7 xmm8 xmm9 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15
+        // 28-55: 主协程 rsp rbp r12 r13 r14 r15 rbx (preserved) xmm6 xmm7 xmm8 xmm9 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15
+        void* m_ctx[56] __attribute__((aligned (16)));
+#elif defined(__aarch64__)
+        // arm64: sp x19-x29 d8-d15 x30(return address)
+        // m_ctx内存布局：
+        // 0-21: 子协程 (x19 x20) (x21 x22) (x23 x24) (x25 x26) (x27 x28) (x29 x30) (sp x30(return_address)) (d8 d9) (d10 d11) (d12 d13) (d14 d15)
+        // 22-43: 主协程 (x19 x20) (x21 x22) (x23 x24) (x25 x26) (x27 x28) (x29 x30) (sp x30(return_address)) (d8 d9) (d10 d11) (d12 d13) (d14 d15)
+        void* m_ctx[44] __attribute__((aligned (16)));
+#endif
         void init_stack_and_ctx();
 
         // 协程的主函数
