@@ -78,7 +78,7 @@ namespace MyRPC{
         bool m_ipv6;
 
         int m_listen_sock_fd = -1; // 用于监听端口的socket
-        FiberPool::FiberController::ptr m_acceptor;
+        Fiber::ptr m_acceptor;
 
         bool m_running;
         std::atomic<bool> m_stopping = {false};

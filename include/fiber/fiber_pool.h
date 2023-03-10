@@ -52,40 +52,6 @@ namespace MyRPC{
          */
         void Wait();
 
-    private:
-
-    public:
-
-        class FiberController{
-        public:
-            using ptr = std::shared_ptr<FiberController>;
-
-            friend FiberPool;
-            FiberController(Fiber::ptr _ptr): m_task_ptr(_ptr){}
-
-            /**
-             * @brief 判断协程是否已停止
-             * @return 若协程已停止，返回true，否则返回false
-             */
-            bool IsStopped() {
-                return m_task_ptr->GetStatus() == Fiber::TERMINAL;
-            }
-
-            /**
-             * @brief Join协程和主线程
-             * @note 若协程不可被Join，那么等待至协程能被Join为止
-             */
-            void Join();
-
-            /**
-             * @brief 获取协程ID
-             * @return 协程ID
-             */
-            int64_t GetId(){return m_task_ptr->GetId();}
-        private:
-            Fiber::ptr m_task_ptr;
-        };
-
         /**
          * 运行任务func
          * @param func 任务对应的函数
@@ -93,15 +59,17 @@ namespace MyRPC{
          * @return
          */
         template<class Func>
-        FiberController::ptr Run(Func&& func, int thread_id = -1){
+        Fiber::ptr Run(Func&& func, int thread_id = -1){
             if(thread_id == -1)
                 thread_id = rand() % m_threads_num;
 
-            Fiber::ptr ptr(new Fiber(std::forward<Func>(func)));
-            m_threads_context_ptr[thread_id]->m_task_queue.push(ptr);
+            Fiber::ptr* ptr = new Fiber::ptr(new Fiber(std::forward<Func>(func)));
+            if(!m_threads_context_ptr[thread_id]->m_task_queue.TryPush(ptr)){
+                MYRPC_CRITIAL_ERROR("Task queue is full!");
+            }
             ++m_tasks_cnt;
-            NotifyAll();
-            return std::make_shared<FiberPool::FiberController>(ptr);
+            Notify(thread_id);
+            return *ptr;
         }
 
         /**

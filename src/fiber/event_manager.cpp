@@ -7,10 +7,11 @@
 #include "fiber/hook_io.h"
 
 #include <sys/eventfd.h>
+#include <unistd.h>
 
 using namespace MyRPC;
 
-EventManager::EventManager():m_task_queue(MYRPC_MAXTASK_PER_THREAD) {
+EventManager::EventManager() {
     // 初始化epoll
     m_epoll_fd = epoll_create(1);
     MYRPC_SYS_ASSERT(m_epoll_fd != -1);
@@ -124,7 +125,9 @@ void EventManager::WaitEvent(int thread_id) {
 #endif
             auto ret_val = read_fiber->Resume();
             if(read_fiber->GetStatus() == Fiber::READY)
-                m_task_queue.push(read_fiber);
+                if(!m_task_queue.TryPush(new Fiber::ptr(read_fiber))){
+                    MYRPC_CRITIAL_ERROR("Task queue is full!");
+                }
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
             Logger::debug("Thread: {}, Fiber: {} is swapped out #1, return value:{}, status:{}", thread_id,
                           read_fiber->GetId(), ret_val, read_fiber->GetStatus());
@@ -137,7 +140,9 @@ void EventManager::WaitEvent(int thread_id) {
             // 写事件发生，恢复相应协程执行
             auto ret_val = write_fiber->Resume();
             if(write_fiber->GetStatus() == Fiber::READY)
-                m_task_queue.push(write_fiber);
+                if(!m_task_queue.TryPush(new Fiber::ptr(write_fiber))){
+                    MYRPC_CRITIAL_ERROR("Task queue is full!");
+                }
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
             Logger::debug("Thread: {}, Fiber: {} is swapped out #1, return value:{}, status:{}", thread_id,
                           write_fiber->GetId(), ret_val, write_fiber->GetStatus());

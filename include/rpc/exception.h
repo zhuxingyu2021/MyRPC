@@ -5,7 +5,6 @@
 #include <string>
 #include <cstring>
 
-#include "enum2string.h"
 
 namespace MyRPC{
 class FileException:public std::exception{
@@ -18,17 +17,29 @@ private:
 
 class RPCClientException:public std::exception{
 public:
-    MYRPC_DEFINE_ENUM_WITH_STRING_CONVERSIONS(ErrorType,
-                                              (NO_ERROR)
-                                              (HAVENT_BEEN_CALLED)
-                                              (SERVICE_NOT_FOUND)
-                                              (REGISTRY_SERVER_CLOSED)
-                                              (CONNECT_TIME_OUT)
-                                              (SERVER_EXCEPTION)
-                                              (SERVER_CLOSED)
-    )
+    enum ErrorType{
+        NO_ERROR,
+        HAVENT_BEEN_CALLED,
+        SERVICE_NOT_FOUND,
+        REGISTRY_SERVER_CLOSED,
+        CONNECT_TIME_OUT,
+        SERVER_EXCEPTION,
+        SERVER_CLOSED
+    };
 
-    RPCClientException(ErrorType err):err_(err), msg_("Error Type: " + ToString(err)){}
+    inline const char* ToString(ErrorType e){
+        switch(e){
+            case NO_ERROR: return "NO_ERROR";
+            case HAVENT_BEEN_CALLED: return "HAVENT_BEEN_CALLED";
+            case SERVICE_NOT_FOUND: return "SERVICE_NOT_FOUND";
+            case REGISTRY_SERVER_CLOSED: return "REGISTRY_SERVER_CLOSED";
+            case CONNECT_TIME_OUT: return "CONNECT_TIME_OUT";
+            case SERVER_EXCEPTION: return "SERVER_EXCEPTION";
+            case SERVER_CLOSED: return "SERVER_CLOSED";
+        }
+    }
+
+    RPCClientException(ErrorType err):err_(err), msg_(std::string("Error Type: ") + ToString(err)){}
     RPCClientException(ErrorType err, std::string&& server_what):err_(SERVER_EXCEPTION){
         MYRPC_ASSERT(err == SERVER_EXCEPTION);
 
