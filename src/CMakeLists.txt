@@ -24,9 +24,8 @@ set(SRCFILE
         rpc/rpc_client_connection.cpp
 )
 
-find_package(Boost COMPONENTS coroutine REQUIRED)
 find_package(Threads REQUIRED)
 
 add_library(MyRPC STATIC ${SRCFILE})
 
-target_link_libraries(MyRPC spdlog ${Boost_LIBRARIES} dl)
+target_link_libraries(MyRPC spdlog dl)

@@ -11,7 +11,6 @@
 #include <arpa/inet.h>
 
 #include "noncopyable.h"
-#include "enum2string.h"
 
 namespace MyRPC{
 
@@ -30,20 +29,37 @@ namespace MyRPC{
  * 第四-七个字节是接收的内容长度。
  */
 
-    MYRPC_DEFINE_ENUM_WITH_STRING_CONVERSIONS(MessageType,
-                                              (MESSAGE_HEARTBEAT)
-                                              (MESSAGE_REQUEST_SUBSCRIBE)
-                                              (MESSAGE_REQUEST_REGISTRATION)
-                                              (MESSAGE_REQUEST_RPC)
-                                              (MESSAGE_RESPOND_OK)
-                                              (MESSAGE_RESPOND_EXCEPTION)
-                                              (MESSAGE_RESPOND_ERROR)
-                                              (MESSAGE_PUSH)
-                                              (ERROR_TIMEOUT)
-                                              (ERROR_CLIENT_CLOSE_CONN)
-                                              (ERROR_UNKNOWN_PROTOCOL)
-                                              (ERROR_OTHERS)
-    )
+    enum MessageType{
+        MESSAGE_HEARTBEAT,
+        MESSAGE_REQUEST_SUBSCRIBE,
+        MESSAGE_REQUEST_REGISTRATION,
+        MESSAGE_REQUEST_RPC,
+        MESSAGE_RESPOND_OK,
+        MESSAGE_RESPOND_EXCEPTION,
+        MESSAGE_RESPOND_ERROR,
+        MESSAGE_PUSH,
+        ERROR_TIMEOUT,
+        ERROR_CLIENT_CLOSE_CONN,
+        ERROR_UNKNOWN_PROTOCOL,
+        ERROR_OTHERS
+    };
+
+    inline const char* ToString(MessageType e){
+        switch(e){
+            case MESSAGE_HEARTBEAT: return "MESSAGE_HEARTBEAT";
+            case MESSAGE_REQUEST_SUBSCRIBE: return "MESSAGE_REQUEST_SUBSCRIBE";
+            case MESSAGE_REQUEST_REGISTRATION: return "MESSAGE_REQUEST_REGISTRATION";
+            case MESSAGE_REQUEST_RPC: return "MESSAGE_REQUEST_RPC";
+            case MESSAGE_RESPOND_OK: return "MESSAGE_RESPOND_OK";
+            case MESSAGE_RESPOND_EXCEPTION: return "MESSAGE_RESPOND_EXCEPTION";
+            case MESSAGE_RESPOND_ERROR: return "MESSAGE_RESPOND_ERROR";
+            case MESSAGE_PUSH: return "MESSAGE_PUSH";
+            case ERROR_TIMEOUT: return "ERROR_TIMEOUT";
+            case ERROR_CLIENT_CLOSE_CONN: return "ERROR_CLIENT_CLOSE_CONN";
+            case ERROR_UNKNOWN_PROTOCOL: return "ERROR_UNKNOWN_PROTOCOL";
+            case ERROR_OTHERS: return "ERROR_OTHERS";
+        }
+    }
 
     class RPCSession: public NonCopyable{
     public:

@@ -9,9 +9,7 @@
 #include "fiber.h"
 
 #include "noncopyable.h"
-#include <boost/lockfree/spsc_queue.hpp>
-
-#define MYRPC_MAXTASK_PER_THREAD 512
+#include "lockfree_queue.h"
 
 namespace MyRPC{
 
@@ -19,6 +17,7 @@ namespace MyRPC{
     public:
         static const int MAX_EVENTS = 300;
         static const int TIME_OUT = 5000;
+        static const int TASK_QUEUE_SIZE = 1024;
 
         EventManager();
         ~EventManager();
@@ -60,8 +59,7 @@ namespace MyRPC{
          */
         void WaitEvent(int thread_id);
 
-        // 线程的任务队列
-        boost::lockfree::spsc_queue<Fiber::ptr> m_task_queue;
+        friend class FiberPool;
 
     private:
         int m_epoll_fd;
@@ -72,6 +70,9 @@ namespace MyRPC{
         // m_adder_map: 可以根据文件描述符查到谁添加了读/写IO事件
         std::unordered_map<int, std::array<Fiber::ptr,2>> m_adder_map;
         std::unordered_set<int> m_wake_up_set;
+
+        // 线程的任务队列
+        MPMCLockFreeQueue<Fiber::ptr*, TASK_QUEUE_SIZE> m_task_queue;
     };
 
 }

@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <chrono>
 #include <mutex>
+#include <unistd.h>
 
 #include <sys/eventfd.h>
 
@@ -75,12 +76,6 @@ void FiberPool::NotifyAll() {
     enable_hook = tmp;
 }
 
-void FiberPool::FiberController::Join() {
-    while(!IsStopped()){
-        sleep(1);
-    }
-}
-
 int FiberPool::GetCurrentThreadId() {
     return now_thread_id;
 }
@@ -108,10 +103,10 @@ int FiberPool::MainLoop(int thread_id) {
     while (true) {
         if (m_stopping) return 0;
 
+        Fiber::ptr* tsk_ptr_from_q = nullptr;
         // 1. 调度线程的所有协程
-        while(!context_ptr->m_task_queue.empty()){
-            auto tsk_ptr = context_ptr->m_task_queue.front();
-            context_ptr->m_task_queue.pop();
+        while(context_ptr->m_task_queue.TryPop(tsk_ptr_from_q)){
+            auto tsk_ptr = *tsk_ptr_from_q;
 
             MYRPC_ASSERT(tsk_ptr->GetStatus() != Fiber::ERROR);
             if (tsk_ptr->GetStatus() == Fiber::READY) { // 如果任务已就绪，那么执行任务
@@ -126,20 +121,33 @@ int FiberPool::MainLoop(int thread_id) {
 #endif
                 // 任务让出CPU，等待下次被调度
                 auto status = tsk_ptr->GetStatus();
-                if(status == Fiber::READY)
-                    context_ptr->m_task_queue.push(tsk_ptr);
-                else if(status != Fiber::BLOCKED){
+                if(status == Fiber::READY) {
+                    if(!context_ptr->m_task_queue.TryPush(tsk_ptr_from_q)){
+                        MYRPC_CRITIAL_ERROR("Task queue is full!");
+                    }
+                }
+                else if(status == Fiber::BLOCKED){
+                    delete tsk_ptr_from_q;
+                }
+                else{
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
                     Logger::debug("Thread: {}, Fiber: {} is going to delete", thread_id, tsk_ptr->GetId());
 #endif
+                    delete tsk_ptr_from_q;
                     --m_tasks_cnt;
                 }
+                tsk_ptr_from_q = nullptr;
             }else if (tsk_ptr->GetStatus() == Fiber::TERMINAL) {
                     // 协程执行完成，从任务队列中删除
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
                 Logger::debug("Thread: {}, Fiber: {} is going to delete", thread_id, tsk_ptr->GetId());
 #endif
-                    --m_tasks_cnt;
+                delete tsk_ptr_from_q;
+                tsk_ptr_from_q = nullptr;
+                --m_tasks_cnt;
+            }else{
+                // 该分支不应该被执行
+                MYRPC_CRITIAL_ERROR("Internal Error!");
             }
         }
 
