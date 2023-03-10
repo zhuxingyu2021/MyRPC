@@ -1,7 +1,8 @@
 #include "fiber/hook_sleep.h"
-#include "logger.h"
 #include "fiber/fiber_pool.h"
+#include "logger.h"
 #include "macro.h"
+#include "fd_raii.h"
 
 #include <unistd.h>
 #include <dlfcn.h>
@@ -39,17 +40,18 @@ extern "C" unsigned int sleep (unsigned int __seconds) {
                             MyRPC::Fiber::GetCurrentId(), __seconds);
 #endif
         if(__seconds > 0) {
-            auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+            auto timer_fd = FdRAIIWrapper(timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK));
 
             struct itimerspec its;
             memset(&its, 0, sizeof(its));
             its.it_value.tv_sec = __seconds;
-            MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
+            MYRPC_SYS_ASSERT(timerfd_settime(timer_fd.Getfd(), 0, &its, NULL) == 0);
 
-            FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
+            FiberPool::GetEventManager()->AddIOEvent(timer_fd.Getfd(), EventManager::READ);
 
             Fiber::Block();
-            sys_close(timer_fd);
+            enable_hook = false;
+            timer_fd.Closefd();
         }
         enable_hook = true;
         return 0;
@@ -66,18 +68,19 @@ extern "C" int usleep (useconds_t __useconds) {
                       MyRPC::Fiber::GetCurrentId(), __useconds);
 #endif
         if(__useconds > 0) {
-            auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+            auto timer_fd = FdRAIIWrapper(timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK));
 
             struct itimerspec its;
             memset(&its, 0, sizeof(its));
             its.it_value.tv_sec = __useconds / 1000000; // 秒
             its.it_value.tv_nsec = (__useconds % 1000000) * 1000; // 微秒
-            MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
+            MYRPC_SYS_ASSERT(timerfd_settime(timer_fd.Getfd(), 0, &its, NULL) == 0);
 
-            FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
+            FiberPool::GetEventManager()->AddIOEvent(timer_fd.Getfd(), EventManager::READ);
 
             Fiber::Block();
-            sys_close(timer_fd);
+            enable_hook = false;
+            timer_fd.Closefd();
         }
         enable_hook = true;
         return 0;
@@ -94,17 +97,18 @@ extern "C" int nanosleep (const struct timespec *__req, struct timespec *__rem) 
                       MyRPC::Fiber::GetCurrentId(), __req->tv_sec, __req->tv_nsec);
 #endif
         if(__req->tv_sec > 0 || __req->tv_nsec > 0) {
-            auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+            auto timer_fd = FdRAIIWrapper(timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK));
 
             struct itimerspec its;
             memset(&its, 0, sizeof(its));
             memcpy(&its.it_value, __req, sizeof(struct timespec));
-            MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
+            MYRPC_SYS_ASSERT(timerfd_settime(timer_fd.Getfd(), 0, &its, NULL) == 0);
 
-            FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
+            FiberPool::GetEventManager()->AddIOEvent(timer_fd.Getfd(), EventManager::READ);
 
             Fiber::Block();
-            sys_close(timer_fd);
+            enable_hook = false;
+            timer_fd.Closefd();
         }
         if(__rem != NULL) {
             memset(__rem, 0, sizeof(struct timespec));

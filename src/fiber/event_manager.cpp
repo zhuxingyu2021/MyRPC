@@ -189,6 +189,30 @@ int EventManager::RemoveIOEvent(int fd, EventManager::EventType event) {
     }
 }
 
+int EventManager::RemoveIO(int fd) {
+    // 查找fd上是否有事件
+    auto iter = m_adder_map.find(fd);
+    if(iter == m_adder_map.end())
+    {
+        // fd上没有事件，返回
+        return 0;
+    }
+    else{
+        struct epoll_event event_epoll; // epoll_ctl 的第4个参数
+        memset(&event_epoll, 0, sizeof(epoll_event));
+        event_epoll.data.fd = fd;
+        event_epoll.events = 0;
+
+        m_adder_map.erase(fd);
+
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_EPOLL_LEVEL
+        auto _e = event_epoll.events;
+        Logger::debug("Fiber: {}, call epoll_ctl({}, 0x{:x}, {}, ...), epoll events:0x{:x}", Fiber::GetCurrentId(), m_epoll_fd, EPOLL_CTL_DEL, fd, _e);
+#endif
+        return epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, &event_epoll);
+    }
+}
+
 bool EventManager::IsExistIOEvent(int fd, EventManager::EventType event) const {
     // 查找fd上是否有事件
     auto iter = m_adder_map.find(fd);

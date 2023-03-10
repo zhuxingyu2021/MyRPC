@@ -1,8 +1,9 @@
 #include "fiber/hook_io.h"
 #include "fiber/timeout_io.h"
-#include "logger.h"
 #include "fiber/fiber_pool.h"
+#include "logger.h"
 #include "macro.h"
+#include "fd_raii.h"
 
 #include <unistd.h>
 #include <dlfcn.h>
@@ -102,6 +103,9 @@ extern "C" ssize_t write(int fd, const void *buf, size_t count) {
 
 // 覆盖posix close函数
 extern "C" int close(int fd) {
+    if(enable_hook){
+        FiberPool::GetEventManager()->RemoveIO(fd);
+    }
     return sys_close(fd);
 }
 
@@ -211,20 +215,22 @@ namespace MyRPC{
             auto err = FiberPool::GetEventManager()->AddIOEvent(fd, EventManager::READ);
             if(!err){
                 if(ts > 0) {
-                    auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+                    auto timer_fd = FdRAIIWrapper(timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK));
 
                     struct itimerspec its;
                     memset(&its, 0, sizeof(its));
                     its.it_value.tv_sec = ts / 1000000;
                     its.it_value.tv_nsec = (ts % 1000000) * 1000;
-                    MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
+                    MYRPC_SYS_ASSERT(timerfd_settime(timer_fd.Getfd(), 0, &its, NULL) == 0);
 
-                    FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
+                    FiberPool::GetEventManager()->AddIOEvent(timer_fd.Getfd(), EventManager::READ);
 
                     Fiber::Block();
 
-                    FiberPool::GetEventManager()->RemoveIOEvent(timer_fd, EventManager::READ);
-                    sys_close(timer_fd);
+                    FiberPool::GetEventManager()->RemoveIOEvent(timer_fd.Getfd(), EventManager::READ);
+                    enable_hook = false;
+                    timer_fd.Closefd();
+                    enable_hook = true;
 
                     // 如果fd的读事件还没被触发，说明超时
                     if (FiberPool::GetEventManager()->IsExistIOEvent(fd, EventManager::READ)) {
@@ -265,20 +271,22 @@ namespace MyRPC{
             auto err = FiberPool::GetEventManager()->AddIOEvent(sockfd, EventManager::READ);
             if(!err){
                 if(ts > 0) {
-                    auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+                    auto timer_fd = FdRAIIWrapper(timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK));
 
                     struct itimerspec its;
                     memset(&its, 0, sizeof(its));
                     its.it_value.tv_sec = ts / 1000000;
                     its.it_value.tv_nsec = (ts % 1000000) * 1000;
-                    MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
+                    MYRPC_SYS_ASSERT(timerfd_settime(timer_fd.Getfd(), 0, &its, NULL) == 0);
 
-                    FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
+                    FiberPool::GetEventManager()->AddIOEvent(timer_fd.Getfd(), EventManager::READ);
 
                     Fiber::Block();
 
-                    FiberPool::GetEventManager()->RemoveIOEvent(timer_fd, EventManager::READ);
-                    sys_close(timer_fd);
+                    FiberPool::GetEventManager()->RemoveIOEvent(timer_fd.Getfd(), EventManager::READ);
+                    enable_hook = false;
+                    timer_fd.Closefd();
+                    enable_hook = true;
 
                     // 如果sockfd的读事件还没被触发，说明超时
                     if (FiberPool::GetEventManager()->IsExistIOEvent(sockfd, EventManager::READ)) {
@@ -311,20 +319,22 @@ namespace MyRPC{
             auto err = FiberPool::GetEventManager()->AddIOEvent(sockfd, EventManager::WRITE);
             if(!err){
                 if(ts > 0) {
-                    auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+                    auto timer_fd = FdRAIIWrapper(timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK));
 
                     struct itimerspec its;
                     memset(&its, 0, sizeof(its));
                     its.it_value.tv_sec = ts / 1000000;
                     its.it_value.tv_nsec = (ts % 1000000) * 1000;
-                    MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
+                    MYRPC_SYS_ASSERT(timerfd_settime(timer_fd.Getfd(), 0, &its, NULL) == 0);
 
-                    FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
+                    FiberPool::GetEventManager()->AddIOEvent(timer_fd.Getfd(), EventManager::READ);
 
                     Fiber::Block();
 
-                    FiberPool::GetEventManager()->RemoveIOEvent(timer_fd, EventManager::READ);
-                    sys_close(timer_fd);
+                    FiberPool::GetEventManager()->RemoveIOEvent(timer_fd.Getfd(), EventManager::READ);
+                    enable_hook = false;
+                    timer_fd.Closefd();
+                    enable_hook = true;
 
                     // 如果sockfd的读事件还没被触发，说明超时
                     if (FiberPool::GetEventManager()->IsExistIOEvent(sockfd, EventManager::READ)) {
@@ -356,20 +366,22 @@ namespace MyRPC{
             auto err = FiberPool::GetEventManager()->AddIOEvent(sockfd, EventManager::READ);
             if(!err){
                 if(ts > 0) {
-                    auto timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+                    auto timer_fd = FdRAIIWrapper(timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK));
 
                     struct itimerspec its;
                     memset(&its, 0, sizeof(its));
                     its.it_value.tv_sec = ts / 1000000;
                     its.it_value.tv_nsec = (ts % 1000000) * 1000;
-                    MYRPC_SYS_ASSERT(timerfd_settime(timer_fd, 0, &its, NULL) == 0);
+                    MYRPC_SYS_ASSERT(timerfd_settime(timer_fd.Getfd(), 0, &its, NULL) == 0);
 
-                    FiberPool::GetEventManager()->AddIOEvent(timer_fd, EventManager::READ);
+                    FiberPool::GetEventManager()->AddIOEvent(timer_fd.Getfd(), EventManager::READ);
 
                     Fiber::Block();
 
-                    FiberPool::GetEventManager()->RemoveIOEvent(timer_fd, EventManager::READ);
-                    sys_close(timer_fd);
+                    FiberPool::GetEventManager()->RemoveIOEvent(timer_fd.Getfd(), EventManager::READ);
+                    enable_hook = false;
+                    timer_fd.Closefd();
+                    enable_hook = true;
 
                     // 如果sockfd的读事件还没被触发，说明超时
                     if (FiberPool::GetEventManager()->IsExistIOEvent(sockfd, EventManager::READ)) {
