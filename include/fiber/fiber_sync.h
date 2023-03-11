@@ -95,8 +95,6 @@ namespace MyRPC{
             std::atomic<bool> reader_blocked = {false};
         };
 
-        // TODO: Semaphore ConditionVariable
-
         template <class MutexType>
         class ConditionVariable : public NonCopyable{
         public:

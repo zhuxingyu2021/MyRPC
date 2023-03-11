@@ -89,6 +89,8 @@ namespace MyRPC{
             return std::string((char*)data, size);
         }
 
+        void Commit(){ /*Do Nothing*/ }
+
     private:
         int m_read_offset = 0; // 已读取的字符数量
     };
@@ -133,6 +135,9 @@ namespace MyRPC{
          * @brief 清除字符缓冲区
          */
         void Clear();
+
+        void Commit(){ /*Do Nothing*/ }
+        void Flush(){ /*Do Nothing*/ }
 
     private:
         int m_total_size = 0; // 字符缓冲区总大小

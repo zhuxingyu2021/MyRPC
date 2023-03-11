@@ -60,14 +60,14 @@ enable_hook = false;}
 #define RESUME(ctx_addr) myrpc_ctx_switch((ctx_addr) + MAINCO_CTX_OFS, (ctx_addr) + SUBCO_CTX_OFS);
 #define YIELD(ctx_addr) myrpc_ctx_switch((ctx_addr) + SUBCO_CTX_OFS, (ctx_addr) + MAINCO_CTX_OFS);
 
-void Fiber::init_stack_and_ctx() {
+void Fiber::_init_stack_and_ctx() {
     memset(m_ctx, 0, 26 * sizeof(void*));
     m_ctx[SUBCO_CTX_OFS + SP_CTX_OFS] = STACK_BOTTOM_ADDR; // 子协程的rsp指向协程栈的栈底
     m_ctx[SUBCO_CTX_OFS + FP_CTX_OFS] = m_ctx[SUBCO_CTX_OFS + SP_CTX_OFS]; // 设置子协程的rbp = rsp
 
     // 第一次切换到协程时，需要跳转到Fiber::Main位置
 #if defined(__x86_64__) || defined(_M_X64)
-    STACK_BOTTOM = (void*)&Fiber::Main;
+    STACK_BOTTOM = (void*) &Fiber::_main_func;
 #elif defined(__aarch64__)
     m_ctx[SUBCO_CTX_OFS + RET_CTX_OFS] = (void*)&Fiber::Main;
 #endif
@@ -77,14 +77,14 @@ Fiber::Fiber(const std::function<void()>& func) : m_fiber_id(++fiber_count), m_f
     m_stack_size = init_stack_size;
     m_stack = (char*) aligned_alloc(64, sizeof(char) * init_stack_size);
     if(m_stack)
-        init_stack_and_ctx();
+        _init_stack_and_ctx();
 }
 
 Fiber::Fiber(std::function<void()>&& func) : m_fiber_id(++fiber_count), m_func(std::move(func)), m_status(READY) {
     m_stack_size = init_stack_size;
     m_stack = (char*) aligned_alloc(64, sizeof(char) * init_stack_size);;
     if(m_stack)
-        init_stack_and_ctx();
+        _init_stack_and_ctx();
 }
 
 Fiber::~Fiber() {
@@ -158,7 +158,7 @@ int64_t Fiber::Resume() {
 void Fiber::Reset() {
     if (m_status == TERMINAL || m_status == ERROR) {
         m_status = READY;
-        init_stack_and_ctx();
+        _init_stack_and_ctx();
     } else {
         // Stack Unwinding
 #if defined(__x86_64__) || defined(_M_X64)
@@ -193,7 +193,7 @@ int64_t Fiber::GetCurrentId() {
     return 0;
 }
 
-void Fiber::Main() {
+void Fiber::_main_func() {
     auto ptr = GET_THIS();
     {
         try {

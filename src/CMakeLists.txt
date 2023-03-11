@@ -17,11 +17,11 @@ set(SRCFILE
         net/tcp_server.cpp
 
         rpc/config.cpp
-        rpc/rpc_session.cpp
-        rpc/rpc_registry_server.cpp
-        rpc/rpc_server.cpp
-        rpc/rpc_client.cpp
-        rpc/rpc_client_connection.cpp
+        # rpc/rpc_session.cpp
+        # rpc/rpc_registry_server.cpp
+        # rpc/rpc_server.cpp
+        # rpc/rpc_client.cpp
+        # rpc/rpc_client_connection.cpp
 )
 
 find_package(Threads REQUIRED)

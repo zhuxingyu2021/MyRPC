@@ -125,10 +125,10 @@ namespace MyRPC {
         // 22-43: 主协程 (x19 x20) (x21 x22) (x23 x24) (x25 x26) (x27 x28) (x29 x30) (sp x30(return_address)) (d8 d9) (d10 d11) (d12 d13) (d14 d15)
         void* m_ctx[44] __attribute__((aligned (16)));
 #endif
-        void init_stack_and_ctx();
+        void _init_stack_and_ctx();
 
         // 协程的主函数
-        static void Main();
+        static void _main_func();
 
     };
 
