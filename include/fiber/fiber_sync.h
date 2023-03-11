@@ -40,10 +40,8 @@ namespace MyRPC{
         private:
             std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
 
-            std::atomic<int64_t> m_lock_id = {0};
-
             int m_mutex_id;
-            std::queue<std::pair<int64_t, int>> m_wait_queue; // FiberID ThreadID
+            std::queue<std::pair<Fiber::ptr, int>> m_wait_queue; // Fiber ThreadID
             SpinLock m_wait_queue_lock;
         };
 
@@ -95,44 +93,20 @@ namespace MyRPC{
             std::atomic<bool> reader_blocked = {false};
         };
 
-        template <class MutexType>
         class ConditionVariable : public NonCopyable{
         public:
-            void wait(MutexType& mutex) {
-                m_wait_queue_lock.lock();
-                m_wait_queue.push(std::make_pair(Fiber::GetCurrentId(), FiberPool::GetCurrentThreadId()));
+            ~ConditionVariable();
 
-                do{
-                    m_wait_queue_lock.unlock();
-                    mutex.unlock();
-                    Fiber::Suspend();
-                    mutex.lock();
-                    m_wait_queue_lock.lock();
-                }while((m_wait_queue.front().first != Fiber::GetCurrentId()) && (!m_notify_all));
+            void wait(Mutex& mutex);
 
-                m_wait_queue.pop();
-                if(m_notify_all && m_wait_queue.empty()){
-                    m_notify_all = false;
-                }
-                m_wait_queue_lock.unlock();
-            }
-            void notify_one(){
-                m_wait_queue_lock.lock();
-                if(!m_wait_queue.empty()) {
-                    FiberPool::GetThis()->Notify(m_wait_queue.front().second);
-                }
-                m_wait_queue_lock.unlock();
-            }
-            void notify_all(){
-                //TODO Implementation
-                m_notify_all = true;
-                FiberPool::GetThis()->NotifyAll();
-            }
+            void notify_one();
+
+            void notify_all();
 
         private:
             std::atomic<bool> m_notify_all = {false};
 
-            std::queue<std::pair<int64_t, int>> m_wait_queue; // FiberID ThreadID
+            std::queue<std::pair<Fiber::ptr, int>> m_wait_queue; // Fiber ThreadID
             SpinLock m_wait_queue_lock;
         };
     }

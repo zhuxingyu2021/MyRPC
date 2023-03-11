@@ -44,7 +44,7 @@ void FiberPool::Start() {
         for (int i = 0; i < m_threads_num; i++) {
             // 添加读eventfd事件，用以唤醒线程
             m_threads_context_ptr[i]->AddWakeupEventfd(m_global_event_fd);
-            m_threads_future.push_back(std::async(std::launch::async, &FiberPool::MainLoop, this, i));
+            m_threads_future.push_back(std::async(std::launch::async, &FiberPool::_main_loop, this, i));
         }
         m_running = true;
     }
@@ -96,7 +96,7 @@ EventManager* FiberPool::GetEventManager() {
     return nullptr;
 }
 
-int FiberPool::MainLoop(int thread_id) {
+int FiberPool::_main_loop(int thread_id) {
     now_thread_id = thread_id;
     p_fiber_pool = this;
 

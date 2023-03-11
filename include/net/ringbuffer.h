@@ -148,6 +148,8 @@ namespace MyRPC {
                 memcpy(&m_array[actual_beg_pos], str.c_str(), MYRPC_RINGBUFFER_SIZE - actual_beg_pos);
                 memcpy(m_array, str.c_str() + MYRPC_RINGBUFFER_SIZE - actual_beg_pos, actual_end_pos);
             }
+
+            m_write_idx = write_end_idx;
         }
 
         /**
@@ -171,11 +173,12 @@ namespace MyRPC {
             MYRPC_ASSERT(m_write_idx >= m_write_commit_idx);
         }
 
-        void Commit(size_t size){
+        void Commit(){
             m_write_commit_idx = m_write_idx;
         }
 
         void Flush(){
+            Commit();
             _write_socket();
         }
 

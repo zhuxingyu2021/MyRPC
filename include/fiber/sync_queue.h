@@ -42,7 +42,7 @@ namespace MyRPC {
     private:
         std::queue<T> m_queue;
         FiberSync::Mutex m_queue_mutex;
-        FiberSync::ConditionVariable<FiberSync::Mutex> m_empty;
+        FiberSync::ConditionVariable m_empty;
     };
 }
 

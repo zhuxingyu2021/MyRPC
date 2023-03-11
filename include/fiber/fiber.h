@@ -102,6 +102,9 @@ namespace MyRPC {
           */
          static bool ExtendStackCapacity();
 
+        // Don't use
+        void SetStatus(status s){m_status = s;}
+
     private:
         // 协程id
         int64_t m_fiber_id = 0;

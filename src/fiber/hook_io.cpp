@@ -285,7 +285,7 @@ namespace MyRPC{
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
             Logger::debug("Thread: {}, Fiber: {} trying to readv({}, 0x{:x}, {}) with timeout {}us", FiberPool::GetCurrentThreadId(),
-                          MyRPC::Fiber::GetCurrentId(), fd, (void*)iov, iovcnt, ts);
+                          MyRPC::Fiber::GetCurrentId(), fd, (uint64_t)iov, iovcnt, ts);
 #endif
 
         TIMER_IO_WAIT(fd, READ);
@@ -297,7 +297,7 @@ namespace MyRPC{
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
             Logger::debug("Thread: {}, Fiber: {} trying to writev({}, 0x{:x}, {}) with timeout {}us", FiberPool::GetCurrentThreadId(),
-                          MyRPC::Fiber::GetCurrentId(), fd, (void*)iov, iovcnt, ts);
+                          MyRPC::Fiber::GetCurrentId(), fd, (uint64_t)iov, iovcnt, ts);
 #endif
 
         TIMER_IO_WAIT(fd, WRITE);
