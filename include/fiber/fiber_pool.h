@@ -59,7 +59,7 @@ namespace MyRPC{
          * @return
          */
         template<class Func>
-        Fiber::ptr Run(Func&& func, int thread_id = -1){
+        std::pair<Fiber::ptr, int> Run(Func&& func, int thread_id = -1){
             if(thread_id == -1)
                 thread_id = rand() % m_threads_num;
 
@@ -69,7 +69,7 @@ namespace MyRPC{
             }
             ++m_tasks_cnt;
             Notify(thread_id);
-            return *ptr;
+            return std::make_pair(*ptr, thread_id);
         }
 
         /**

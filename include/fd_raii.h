@@ -2,6 +2,7 @@
 #define MYRPC_FD_RAII_H
 
 #include <unistd.h>
+#include <functional>
 #include "noncopyable.h"
 
 namespace MyRPC {
@@ -11,6 +12,16 @@ namespace MyRPC {
 
         bool Closefd() {
             if((m_fd != -1) && (!m_closed)){
+                close(m_fd);
+                m_closed = true;
+                return true;
+            }
+            return false;
+        }
+
+        bool Closefd(std::function<void()>& destructor){
+            if((m_fd != -1) && (!m_closed)){
+                destructor();
                 close(m_fd);
                 m_closed = true;
                 return true;

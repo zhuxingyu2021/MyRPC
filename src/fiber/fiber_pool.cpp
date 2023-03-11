@@ -22,6 +22,11 @@ FiberPool::FiberPool(int thread_num) : m_threads_num(thread_num) {
     // 创建event_fd
     m_global_event_fd = eventfd(0, O_NONBLOCK);
     MYRPC_ASSERT(m_global_event_fd > 0);
+
+    // 初始化Eventmanager
+    for(int i = 0; i < thread_num; ++i){
+        m_threads_context_ptr.push_back(new EventManager);
+    }
 }
 
 FiberPool::~FiberPool() {
@@ -37,7 +42,6 @@ void FiberPool::Start() {
         Logger::info("FiberPool::Start() - start");
 #endif
         for (int i = 0; i < m_threads_num; i++) {
-            m_threads_context_ptr.push_back(new EventManager);
             // 添加读eventfd事件，用以唤醒线程
             m_threads_context_ptr[i]->AddWakeupEventfd(m_global_event_fd);
             m_threads_future.push_back(std::async(std::launch::async, &FiberPool::MainLoop, this, i));

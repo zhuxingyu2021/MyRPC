@@ -57,6 +57,7 @@ namespace MyRPC{
                 default:
                 MYRPC_ASSERT(false);
             }
+            type_ = type;
             msg_ = std::move(ss.str());
         }
         const char* what() const noexcept override{

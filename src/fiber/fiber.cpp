@@ -174,6 +174,31 @@ void Fiber::Reset() {
 
         // 切换上下文
         RESUME(m_ctx);
+        m_status = READY;
+        _init_stack_and_ctx();
+    }
+}
+
+void Fiber::Term() {
+    if (m_status == EXEC) {
+        MYRPC_CRITIAL_ERROR("Try to close a running fiber, id: " + std::to_string(m_fiber_id));
+    } else {
+        // Stack Unwinding
+#if defined(__x86_64__) || defined(_M_X64)
+        void** rsp = (void**)m_ctx[SUBCO_CTX_OFS + SP_CTX_OFS];
+
+        // push (void**)&unwind
+        --rsp;
+        *rsp = (void**)&unwind;
+        m_ctx[SUBCO_CTX_OFS + SP_CTX_OFS] = (char*)rsp;
+#elif defined(__aarch64__)
+        m_ctx[SUBCO_CTX_OFS + RET_CTX_OFS] = (void**)&unwind;
+#endif
+
+        // 切换上下文
+        RESUME(m_ctx);
+
+        MYRPC_ASSERT(m_status == TERMINAL);
     }
 }
 

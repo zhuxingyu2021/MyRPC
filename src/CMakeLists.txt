@@ -16,6 +16,7 @@ set(SRCFILE
         net/inetaddr.cpp
         net/ringbuffer.cpp
         net/tcp_server.cpp
+        net/tcp_client.cpp
 
         rpc/config.cpp
         # rpc/rpc_session.cpp

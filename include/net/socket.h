@@ -27,7 +27,13 @@ namespace MyRPC{
         MutexSocket(int sockfd): FdRAIIWrapper(sockfd){}
 
         ~MutexSocket(){
-            if(Closefd()){
+            bool close_flag = false;
+            if(m_destructor){
+                close_flag = Closefd(*m_destructor);
+            }else{
+                close_flag = Closefd();
+            }
+            if(close_flag){
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_NET_LEVEL
                 Logger::debug("socket fd:{} closed", m_fd);
 #endif
@@ -203,6 +209,10 @@ namespace MyRPC{
     private:
         MutexType m_send_mutex;
         MutexType m_recv_mutex;
+
+        friend class TCPClient;
+        friend class TCPServer;
+        std::shared_ptr<std::function<void()>> m_destructor = nullptr;
     };
 
     using Socket = MutexSocket<FiberSync::Mutex>;

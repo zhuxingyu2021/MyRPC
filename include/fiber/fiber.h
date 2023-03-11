@@ -55,10 +55,14 @@ namespace MyRPC {
         int64_t Resume();
 
         /**
-         * @brief 重置协程的状态
-         * @note 该方法不会发生上下文切换
+         * @brief 重置协程的状态为READY
          */
         void Reset();
+
+        /**
+         * @brief 中止协程，使其置于TERMINAL状态
+         */
+        void Term();
 
         /**
          * @brief 获得协程的状态

@@ -11,28 +11,34 @@ using namespace std;
 
 class EchoServer : public TCPServer {
 public:
-    using TCPServer::TCPServer;
-protected:
-    void handleConnection(const Socket::ptr& sock) override {
-        TCPServer::handleConnection(sock);
+    EchoServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, useconds_t timeout=0)
+        : TCPServer(bind_addr, fiberPool, timeout){
+        AddConnectionHandler([this](Socket::ptr sock){return handle_connection(sock);});
+    }
+private :
+    void handle_connection(const Socket::ptr& sock){
 
         int sock_fd = sock->GetSocketfd();
         char buf[1024];
-        try {
-            while (true) {
+        while(true) {
+            try {
                 int recv_sz = sock->RecvTimeout(buf, sizeof(buf), 0, TIME_OUT);
                 if (recv_sz > 0) {
                     sock->SendAll(buf, recv_sz, 0);
-                } else if (recv_sz < 0) {
-                    //Logger::info("recv timeout, retrying...");
-                } else{
-                    Logger::info("socket fd:{}, client close connection", sock->GetSocketfd());
-                    break;
                 }
             }
-        }
-        catch (const std::exception& e){
-            Logger::error(e.what());
+            catch (const NetException &e) {
+                switch (e.GetErrType()) {
+                    case NetException::CONN_CLOSE:
+                        Logger::info("socket fd:{}, client close connection", sock->GetSocketfd());
+                        return;
+                    case NetException::TIMEOUT:
+                        Logger::info("socket fd:{}, client time out", sock->GetSocketfd());
+                        continue;
+                    default:
+                        Logger::error(e.what());
+                }
+            }
         }
     }
 };
@@ -72,13 +78,17 @@ private:
 };
 
 int main(){
-    EchoServer server(make_shared<InetAddr>("127.0.0.1", 9999),8, TIME_OUT);
+    FiberPool::ptr pool(new FiberPool(8));
+    EchoServer server(make_shared<InetAddr>("127.0.0.1", 9999),pool, TIME_OUT);
+
+    pool->Start();
 
     if(!server.bind()){
         Logger::error("bind error");
         return -1;
     }
     server.Start();
+    sleep(1);
 
     EchoClient client(make_shared<InetAddr>("127.0.0.1", 9999));
 
