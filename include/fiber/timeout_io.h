@@ -18,7 +18,9 @@ namespace MyRPC{
     extern int connect_timeout(int sockfd, const sockaddr *addr, socklen_t addrlen, useconds_t ts);
     extern ssize_t recv_timeout(int sockfd, void *buf, size_t len, int flags, useconds_t ts);
     ssize_t write_timeout(int fd, const void *buf, size_t count, useconds_t ts);
-    ssize_t send_timeout(int sockfd, const void *buf, size_t len, int flags, useconds_t ts);
+    ssize_t send_timeout(int fd, const void *buf, size_t len, int flags, useconds_t ts);
+    ssize_t readv_timeout(int fd, const struct iovec *iov, int iovcnt, useconds_t ts);
+    ssize_t writev_timeout(int fd, const struct iovec *iov, int iovcnt, useconds_t ts);
 }
 
 #endif //MYRPC_TIMEOUT_IO_H

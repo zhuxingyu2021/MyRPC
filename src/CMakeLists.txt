@@ -14,6 +14,7 @@ set(SRCFILE
         fiber/ctx_switch.S
 
         net/inetaddr.cpp
+        net/ringbuffer.cpp
         net/tcp_server.cpp
 
         rpc/config.cpp

@@ -25,15 +25,16 @@ namespace MyRPC{
     /**
      * @brief 当Socket系统调用失败时，抛出异常。可以使用GetErrno()函数获得抛出异常时的系统调用错误信息
      */
-    class SocketException: public std::exception{
+    class NetException: public std::exception{
     public:
         enum ErrorType{
             SYS = 0,
             TIMEOUT,
-            CONN_CLOSE
+            CONN_CLOSE,
+            BUFFER
         };
 
-        SocketException(std::string_view api_name, ErrorType type){
+        NetException(std::string_view api_name, ErrorType type){
             std::stringstream ss;
             switch(type) {
                 case SYS:
@@ -47,6 +48,10 @@ namespace MyRPC{
 
                 case CONN_CLOSE:
                 ss << api_name << " error: peer connection close";
+                break;
+
+                case BUFFER:
+                ss << api_name << " error: buffer is full";
                 break;
 
                 default:

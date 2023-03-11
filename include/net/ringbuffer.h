@@ -82,8 +82,35 @@ namespace MyRPC {
             }
         }
 
+        /**
+         * @brief 获得从当前读指针到字符c之前的所有字符，并移动读指针
+         */
+        template<char ...c>
+        std::string ReadUntil() {
+            int actual_beg_pos = m_read_idx % MYRPC_RINGBUFFER_SIZE;
+            while (true) {
+                char t = GetChar();
+                if (((c == t) || ...)) {
+                    break;
+                }
+            }
+            int actual_end_pos = m_read_idx % MYRPC_RINGBUFFER_SIZE;
+
+            if(actual_beg_pos < actual_end_pos){
+                return std::string(&m_array[actual_beg_pos], actual_end_pos - actual_beg_pos);
+            }else{
+                return std::string(&m_array[actual_beg_pos], MYRPC_RINGBUFFER_SIZE - actual_beg_pos) +
+                       std::string(m_array, actual_end_pos);
+            }
+        }
+
+        void Commit(){
+            m_read_commit_idx = m_read_idx;
+        }
+
     private:
         Socket::ptr m_sock;
+        useconds_t m_timeout = 0;
 
         char m_array[MYRPC_RINGBUFFER_SIZE];
 
@@ -91,13 +118,78 @@ namespace MyRPC {
         unsigned long m_read_commit_idx = 0;
         unsigned long m_tail_idx = 0;
 
-        useconds_t m_timeout = 0;
-
         void _read_socket();
     };
 
     class WriteRingBuffer {
     public:
+        using ptr = std::shared_ptr<WriteRingBuffer>;
+
+        WriteRingBuffer(Socket::ptr sock, useconds_t timeout = 0):m_sock(sock), m_timeout(timeout){}
+
+        /**
+         * @brief 向字符缓冲区中添加字符串数据
+         * @param str 要添加的字符串
+         */
+        void Append(const std::string &str){
+            int len = str.length();
+            unsigned long limit = m_front_idx + MYRPC_RINGBUFFER_SIZE - 1;
+            unsigned long write_end_idx = m_write_idx + len;
+            while(write_end_idx > limit){ // 缓冲区满
+                _write_socket();
+                limit = m_front_idx + MYRPC_RINGBUFFER_SIZE - 1;
+            }
+
+            int actual_beg_pos = m_write_idx % MYRPC_RINGBUFFER_SIZE;
+            int actual_end_pos = write_end_idx % MYRPC_RINGBUFFER_SIZE;
+            if(actual_beg_pos < actual_end_pos){
+                memcpy(&m_array[actual_beg_pos], str.c_str(), actual_end_pos - actual_beg_pos);
+            }else{
+                memcpy(&m_array[actual_beg_pos], str.c_str(), MYRPC_RINGBUFFER_SIZE - actual_beg_pos);
+                memcpy(m_array, str.c_str() + MYRPC_RINGBUFFER_SIZE - actual_beg_pos, actual_end_pos);
+            }
+        }
+
+        /**
+         * @brief 向字符缓冲区中添加字符数据
+         * @param str 要添加的字符串
+         */
+        void Append(unsigned char c){
+            unsigned long limit = m_front_idx + MYRPC_RINGBUFFER_SIZE - 1;
+            while(m_write_idx == limit){// 缓冲区满
+                _write_socket();
+                limit = m_front_idx + MYRPC_RINGBUFFER_SIZE - 1;
+            }
+            m_array[(m_write_idx++) % MYRPC_RINGBUFFER_SIZE] = c;
+        }
+
+        /**
+         * @brief 写入指针回退size个字符
+         */
+        void Backward(size_t size){
+            m_write_idx -= size;
+            MYRPC_ASSERT(m_write_idx >= m_write_commit_idx);
+        }
+
+        void Commit(size_t size){
+            m_write_commit_idx = m_write_idx;
+        }
+
+        void Flush(){
+            _write_socket();
+        }
+
+    private:
+        Socket::ptr m_sock;
+        useconds_t m_timeout = 0;
+
+        char m_array[MYRPC_RINGBUFFER_SIZE];
+
+        unsigned long m_write_idx = 0;
+        unsigned long m_write_commit_idx = 0;
+        unsigned long m_front_idx = 0;
+
+        void _write_socket();
     };
 
 }
