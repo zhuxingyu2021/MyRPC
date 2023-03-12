@@ -25,7 +25,7 @@ namespace MyRPC{
          * @param fiberPool 协程池
          * @param timeout TCP系统调用调用的超时时间，单位微秒，0表示不设置超时时间
          */
-        TCPServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, useconds_t timeout=0);
+        TCPServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, ms_t timeout=0);
 
         virtual ~TCPServer();
 
@@ -70,7 +70,7 @@ namespace MyRPC{
         }
 
         FiberPool::ptr m_fiber_pool;
-        useconds_t m_timeout; // TCP超时时间
+        ms_t m_timeout; // TCP超时时间
 
         InetAddr::ptr m_bind_addr;
 

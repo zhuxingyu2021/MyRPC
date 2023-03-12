@@ -41,7 +41,7 @@ public:
             buffer.ReadUntil<',', '}', ']'>(s);
             t = std::stod(s);
         }
-        if constexpr(std::is_same_v<std::decay_t<T>, bool>) {
+        else if constexpr(std::is_same_v<std::decay_t<T>, bool>) {
             // 布尔类型
             buffer.ReadUntil<',', '}', ']'>(s);
             t = (s == "true");

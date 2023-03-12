@@ -21,7 +21,7 @@ struct EchoServerConnection: public TCPServerConn{
 
 class EchoServer : public TCPServer {
 public:
-    EchoServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, useconds_t timeout=0)
+    EchoServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, ms_t timeout=0)
             : TCPServer(bind_addr, fiberPool, timeout){
         // 设定连接类
         SetConnectionClass<EchoServerConnection>();
@@ -39,8 +39,10 @@ private :
     void read_buffer(Socket::ptr& sock, EchoServerConnection* conn){
         ReadRingBuffer read_buf(sock, TIME_OUT);
         while(true) {
+            string s;
             try {
-                conn->q.Push(read_buf.ReadUntil<'.'>());
+                read_buf.ReadUntil<'.'>(s);
+                conn->q.Push(s);
                 read_buf.Commit();
             }
             catch (const NetException &e) {

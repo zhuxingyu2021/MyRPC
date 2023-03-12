@@ -52,7 +52,7 @@ namespace MyRPC{
             return ret;
         }
 
-        ssize_t SendTimeout(const void *buf, size_t len, int flags, useconds_t timeout){
+        ssize_t SendTimeout(const void *buf, size_t len, int flags, ms_t timeout){
             std::unique_lock<MutexType> lock(m_send_mutex);
 
             ssize_t ret;
@@ -69,7 +69,7 @@ namespace MyRPC{
             return ret;
         }
 
-        ssize_t RecvTimeout(void *buf, size_t len, int flags, useconds_t timeout){
+        ssize_t RecvTimeout(void *buf, size_t len, int flags, ms_t timeout){
             std::unique_lock<MutexType> lock(m_recv_mutex);
 
             ssize_t ret;
@@ -89,7 +89,7 @@ namespace MyRPC{
             return ret;
         }
 
-        ssize_t ReadvTimeout(const struct iovec *iov, int iovcnt, useconds_t timeout){
+        ssize_t ReadvTimeout(const struct iovec *iov, int iovcnt, ms_t timeout){
             std::unique_lock<MutexType> lock(m_recv_mutex);
 
             ssize_t ret;
@@ -108,7 +108,7 @@ namespace MyRPC{
             return ret;
         }
 
-        ssize_t WritevTimeout(const struct iovec *iov, int iovcnt, useconds_t timeout){
+        ssize_t WritevTimeout(const struct iovec *iov, int iovcnt, ms_t timeout){
             std::unique_lock<MutexType> lock(m_send_mutex);
 
             ssize_t ret;
@@ -154,7 +154,7 @@ namespace MyRPC{
          * @param flags
          * @param timeout 超时时间
          */
-        void RecvAllTimeout(void *buf, ssize_t len, int flags, useconds_t timeout){
+        void RecvAllTimeout(void *buf, ssize_t len, int flags, ms_t timeout){
             std::unique_lock<MutexType> lock(m_recv_mutex);
 
             size_t recv_sz = 0;
@@ -190,7 +190,7 @@ namespace MyRPC{
             }while(send_sz < len);
         }
 
-        static MutexSocket<MutexType>::ptr Connect(const InetAddr::ptr& addr, useconds_t conn_timeout=0){
+        static MutexSocket<MutexType>::ptr Connect(const InetAddr::ptr& addr, ms_t conn_timeout=0){
             auto sock_fd = socket(addr->IsIPv6() ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
             MYRPC_ASSERT_EXCEPTION(sock_fd >= 0, throw NetException("TCP connect", NetException::SYS));
 

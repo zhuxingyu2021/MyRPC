@@ -3,6 +3,7 @@
 
 namespace MyRPC{
     struct Placeholder{
+        // nothing
     };
 }
 

@@ -180,8 +180,8 @@ extern "C" ssize_t writev(int fd, const struct iovec *iov, int iovcnt) {
                      \
                     struct itimerspec its; \
                     memset(&its, 0, sizeof(its)); \
-                    its.it_value.tv_sec = ts / 1000000; \
-                    its.it_value.tv_nsec = (ts % 1000000) * 1000; \
+                    its.it_value.tv_sec = ts / 1000; \
+                    its.it_value.tv_nsec = (ts % 1000) * (unsigned long)1000000; \
                     MYRPC_SYS_ASSERT(timerfd_settime(timer_fd.Getfd(), 0, &its, NULL) == 0); \
                      \
                     FiberPool::GetEventManager()->AddIOEvent(timer_fd.Getfd(), EventManager::READ); \
@@ -214,7 +214,7 @@ extern "C" ssize_t writev(int fd, const struct iovec *iov, int iovcnt) {
 
 
 namespace MyRPC{
-    ssize_t read_timeout(int fd, void *buf, size_t count, useconds_t ts) {
+    ssize_t read_timeout(int fd, void *buf, size_t count, ms_t ts) {
         IO_BEGIN;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
@@ -225,7 +225,7 @@ namespace MyRPC{
         return sys_read(fd, buf, count);
     }
 
-    int accept_timeout(int sockfd, sockaddr *addr, socklen_t *addrlen, useconds_t ts) {
+    int accept_timeout(int sockfd, sockaddr *addr, socklen_t *addrlen, ms_t ts) {
         IO_BEGIN;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
@@ -236,7 +236,7 @@ namespace MyRPC{
         return sys_accept(sockfd, addr, addrlen);
     }
 
-    int connect_timeout(int sockfd, const sockaddr *addr, socklen_t addrlen, useconds_t ts) {
+    int connect_timeout(int sockfd, const sockaddr *addr, socklen_t addrlen, ms_t ts) {
         IO_BEGIN;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
@@ -247,7 +247,7 @@ namespace MyRPC{
         return sys_connect(sockfd, addr, addrlen);
     }
 
-    ssize_t recv_timeout(int sockfd, void *buf, size_t len, int flags, useconds_t ts) {
+    ssize_t recv_timeout(int sockfd, void *buf, size_t len, int flags, ms_t ts) {
         IO_BEGIN;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
@@ -258,7 +258,7 @@ namespace MyRPC{
         return sys_recv(sockfd, buf, len, flags);
     }
 
-    ssize_t write_timeout(int fd, const void *buf, size_t count, useconds_t ts) {
+    ssize_t write_timeout(int fd, const void *buf, size_t count, ms_t ts) {
         IO_BEGIN;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
@@ -269,7 +269,7 @@ namespace MyRPC{
         return sys_write(fd, buf, count);
     }
 
-    ssize_t send_timeout(int sockfd, const void *buf, size_t len, int flags, useconds_t ts) {
+    ssize_t send_timeout(int sockfd, const void *buf, size_t len, int flags, ms_t ts) {
         IO_BEGIN;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
@@ -280,7 +280,7 @@ namespace MyRPC{
         return sys_send(sockfd, buf, len, flags);
     }
 
-    ssize_t readv_timeout(int fd, const struct iovec *iov, int iovcnt, useconds_t ts) {
+    ssize_t readv_timeout(int fd, const struct iovec *iov, int iovcnt, ms_t ts) {
         IO_BEGIN;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL
@@ -292,7 +292,7 @@ namespace MyRPC{
         return sys_readv(fd, iov, iovcnt);
     }
 
-    ssize_t writev_timeout(int fd, const struct iovec *iov, int iovcnt, useconds_t ts) {
+    ssize_t writev_timeout(int fd, const struct iovec *iov, int iovcnt, ms_t ts) {
         IO_BEGIN;
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_HOOK_LEVEL

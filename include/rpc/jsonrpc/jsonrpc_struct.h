@@ -2,6 +2,7 @@
 #define MYRPC_JSONRPC_STRUCT_H
 
 #include <string>
+#include "fiber/sync_queue.h"
 #include "macro.h"
 
 namespace MyRPC{
@@ -20,11 +21,15 @@ namespace MyRPC{
          * @brief 客户端向服务器端发送的请求格式
          */
         struct Request{
+        public:
             std::string version; // json-rpc版本号
             std::string method; // 服务名
 
             Placeholder params; // 参数
             int id;
+
+        private:
+            SyncQueue<Errortype> sync;
         };
 
         /**

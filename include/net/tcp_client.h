@@ -14,7 +14,7 @@ namespace MyRPC{
     public:
         using ptr = std::shared_ptr<TCPClient>;
 
-        TCPClient(InetAddr::ptr& server_addr, FiberPool::ptr& fiberPool, useconds_t timeout=0):
+        TCPClient(InetAddr::ptr& server_addr, FiberPool::ptr& fiberPool, ms_t timeout=0):
                 m_server_addr(server_addr), m_fiber_pool(fiberPool), m_timeout(timeout){}
 
         virtual ~TCPClient(){DisConnect();}
@@ -48,7 +48,7 @@ namespace MyRPC{
 
         InetAddr::ptr m_server_addr;
 
-        useconds_t m_timeout;
+        ms_t m_timeout;
         FiberPool::ptr m_fiber_pool;
 
     private:

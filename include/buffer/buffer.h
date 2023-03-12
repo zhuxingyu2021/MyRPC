@@ -52,6 +52,7 @@ namespace MyRPC {
                 try {
                     char t = GetChar();
                     if (((c == t) || ...)) {
+                        --m_read_idx;
                         break;
                     }
                 } catch (const NetException &e) {

@@ -15,7 +15,7 @@
 
 using namespace MyRPC;
 
-TCPServer::TCPServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, useconds_t timeout) : m_fiber_pool(fiberPool),
+TCPServer::TCPServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, ms_t timeout) : m_fiber_pool(fiberPool),
                                                                                                      m_timeout(timeout),
                                                                                                      m_acceptor(nullptr),
                                                                                                      m_bind_addr(bind_addr){

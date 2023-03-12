@@ -22,10 +22,10 @@ namespace MyRPC{
             void ParseMethod(std::string &method_name);
 
             /**
-             * @brief 解析客户端传过来的参数，由服务端调用
+             * @brief 解析客户端传过来的请求，由服务端调用
              */
             template<class ArgType>
-            void ParseArg(ArgType &&content) {
+            void ParseRequest(ArgType &&content) {
 
             }
 
@@ -40,10 +40,10 @@ namespace MyRPC{
             void SetMethod(const std::string &method_name);
 
             /**
-             * @brief 设置参数，由客户端调用
+             * @brief 向服务端发送请求，由客户端调用
              */
             template<class ArgType>
-            void SetArg(ArgType &&content) {
+            void SendRequest(ArgType &&content) {
 
             }
 

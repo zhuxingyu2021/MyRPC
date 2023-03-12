@@ -11,7 +11,7 @@ using namespace std;
 
 class EchoServer : public TCPServer {
 public:
-    EchoServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, useconds_t timeout=0)
+    EchoServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, ms_t timeout=0)
         : TCPServer(bind_addr, fiberPool, timeout){
         AddConnectionHandler([this](Socket::ptr sock, TCPServerConn*){return handle_connection(sock);});
     }
