@@ -28,7 +28,7 @@ Config::ptr Config::LoadFromJson(const std::string& json_file) {
     close(fd);
 
     StringBuffer sb(s.Concat());
-    Deserializer d(sb);
+    JsonDeserializer d(sb);
     Config::ptr config = std::make_shared<Config>();
 
     d.Load(*config);

@@ -1,11 +1,7 @@
 #ifndef MYRPC_SERIALIZER_H
 #define MYRPC_SERIALIZER_H
 
-#define Serializer JsonSerializer
-
 #include <type_traits>
-#include "stringbuffer.h"
-
 #include <array>
 #include <vector>
 #include <deque>
@@ -22,6 +18,8 @@
 #include <memory>
 
 #include "utils.h"
+#include "buffer/buffer.h"
+#include "buffer/stringbuffer.h"
 
 namespace MyRPC {
 /**
@@ -40,7 +38,7 @@ namespace MyRPC {
  */
 class JsonSerializer {
 public:
-    JsonSerializer(StringBuilder& s): buffer(s){}
+    JsonSerializer(WriteBuffer& s): buffer(s){}
 
     template<class T>
     using arithmetic_type =  typename std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>,void>;
@@ -267,19 +265,9 @@ public:
             buffer.Append("null");
     }
 
-    template<class T>
-    static std::string ToString(T&& t){
-        StringBuilder sb;
-        JsonSerializer ser(sb);
-        ser.Save(std::forward<T>(t));
-        StringBuffer buf = std::move(sb.Concat());
-        std::string return_val((char*)buf.data, buf.size);
-        return return_val;
-    }
-
 private:
 
-    StringBuilder& buffer;
+    WriteBuffer& buffer;
 
 public:
     /**

@@ -8,7 +8,7 @@
 #include "net/serializer.h"
 #include "net/deserializer.h"
 #include "net/inetaddr.h"
-
+#include "buffer/stringbuffer.h"
 #include "noncopyable.h"
 
 namespace MyRPC{

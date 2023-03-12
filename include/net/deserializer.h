@@ -1,8 +1,6 @@
 #ifndef MYRPC_DESERIALIZER_H
 #define MYRPC_DESERIALIZER_H
 
-#define Deserializer JsonDeserializer
-
 #include <type_traits>
 
 #include <array>
@@ -21,41 +19,46 @@
 
 #include "utils.h"
 #include "debug.h"
-#include "stringbuffer.h"
 
 #include "net/exception.h"
+#include "buffer/buffer.h"
 
 namespace MyRPC{
 class JsonDeserializer{
 public:
-    JsonDeserializer(StringBuffer& sb): buffer(sb){}
+    JsonDeserializer(ReadBuffer& sb): buffer(sb){}
 
     template<class T>
     using arithmetic_type =  typename std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>,void>;
 
     template<class T>
     arithmetic_type<T> Load(T& t){
+        std::string s;
         if constexpr(std::is_same_v<std::decay_t<T>, float> || std::is_same_v<std::decay_t<T>, double>) {
             // 浮点类型
-            t = std::stod(buffer.ReadUntil<',', '}', ']'>());
+            buffer.ReadUntil<',', '}', ']'>(s);
+            t = std::stod(s);
         }
         if constexpr(std::is_same_v<std::decay_t<T>, bool>) {
             // 布尔类型
-            t = (buffer.ReadUntil<',', '}', ']'>() == "true");
+            buffer.ReadUntil<',', '}', ']'>(s);
+            t = (s == "true");
         }
         else if constexpr(std::is_unsigned_v<std::decay_t<T>>) {
             // 无符号类型
-            t = std::stoll(buffer.ReadUntil<',', '}', ']'>());
+            buffer.ReadUntil<',', '}', ']'>(s);
+            t = std::stoll(s);
         }
         else{
             // 有符号类型
-            t = std::stoull(buffer.ReadUntil<',', '}', ']'>());
+            buffer.ReadUntil<',', '}', ']'>(s);
+            t = std::stoull(s);
         }
     }
 
     void Load(std::string& s){
         MYRPC_ASSERT_EXCEPTION(buffer.GetChar() == '\"', throw JsonDeserializerException(buffer.GetPos()));
-        s = std::move(buffer.ReadUntil<'\"'>());
+        buffer.ReadUntil<'\"'>(s);
         MYRPC_ASSERT_EXCEPTION(buffer.GetChar() == '\"', throw JsonDeserializerException(buffer.GetPos()));
     }
 
@@ -105,10 +108,13 @@ private:
      */
     template<class Tkey, class Tval>
     inline isnot_string_type<Tkey> deserialize_key_val_impl_(Tkey& key, Tval& value){
-        MYRPC_ASSERT_EXCEPTION(buffer.PeekString(7) == "{\"key\":", throw JsonDeserializerException(buffer.GetPos()));
+        std::string s;
+        buffer.PeekString(s, 7);
+        MYRPC_ASSERT_EXCEPTION(s == "{\"key\":", throw JsonDeserializerException(buffer.GetPos()));
         buffer.Forward(7);
         Load(key);
-        MYRPC_ASSERT_EXCEPTION(buffer.PeekString(9) == ",\"value\":", throw JsonDeserializerException(buffer.GetPos()));
+        buffer.PeekString(s, 9);
+        MYRPC_ASSERT_EXCEPTION(s == ",\"value\":", throw JsonDeserializerException(buffer.GetPos()));
         buffer.Forward(9);
         Load(value);
         MYRPC_ASSERT_EXCEPTION(buffer.GetChar() == '}', throw JsonDeserializerException(buffer.GetPos()));
@@ -250,7 +256,9 @@ public:
 
     template<class T>
     void Load(std::optional<T>& t){
-        if(buffer.PeekString(4) == "null"){
+        std::string s;
+        buffer.PeekString(s, 4);
+        if(s == "null"){
             buffer.Forward(4);
             t = std::nullopt;
         }
@@ -263,8 +271,10 @@ public:
 
     template<class T>
     void Load(std::shared_ptr<T>& t){
+        std::string s;
         t = std::move(std::make_shared<T>());
-        if(buffer.PeekString(4) == "null")
+        buffer.PeekString(s, 4);
+        if(s == "null")
             buffer.Forward(4);
         else
             Load(*t);
@@ -272,15 +282,17 @@ public:
 
     template<class T>
     void Load(std::unique_ptr<T>& t){
+        std::string s;
         t = std::move(std::make_unique<T>());
-        if(buffer.PeekString(4) == "null")
+        buffer.PeekString(s, 4);
+        if(s == "null")
             buffer.Forward(4);
         else
             Load(*t);
     }
 
 private:
-    StringBuffer& buffer;
+    ReadBuffer& buffer;
 
 public:
     /**

@@ -3,7 +3,6 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 set(SRCFILE
         debug.cpp
         utils.cpp
-        stringbuffer.cpp
 
         fiber/hook_io.cpp
         fiber/hook_sleep.cpp
@@ -13,8 +12,10 @@ set(SRCFILE
         fiber/fiber_sync.cpp
         fiber/ctx_switch.S
 
+        buffer/stringbuffer.cpp
+        buffer/ringbuffer.cpp
+
         net/inetaddr.cpp
-        net/ringbuffer.cpp
         net/tcp_server.cpp
         net/tcp_client.cpp
 

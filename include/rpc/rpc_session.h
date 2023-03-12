@@ -4,7 +4,7 @@
 #include <memory>
 #include <atomic>
 
-#include "stringbuffer.h"
+#include "buffer/stringbuffer.h"
 #include "net/socket.h"
 #include "net/serializer.h"
 #include "net/deserializer.h"
@@ -125,7 +125,7 @@ namespace MyRPC{
             sb.Append(std::move(header));
 
             // 序列化
-            Serializer ser(sb);
+            JsonSerializer ser(sb);
             ser.Save(content);
 
             // 构造协议package并计算内容长度
@@ -151,7 +151,7 @@ namespace MyRPC{
             sb.Append(std::move(header));
 
             // 序列化
-            Serializer ser(sb);
+            JsonSerializer ser(sb);
             ser.Save(service_name);
             ser.Save(content);
 

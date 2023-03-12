@@ -11,7 +11,7 @@
 #include "rpc/exception.h"
 
 #include "spinlock.h"
-#include "stringbuffer.h"
+#include "buffer/stringbuffer.h"
 
 #include <memory>
 #include <list>

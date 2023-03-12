@@ -8,6 +8,8 @@
 
 #include <cstring>
 
+#include "debug.h"
+
 namespace MyRPC{
     /**
      * @brief 当IP地址非法时，抛出该异常

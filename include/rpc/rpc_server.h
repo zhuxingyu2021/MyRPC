@@ -2,7 +2,7 @@
 #define MYRPC_RPC_SERVER_H
 
 #include "traits.h"
-#include "stringbuffer.h"
+#include "buffer/stringbuffer.h"
 #include "spinlock.h"
 
 #include "net/tcp_server.h"
