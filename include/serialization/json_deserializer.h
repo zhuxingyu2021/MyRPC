@@ -1,5 +1,5 @@
-#ifndef MYRPC_DESERIALIZER_H
-#define MYRPC_DESERIALIZER_H
+#ifndef MYRPC_JSON_DESERIALIZER_H
+#define MYRPC_JSON_DESERIALIZER_H
 
 #include <type_traits>
 
@@ -22,6 +22,8 @@
 
 #include "net/exception.h"
 #include "buffer/buffer.h"
+
+#include "serialization/placeholder.h"
 
 namespace MyRPC{
 class JsonDeserializer{
@@ -335,4 +337,4 @@ public:
 #define LOAD_ALIAS_ITEM(alias, x) deserializer.deserialize_item_impl_(#alias, x);
 #define LOAD_END deserializer.deserialize_struct_end_impl_();}
 
-#endif //MYRPC_DESERIALIZER_H
+#endif //MYRPC_JSON_DESERIALIZER_H

@@ -1,5 +1,5 @@
-#ifndef MYRPC_SERIALIZER_H
-#define MYRPC_SERIALIZER_H
+#ifndef MYRPC_JSON_SERIALIZER_H
+#define MYRPC_JSON_SERIALIZER_H
 
 #include <type_traits>
 #include <array>
@@ -20,6 +20,8 @@
 #include "utils.h"
 #include "buffer/buffer.h"
 #include "buffer/stringbuffer.h"
+
+#include "serialization/placeholder.h"
 
 namespace MyRPC {
 /**
@@ -309,4 +311,4 @@ public:
 #define SAVE_ALIAS_ITEM(alias, x) serializer.serialize_item_impl_(#alias, x);
 #define SAVE_END serializer.serialize_struct_end_impl_();}
 
-#endif //MYRPC_SERIALIZER_H
+#endif //MYRPC_JSON_SERIALIZER_H

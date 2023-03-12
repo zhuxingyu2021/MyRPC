@@ -9,7 +9,7 @@
 #include "rpc/config.h"
 #include "rpc/exception.h"
 #include "net/inetaddr.h"
-#include "net/serializer.h"
+#include "serialization/json_serializer.h"
 
 #include "rpc/rpc_session.h"
 #include "rpc/rpc_client_connection.h"
