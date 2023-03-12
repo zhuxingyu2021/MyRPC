@@ -2,6 +2,7 @@
 #define MYRPC_TCP_SERVER_CONN_H
 
 #include "fiber/fiber.h"
+#include "fiber/fiber_pool.h"
 #include "noncopyable.h"
 #include <vector>
 
@@ -17,6 +18,11 @@ namespace MyRPC{
                     fiber->Term();
                 }
             }
+        }
+
+        template<class Func>
+        void AddAsyncTask(Func&& func){
+            m_active_handler.push_back(FiberPool::GetThis()->AddAsyncTask(std::forward<Func>(func)));
         }
 
     private:

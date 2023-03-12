@@ -318,6 +318,22 @@ public:
         MYRPC_ASSERT_EXCEPTION(c == ',' || c == '}', throw JsonDeserializerException(buffer.GetPos()));
     }
 
+    inline void deserialize_item_key_beg_impl_(const std::string_view key){
+        std::string key_str;
+
+        Load(key_str);
+        MYRPC_ASSERT_EXCEPTION(buffer.GetChar() == ':', throw JsonDeserializerException(buffer.GetPos()));
+        MYRPC_ASSERT_EXCEPTION(key == key_str, throw JsonDeserializerException(buffer.GetPos()));
+
+        char c = buffer.GetChar();
+        MYRPC_ASSERT_EXCEPTION(c == ',' || c == '}', throw JsonDeserializerException(buffer.GetPos()));
+    }
+
+    inline void deserialize_item_key_end_impl_(){
+        char c = buffer.GetChar();
+        MYRPC_ASSERT_EXCEPTION(c == ',' || c == '}', throw JsonDeserializerException(buffer.GetPos()));
+    }
+
     template<class T>
     using struct_class_type =  typename std::enable_if_t<(std::is_class_v<std::decay_t<T>>)&&
                                                          (!std::is_same_v<std::decay_t<T>, std::string>)&&
@@ -330,11 +346,19 @@ public:
 };
 }
 
-#define LOAD_BEGIN void Load(MyRPC::JsonDeserializer& deserializer){ \
-                   deserializer.deserialize_struct_begin_impl_();
+#define LOAD_BEGIN_DEF void Load(MyRPC::JsonDeserializer& deserializer){
+#define LOAD_BEGIN_READ deserializer.deserialize_struct_begin_impl_();
+#define LOAD_BEGIN LOAD_BEGIN_DEF LOAD_BEGIN_READ
 
 #define LOAD_ITEM(x) deserializer.deserialize_item_impl_(#x, x);
 #define LOAD_ALIAS_ITEM(alias, x) deserializer.deserialize_item_impl_(#alias, x);
-#define LOAD_END deserializer.deserialize_struct_end_impl_();}
+
+#define LOAD_KEY_BEG(alias) deserializer.deserialize_item_key_beg_impl_( #alias);
+
+#define LOAD_KEY_END deserializer.deserialize_item_key_end_impl_();
+
+#define LOAD_END_READ deserializer.deserialize_struct_end_impl_();
+#define LOAD_END_DEF }
+#define LOAD_END LOAD_END_READ LOAD_END_DEF
 
 #endif //MYRPC_JSON_DESERIALIZER_H

@@ -75,6 +75,14 @@ namespace MyRPC{
             return std::make_pair(*ptr, thread_id);
         }
 
+        template<class Func>
+        Fiber::ptr AddAsyncTask(Func&& func){
+            Fiber::ptr* ptr = new Fiber::ptr(new Fiber(std::forward<Func>(func)));
+            _run_internal(ptr, GetCurrentThreadId());
+            ++m_tasks_cnt;
+            return *ptr;
+        }
+
         /**
          * 获得当前线程Id，该方法只能由协程池中的线程调用
          * @return 线程Id

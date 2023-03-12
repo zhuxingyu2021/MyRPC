@@ -304,11 +304,15 @@ public:
 
 };
 
-#define SAVE_BEGIN void Save(MyRPC::JsonSerializer& serializer) const{ \
-                   serializer.serialize_struct_begin_impl_();
+#define SAVE_BEGIN_DEF void Save(MyRPC::JsonSerializer& serializer) const{
+#define SAVE_BEGIN_WRITE serializer.serialize_struct_begin_impl_();
+#define SAVE_BEGIN SAVE_BEGIN_DEF SAVE_BEGIN_WRITE
 
 #define SAVE_ITEM(x) serializer.serialize_item_impl_(#x, x);
 #define SAVE_ALIAS_ITEM(alias, x) serializer.serialize_item_impl_(#alias, x);
-#define SAVE_END serializer.serialize_struct_end_impl_();}
+
+#define SAVE_END_WRITE serializer.serialize_struct_end_impl_();
+#define SAVE_END_DEF }
+#define SAVE_END SAVE_END_WRITE SAVE_END_DEF
 
 #endif //MYRPC_JSON_SERIALIZER_H
