@@ -70,13 +70,19 @@ void TCPServer::_do_accept() {
 
         int tid = -1;
         Socket::ptr sock = std::make_shared<Socket>(sockfd);
-        sock->m_destructor = m_close_handler;
+        TCPServerConn* conn = nullptr;
+        if(m_conn_establish_handler) {
+            m_conn_establish_handler(&conn);
+            sock->m_destructor = [this, conn](){
+                m_conn_close_handler(conn);
+            };
+        }
         for(auto& func:m_conn_handler){
             if(tid == -1) {
-                auto [fiber, _tid] = m_fiber_pool->Run([func, sock] { return func(sock); });
+                auto [fiber, _tid] = m_fiber_pool->Run([func, sock, conn] { return func(sock, conn); });
                 tid = _tid;
             }else{
-                m_fiber_pool->Run([func, sock] { return func(sock); }, tid);
+                m_fiber_pool->Run([func, sock, conn] { return func(sock, conn); }, tid);
             }
         }
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_NET_LEVEL

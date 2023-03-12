@@ -13,7 +13,7 @@ class EchoServer : public TCPServer {
 public:
     EchoServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, useconds_t timeout=0)
         : TCPServer(bind_addr, fiberPool, timeout){
-        AddConnectionHandler([this](Socket::ptr sock){return handle_connection(sock);});
+        AddConnectionHandler([this](Socket::ptr sock, TCPServerConn*){return handle_connection(sock);});
     }
 private :
     void handle_connection(const Socket::ptr& sock){
@@ -79,7 +79,7 @@ private:
 
 int main(){
     FiberPool::ptr pool(new FiberPool(8));
-    EchoServer server(make_shared<InetAddr>("127.0.0.1", 9999),pool, TIME_OUT);
+    EchoServer server(make_shared<InetAddr>("127.0.0.1", 9998),pool, TIME_OUT);
 
     pool->Start();
 

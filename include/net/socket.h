@@ -29,7 +29,7 @@ namespace MyRPC{
         ~MutexSocket(){
             bool close_flag = false;
             if(m_destructor){
-                close_flag = Closefd(*m_destructor);
+                close_flag = Closefd(m_destructor);
             }else{
                 close_flag = Closefd();
             }
@@ -212,7 +212,7 @@ namespace MyRPC{
 
         friend class TCPClient;
         friend class TCPServer;
-        std::shared_ptr<std::function<void()>> m_destructor = nullptr;
+        std::function<void()> m_destructor;
     };
 
     using Socket = MutexSocket<FiberSync::Mutex>;

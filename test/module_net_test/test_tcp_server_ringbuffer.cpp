@@ -11,21 +11,36 @@
 using namespace MyRPC;
 using namespace std;
 
+struct EchoServerConnection: public TCPServerConn{
+    ~EchoServerConnection(){
+        Logger::info("Connection class deconstructed!");
+    }
+
+    SyncQueue<std::string> q;
+};
+
 class EchoServer : public TCPServer {
 public:
     EchoServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, useconds_t timeout=0)
             : TCPServer(bind_addr, fiberPool, timeout){
-        AddConnectionHandler([this](Socket::ptr sock){return read_buffer(sock);});
-        AddConnectionHandler([this](Socket::ptr sock){return write_buffer(sock);});
+        // 设定连接类
+        SetConnectionClass<EchoServerConnection>();
+
+        // 添加连接处理函数
+        AddConnectionHandler([this](Socket::ptr sock, TCPServerConn* conn){
+            return read_buffer(sock, (EchoServerConnection*)conn);
+        });
+        AddConnectionHandler([this](Socket::ptr sock, TCPServerConn* conn){
+            return write_buffer(sock, (EchoServerConnection*)conn);
+        });
     }
 private :
-    SyncQueue<std::string> q;
 
-    void read_buffer(Socket::ptr& sock){
+    void read_buffer(Socket::ptr& sock, EchoServerConnection* conn){
         ReadRingBuffer read_buf(sock, TIME_OUT);
         while(true) {
             try {
-                q.Push(read_buf.ReadUntil<'.'>());
+                conn->q.Push(read_buf.ReadUntil<'.'>());
                 read_buf.Commit();
             }
             catch (const NetException &e) {
@@ -43,11 +58,11 @@ private :
         }
     }
 
-    void write_buffer(Socket::ptr& sock){
+    void write_buffer(Socket::ptr& sock, EchoServerConnection* conn){
         WriteRingBuffer write_buf(sock, TIME_OUT);
         while(true) {
             try {
-                write_buf.Append(q.Pop());
+                write_buf.Append(conn->q.Pop());
                 write_buf.Flush();
             }
             catch (const NetException &e) {

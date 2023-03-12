@@ -35,14 +35,14 @@ namespace MyRPC{
 
         template <class Func>
         void SetCloseHandler(Func&& func){
-            m_close_handler = std::make_shared<std::function<void()>>(std::forward<Func>(func));
+            m_close_handler(std::forward<Func>(func));
         }
 
         void DisableConnectionHandler(){
             m_conn_handler.clear();
         }
 
-        void DisableCloseHandler(){
+        void UnsetCloseHandler(){
             m_close_handler = nullptr;
         }
 
@@ -54,7 +54,7 @@ namespace MyRPC{
     private:
         std::vector<std::function<void(Socket::ptr)>> m_conn_handler;
         std::vector<Fiber::ptr> m_conn_handler_array;
-        std::shared_ptr<std::function<void()>> m_close_handler = nullptr;
+        std::function<void()> m_close_handler;
 
         int m_conn_thread_id = -1;
 

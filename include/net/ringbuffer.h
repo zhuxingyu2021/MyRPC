@@ -27,6 +27,14 @@ namespace MyRPC {
              */
         int GetPos() const { return m_read_idx; }
 
+        bool SetPos(int pos){
+            if(pos >= m_read_commit_idx && pos <= m_tail_idx){
+                m_read_idx = pos;
+                return true;
+            }
+            return false;
+        }
+
         /**
          * @brief 获得下一个字符，并将读指针向后移动一个字符
          */
@@ -87,13 +95,20 @@ namespace MyRPC {
          */
         template<char ...c>
         std::string ReadUntil() {
-            int actual_beg_pos = m_read_idx % MYRPC_RINGBUFFER_SIZE;
+            int prev_read_idx = m_read_idx;
             while (true) {
-                char t = GetChar();
-                if (((c == t) || ...)) {
-                    break;
+                try {
+                    char t = GetChar();
+                    if (((c == t) || ...)) {
+                        break;
+                    }
+                }catch(const NetException& e){
+                    // 发生异常，则恢复read指针
+                    m_read_idx = prev_read_idx;
+                    throw e;
                 }
             }
+            int actual_beg_pos = prev_read_idx % MYRPC_RINGBUFFER_SIZE;
             int actual_end_pos = m_read_idx % MYRPC_RINGBUFFER_SIZE;
 
             if(actual_beg_pos < actual_end_pos){

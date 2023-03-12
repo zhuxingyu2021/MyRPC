@@ -53,7 +53,7 @@ void Mutex::lock() {
         Fiber::Block();
         m_wait_queue_lock.lock();
 
-        MYRPC_ASSERT(m_wait_queue.front().first->GetCurrentId() == current_id);
+        MYRPC_ASSERT(m_wait_queue.front().first->GetId() == current_id);
 
         m_wait_queue.pop();
 
@@ -120,7 +120,7 @@ void ConditionVariable::wait(Mutex &mutex) {
     m_wait_queue_lock.lock();
 
     if(!m_notify_all){
-        MYRPC_ASSERT(m_wait_queue.front().first->GetCurrentId() == Fiber::GetCurrentId());
+        MYRPC_ASSERT(m_wait_queue.front().first->GetId() == Fiber::GetCurrentId());
     }
 
     m_wait_queue.pop();

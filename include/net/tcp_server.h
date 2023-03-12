@@ -4,6 +4,7 @@
 #include "fiber/fiber_pool.h"
 #include "net/inetaddr.h"
 #include "net/socket.h"
+#include "net/tcp_server_conn.h"
 #include <memory>
 #include <atomic>
 #include <set>
@@ -49,17 +50,23 @@ namespace MyRPC{
             m_conn_handler.push_back(std::forward<Func>(func));
         }
 
-        template <class Func>
-        void SetCloseHandler(Func&& func){
-            m_close_handler = std::make_shared<std::function<void()>>(std::forward<Func>(func));
+        template <class T>
+        void SetConnectionClass(){
+            m_conn_establish_handler = [](TCPServerConn** ptr){
+                *ptr = new T;
+            };
+            m_conn_close_handler = [](TCPServerConn* ptr){
+                delete ptr;
+            };
         }
 
         void DisableConnectionHandler(){
             m_conn_handler.clear();
         }
 
-        void DisableCloseHandler(){
-            m_close_handler = nullptr;
+        void UnsetConnectionClass(){
+            m_conn_establish_handler = nullptr;
+            m_conn_close_handler = nullptr;
         }
 
         FiberPool::ptr m_fiber_pool;
@@ -76,8 +83,9 @@ namespace MyRPC{
 
         void _do_accept();
 
-        std::vector<std::function<void(Socket::ptr)>> m_conn_handler;
-        std::shared_ptr<std::function<void()>> m_close_handler = nullptr;
+        std::vector<std::function<void(Socket::ptr, TCPServerConn*)>> m_conn_handler;
+        std::function<void(TCPServerConn*)> m_conn_close_handler;
+        std::function<void(TCPServerConn**)> m_conn_establish_handler;
     };
 }
 
