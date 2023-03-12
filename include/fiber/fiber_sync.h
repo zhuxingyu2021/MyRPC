@@ -7,10 +7,10 @@
 #include <queue>
 
 #include "noncopyable.h"
-#include "macro.h"
+#include "debug.h"
 #include "spinlock.h"
 
-#include "macro.h"
+#include "debug.h"
 
 #include "fiber/fiber.h"
 

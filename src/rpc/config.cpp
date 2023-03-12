@@ -1,7 +1,7 @@
 #include "rpc/config.h"
 #include "rpc/exception.h"
 
-#include "macro.h"
+#include "debug.h"
 
 #include <unistd.h>
 #include <fcntl.h>

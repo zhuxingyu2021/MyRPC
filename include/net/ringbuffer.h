@@ -6,7 +6,7 @@
 #include <unistd.h>
 
 #include "noncopyable.h"
-#include "macro.h"
+#include "debug.h"
 #include "net/socket.h"
 
 /**
@@ -20,7 +20,7 @@ namespace MyRPC {
     public:
         using ptr = std::shared_ptr<ReadRingBuffer>;
 
-        ReadRingBuffer(Socket::ptr sock, useconds_t timeout = 0):m_sock(sock), m_timeout(timeout){}
+        ReadRingBuffer(Socket::ptr& sock, useconds_t timeout = 0):m_sock(sock), m_timeout(timeout){}
 
         /**
              * @brief 获取读指针的当前位置
@@ -124,7 +124,7 @@ namespace MyRPC {
         }
 
     private:
-        Socket::ptr m_sock;
+        Socket::weak_ptr m_sock;
         useconds_t m_timeout = 0;
 
         char m_array[MYRPC_RINGBUFFER_SIZE];
@@ -140,7 +140,7 @@ namespace MyRPC {
     public:
         using ptr = std::shared_ptr<WriteRingBuffer>;
 
-        WriteRingBuffer(Socket::ptr sock, useconds_t timeout = 0):m_sock(sock), m_timeout(timeout){}
+        WriteRingBuffer(Socket::ptr& sock, useconds_t timeout = 0):m_sock(sock), m_timeout(timeout){}
 
         /**
          * @brief 向字符缓冲区中添加字符串数据
@@ -198,7 +198,7 @@ namespace MyRPC {
         }
 
     private:
-        Socket::ptr m_sock;
+        Socket::weak_ptr m_sock;
         useconds_t m_timeout = 0;
 
         char m_array[MYRPC_RINGBUFFER_SIZE];

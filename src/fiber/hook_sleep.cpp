@@ -1,7 +1,7 @@
 #include "fiber/hook_sleep.h"
 #include "fiber/fiber_pool.h"
 #include "logger.h"
-#include "macro.h"
+#include "debug.h"
 #include "fd_raii.h"
 
 #include <unistd.h>

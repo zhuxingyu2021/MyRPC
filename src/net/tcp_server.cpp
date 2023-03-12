@@ -7,7 +7,7 @@
 #include "fiber/fiber.h"
 #include "fiber/fiber_pool.h"
 #include "net/tcp_server.h"
-#include "macro.h"
+#include "debug.h"
 #include "fiber/timeout_io.h"
 
 #include "net/exception.h"
@@ -81,8 +81,12 @@ void TCPServer::_do_accept() {
             if(tid == -1) {
                 auto [fiber, _tid] = m_fiber_pool->Run([func, sock, conn] { return func(sock, conn); });
                 tid = _tid;
+                if(conn)
+                    conn->m_active_handler.emplace_back(fiber);
             }else{
-                m_fiber_pool->Run([func, sock, conn] { return func(sock, conn); }, tid);
+                auto [fiber, _tid] = m_fiber_pool->Run([func, sock, conn] { return func(sock, conn); }, tid);
+                if(conn)
+                    conn->m_active_handler.emplace_back(fiber);
             }
         }
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_NET_LEVEL

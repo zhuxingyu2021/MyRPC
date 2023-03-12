@@ -20,7 +20,7 @@
 #include <memory>
 
 #include "utils.h"
-#include "macro.h"
+#include "debug.h"
 #include "stringbuffer.h"
 
 #include "net/exception.h"

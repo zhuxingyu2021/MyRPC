@@ -11,7 +11,7 @@
 #include "net/exception.h"
 #include "net/inetaddr.h"
 
-#include "macro.h"
+#include "debug.h"
 #include "fd_raii.h"
 
 

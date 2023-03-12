@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <atomic>
 
-#include "macro.h"
+#include "debug.h"
 #include "spinlock.h"
 #include "fiber/event_manager.h"
 

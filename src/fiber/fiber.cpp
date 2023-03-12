@@ -1,6 +1,6 @@
 #include "fiber/fiber.h"
 #include "logger.h"
-#include "macro.h"
+#include "debug.h"
 #include "fiber/hook_sleep.h"
 #include "fiber/hook_io.h"
 

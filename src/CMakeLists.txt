@@ -1,7 +1,7 @@
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 set(SRCFILE
-        macro.cpp
+        debug.cpp
         utils.cpp
         stringbuffer.cpp
 
@@ -19,6 +19,7 @@ set(SRCFILE
         net/tcp_client.cpp
 
         rpc/config.cpp
+        rpc/jsonrpc/jsonrpc_proto.cpp
         # rpc/rpc_session.cpp
         # rpc/rpc_registry_server.cpp
         # rpc/rpc_server.cpp
