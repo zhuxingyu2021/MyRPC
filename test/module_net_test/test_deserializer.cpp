@@ -11,7 +11,25 @@ int main() {
     JsonSerializer serializer(serialize_sb);
 
     StringBuilder sb1;
-    sb1.Append("{\"2os2\":[5076,-1,-293,-923,1817],\"A\":[212023,-19],\"你好\":[29,892,-12,81]}");
+    sb1.Append("{\n"
+               "    \"first\": [\n"
+               "        5076,\n"
+               "        -1,\n"
+               "        -293,\n"
+               "        -923,\n"
+               "        1817\n"
+               "    ],\n"
+               "    \"second\": [\n"
+               "        212023,\n"
+               "        -19\n"
+               "    ],\n"
+               "    \"third\": [\n"
+               "        29,\n"
+               "        892,\n"
+               "        -12,\n"
+               "        81\n"
+               "    ]\n"
+               "}");
     StringBuffer buf1 = sb1.Concat();
     JsonDeserializer des1(buf1);
     std::map<string, vector<int>> map1;
@@ -22,7 +40,17 @@ int main() {
     serialize_sb.Clear();
 
     StringBuilder sb2;
-    sb2.Append("[{\"firstName\":\"Brett\",\"email\":\"brett@newInstance.com\"},{\"firstName\":\"Jason\",\"email\":\"jason@servlets.com\"}]");
+    sb2.Append(
+            "[\n\r"
+            "  {\n\r"
+            "    \"firstName\": \"Brett\",\n\r"
+            "    \"email\": \"brett@newInstance.com\"\n\r"
+            "  },\n"
+            "  {\n"
+            "    \"firstName\": \"Jason\",\n\r"
+            "    \"email\": \"jason@servlets.com\"\n\r"
+            "  }\n\r"
+            "]");
     StringBuffer buf2 = sb2.Concat();
     JsonDeserializer des2(buf2);
     std::vector<std::map<std::string, std::string>> vec;
@@ -34,7 +62,22 @@ int main() {
 
 
     StringBuilder sb3;
-    sb3.Append("[{\"key\":[12,13,2,6],\"value\":[11,8,9,0]}]");
+    sb3.Append("[\n"
+               "\t{\n"
+               "\t\t\"key\": [\n"
+               "\t\t\t12,\n"
+               "\t\t\t13,\n"
+               "\t\t\t2,\n"
+               "\t\t\t6\n"
+               "\t\t],\n"
+               "\t\t\"value\": [\n"
+               "\t\t\t11,\n"
+               "\t\t\t8,\n"
+               "\t\t\t9,\n"
+               "\t\t\t0\n"
+               "\t\t]\n"
+               "\t}\n"
+               "]");
     StringBuffer buf3 = sb3.Concat();
     JsonDeserializer des3(buf3);
     std::pair<vector<int>, vector<int>> pair1;
@@ -46,7 +89,42 @@ int main() {
 
 
     StringBuilder sb4;
-    sb4.Append("[{\"2os2\":[5076,-1,-293,-923,1817],\"A\":[212023,-19],\"你好\":[29,892,-12,81]},null,{\"32dw\":[39,-9,-12,-29],\"！No\":[-2938422,-9,-12,-29]}]");
+    sb4.Append("[\n"
+               "  {\n"
+               "    \"item1_1\": [\n"
+               "      5076,\n"
+               "      -1,\n"
+               "      -293,\n"
+               "      -923,\n"
+               "      1817\n"
+               "    ],\n"
+               "    \"item1_2\": [\n"
+               "      212023,\n"
+               "      -19\n"
+               "    ],\n"
+               "    \"item1_3\": [\n"
+               "      29,\n"
+               "      892,\n"
+               "      -12,\n"
+               "      81\n"
+               "    ]\n"
+               "  },\n"
+               "  null,\n"
+               "  {\n"
+               "    \"item3\": [\n"
+               "      39,\n"
+               "      -9,\n"
+               "      -12,\n"
+               "      -29\n"
+               "    ],\n"
+               "    \"item4\": [\n"
+               "      -2938422,\n"
+               "      -9,\n"
+               "      -12,\n"
+               "      -29\n"
+               "    ]\n"
+               "  }\n"
+               "]");
     StringBuffer buf4 = sb4.Concat();
     JsonDeserializer des4(buf4);
     std::vector<std::optional<shared_ptr<std::map<std::string, vector<int>>>>> vec2;
@@ -58,7 +136,18 @@ int main() {
 
 
     StringBuilder sb5;
-    sb5.Append("[232.111000,19,[32,901,12,29,-323],\"Hello!\"]");
+    sb5.Append("[\n"
+               "  232.111,\n"
+               "  19,\n"
+               "  [\n"
+               "    32,\n"
+               "    901,\n"
+               "    12,\n"
+               "    29,\n"
+               "    -323\n"
+               "  ],\n"
+               "  \"Hello!\"\n"
+               "]");
     StringBuffer buf5 = sb5.Concat();
     JsonDeserializer des5(buf5);
     tuple<double, int, vector<int>, string> tuple1;

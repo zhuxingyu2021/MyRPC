@@ -42,6 +42,23 @@ namespace MyRPC {
 
         virtual void Commit() = 0;
 
+        unsigned char GetCharF(){
+            char t = GetChar();
+            while((t == ' ') || (t == '\t') || (t == '\n') || (t == '\r')){ // 去除空白字符
+                t = GetChar();
+            }
+            return t;
+        }
+
+        unsigned char PeekCharF(){
+            char t = GetChar();
+            while((t == ' ') || (t == '\t') || (t == '\n') || (t == '\r')){ // 去除空白字符
+                t = GetChar();
+            }
+            --m_read_idx;
+            return t;
+        }
+
         /**
          * @brief 获得从当前读指针到字符c之前的所有字符，并移动读指针
          */
