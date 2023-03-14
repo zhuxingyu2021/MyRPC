@@ -53,7 +53,6 @@ namespace MyRPC {
 
         char m_array[MYRPC_RINGBUFFER_SIZE];
 
-        unsigned long m_read_idx = 0;
         unsigned long m_read_commit_idx = 0;
         unsigned long m_tail_idx = 0;
 

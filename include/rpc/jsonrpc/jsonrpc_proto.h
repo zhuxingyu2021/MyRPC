@@ -20,12 +20,13 @@ namespace MyRPC{
              * @brief 解析客户端传过来的方法名，由服务端调用 （解析请求的第一阶段）
              * @param method_name 输出值，输出客户端的方法名
              */
-            void ParseMethod(){
+            Errortype ParseMethod(){
                 m_conn->AddAsyncTask([this]() {
                     m_deser.Load(m_request);
                 });
                 // 等待前两个字段读完
                 m_request.m_sync.Pop();
+                return m_request.m_internal_err;
             }
 
             /**

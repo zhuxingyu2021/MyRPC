@@ -14,8 +14,8 @@ namespace MyRPC{
         void Terminate(){
             auto current_id = Fiber::GetCurrentId();
             for(auto& fiber:m_active_handler){
-                if(fiber->GetId() != current_id){
-                    fiber->Term();
+                if(fiber.lock()->GetId() != current_id){
+                    fiber.lock()->Term();
                 }
             }
         }
@@ -27,7 +27,7 @@ namespace MyRPC{
 
     private:
         friend class TCPServer;
-        std::vector<Fiber::ptr> m_active_handler;
+        std::vector<Fiber::weak_ptr> m_active_handler;
     };
 }
 

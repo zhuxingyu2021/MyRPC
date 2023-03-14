@@ -10,9 +10,14 @@ namespace MyRPC {
     class Fiber : public NonCopyable, public std::enable_shared_from_this<Fiber>{
     public:
         using ptr = std::shared_ptr<Fiber>;
+        using weak_ptr = std::weak_ptr<Fiber>;
         using unique_ptr = std::unique_ptr<Fiber>;
 
-        const size_t init_stack_size = 8192;
+#ifdef INIT_STACK_SIZE
+        const size_t init_stack_size = INIT_STACK_SIZE;
+#else
+        const size_t init_stack_size = 4096;
+#endif
 
         enum status{
             READY = 1,

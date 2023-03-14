@@ -324,9 +324,6 @@ public:
         Load(key_str);
         MYRPC_ASSERT_EXCEPTION(buffer.GetChar() == ':', throw JsonDeserializerException(buffer.GetPos()));
         MYRPC_ASSERT_EXCEPTION(key == key_str, throw JsonDeserializerException(buffer.GetPos()));
-
-        char c = buffer.GetChar();
-        MYRPC_ASSERT_EXCEPTION(c == ',' || c == '}', throw JsonDeserializerException(buffer.GetPos()));
     }
 
     inline void deserialize_item_key_end_impl_(){

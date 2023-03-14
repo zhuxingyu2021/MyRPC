@@ -6,6 +6,7 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 add_subdirectory(3rdparty/spdlog)
 
+add_compile_definitions(INIT_STACK_SIZE=65536)
 add_subdirectory(src)
 
 add_subdirectory(test)

@@ -6,7 +6,7 @@
 #include <iostream>
 #include <string>
 
-#define TIME_OUT 2000000 // 2秒
+#define TIME_OUT 2000 // 2秒
 
 using namespace MyRPC;
 using namespace std;
@@ -85,7 +85,7 @@ private :
 
 int main(){
     FiberPool::ptr pool(new FiberPool(1));
-    EchoServer server(make_shared<InetAddr>("127.0.0.1", 9998),pool, TIME_OUT);
+    EchoServer server(make_shared<InetAddr>("127.0.0.1", 9999),pool, TIME_OUT);
 
     pool->Start();
 

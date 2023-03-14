@@ -53,6 +53,8 @@ namespace MyRPC{
             return std::string((char*)data, size);
         }
 
+        virtual void Commit() override{}
+
     protected:
 
         virtual void _read_to_str(std::string &s, unsigned long begin, unsigned long end) override ;
@@ -82,6 +84,8 @@ namespace MyRPC{
          * @brief 清除字符缓冲区
          */
         void Clear();
+
+        virtual void Commit() override{}
 
     private:
         int m_total_size = 0; // 字符缓冲区总大小

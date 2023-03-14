@@ -4,7 +4,7 @@
 #include <iostream>
 #include <string>
 
-#define TIME_OUT 2000000 // 2秒
+#define TIME_OUT 2000 // 2秒
 
 using namespace MyRPC;
 using namespace std;
