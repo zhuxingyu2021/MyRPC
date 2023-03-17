@@ -130,7 +130,7 @@ void EventManager::WaitEvent(int thread_id) {
                 }
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
             Logger::debug("Thread: {}, Fiber: {} is swapped out #1, return value:{}, status:{}", thread_id,
-                          read_fiber->GetId(), ret_val, read_fiber->GetStatus());
+                          read_fiber->GetId(), ret_val, read_fiber->ToString(read_fiber->GetStatus()));
 #endif
         }
         if(now_rw_event & EPOLLOUT){
@@ -145,7 +145,7 @@ void EventManager::WaitEvent(int thread_id) {
                 }
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
             Logger::debug("Thread: {}, Fiber: {} is swapped out #1, return value:{}, status:{}", thread_id,
-                          write_fiber->GetId(), ret_val, write_fiber->GetStatus());
+                          write_fiber->GetId(), ret_val, write_fiber->ToString(write_fiber->GetStatus()));
 #endif
         }
     }

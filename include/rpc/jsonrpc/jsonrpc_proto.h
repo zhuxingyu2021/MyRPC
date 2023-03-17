@@ -14,7 +14,7 @@ namespace MyRPC{
     namespace JsonRPC {
         class Proto {
         public:
-            Proto(ReadRingBuffer &rd, WriteRingBuffer &wr, TCPServerConn* conn) : m_ser(wr), m_deser(rd),
+            Proto(ReadRingBuffer &rd, WriteRingBuffer &wr, TCPServerConn::ptr conn) : m_ser(wr), m_deser(rd),
                 m_rd_buf(rd), m_wr_buf(wr), m_conn(conn){}
 
             /**
@@ -22,7 +22,7 @@ namespace MyRPC{
              * @param method_name 输出值，输出客户端的方法名
              */
             Errortype ParseMethod(){
-                m_conn->AddAsyncTask([this]() {
+                m_conn.lock()->AddAsyncTask([this]() {
                     m_deser.Load(m_request);
                 });
                 // 等待前两个字段读完
@@ -92,7 +92,7 @@ namespace MyRPC{
                 if(m_response.error.err != NO_ERROR){
                     m_ser.Save(m_response);
                 }else {
-                    m_conn->AddAsyncTask([this]() {
+                    m_conn.lock()->AddAsyncTask([this]() {
                         m_ser.Save(m_response);
                     });
                     // 等待第一个字段写完
@@ -128,7 +128,7 @@ namespace MyRPC{
 
             inline const Request& RequestStruct(){return m_request;}
         private:
-            TCPServerConn* m_conn;
+            TCPServerConn::weak_ptr m_conn;
 
             JsonSerializer m_ser;
             JsonDeserializer m_deser;

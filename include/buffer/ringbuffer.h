@@ -21,7 +21,7 @@ namespace MyRPC {
     public:
         using ptr = std::shared_ptr<ReadRingBuffer>;
 
-        ReadRingBuffer(Socket::ptr& sock, ms_t timeout = 0):m_sock(sock), m_timeout(timeout){}
+        ReadRingBuffer(Socket::unique_ptr& sock, ms_t timeout = 0):m_sock(sock), m_timeout(timeout){}
 
         bool SetPos(int pos){
             if(pos >= m_read_commit_idx && pos <= m_tail_idx){
@@ -48,7 +48,7 @@ namespace MyRPC {
         virtual void _read_to_str(std::string &s, unsigned long begin, unsigned long end) override ;
 
     private:
-        Socket::weak_ptr m_sock;
+        Socket::unique_ptr& m_sock;
         ms_t m_timeout = 0;
 
         char m_array[MYRPC_RINGBUFFER_SIZE];
@@ -63,7 +63,7 @@ namespace MyRPC {
     public:
         using ptr = std::shared_ptr<WriteRingBuffer>;
 
-        WriteRingBuffer(Socket::ptr& sock, ms_t timeout = 0):m_sock(sock), m_timeout(timeout){}
+        WriteRingBuffer(Socket::unique_ptr& sock, ms_t timeout = 0):m_sock(sock), m_timeout(timeout){}
 
         virtual void Append(const std::string &str) override;
 
@@ -79,7 +79,7 @@ namespace MyRPC {
         }
 
     private:
-        Socket::weak_ptr m_sock;
+        Socket::unique_ptr& m_sock;
         ms_t m_timeout = 0;
 
         char m_array[MYRPC_RINGBUFFER_SIZE];

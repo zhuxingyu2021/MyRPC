@@ -52,11 +52,8 @@ namespace MyRPC{
 
         template <class T>
         void SetConnectionClass(){
-            m_conn_establish_handler = [](TCPServerConn** ptr){
-                *ptr = new T;
-            };
-            m_conn_close_handler = [](TCPServerConn* ptr){
-                delete ptr;
+            m_conn_establish_handler = []()->TCPServerConn::ptr{
+                return std::make_shared<T>();
             };
         }
 
@@ -66,7 +63,6 @@ namespace MyRPC{
 
         void UnsetConnectionClass(){
             m_conn_establish_handler = nullptr;
-            m_conn_close_handler = nullptr;
         }
 
         FiberPool::ptr m_fiber_pool;
@@ -83,9 +79,8 @@ namespace MyRPC{
 
         void _do_accept();
 
-        std::vector<std::function<void(Socket::ptr, TCPServerConn*)>> m_conn_handler;
-        std::function<void(TCPServerConn*)> m_conn_close_handler;
-        std::function<void(TCPServerConn**)> m_conn_establish_handler;
+        std::vector<std::function<void(TCPServerConn::ptr)>> m_conn_handler;
+        std::function<TCPServerConn::ptr()> m_conn_establish_handler;
     };
 }
 

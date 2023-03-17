@@ -4,6 +4,7 @@
 #include <memory>
 #include <functional>
 
+#include "macro.h"
 #include "noncopyable.h"
 
 namespace MyRPC {
@@ -19,13 +20,12 @@ namespace MyRPC {
         const size_t init_stack_size = 4096;
 #endif
 
-        enum status{
-            READY = 1,
-            EXEC = 2,
-            BLOCKED = 3,
-            TERMINAL = 4,
-            ERROR
-        };
+        ENUM_DEF_2(status,
+                   (READY, 1),
+                   (EXEC, 2),
+                   (BLOCKED, 3),
+                   (TERMINAL, 4),
+                   (ERROR, -1))
 
         /**
          * @param[in] func 协程中运行的函数

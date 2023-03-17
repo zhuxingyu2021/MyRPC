@@ -37,6 +37,15 @@ namespace MyRPC{
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_LOCK_LEVEL
             int64_t _debug_lock_owner = -10; // 锁持有者的Fiber id
 #endif
+            // 清空等待队列，但需要确保等待队列中的所有协程都处于停止的状态
+            void Clear(){
+                while(!m_wait_queue.empty()){
+                    auto [fb, tid] = m_wait_queue.front();
+                    MYRPC_ASSERT(fb->GetStatus() == Fiber::TERMINAL);
+                    m_wait_queue.pop();
+                }
+            }
+
         private:
             std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
 
@@ -84,6 +93,11 @@ namespace MyRPC{
                 }
                 read_lock.unlock();
             }
+
+            void Clear(){
+                write_lock.Clear();
+                read_lock.Clear();
+            }
         private:
             Mutex write_lock;
             Mutex read_lock;
@@ -102,6 +116,16 @@ namespace MyRPC{
             void notify_one();
 
             void notify_all();
+
+            // 清空等待队列，但需要确保等待队列中的所有协程都处于停止的状态
+            void Clear(){
+                // 清空等待队列，但需要确保等待队列中的所有协程都处于停止的状态
+                while(!m_wait_queue.empty()){
+                    auto [fb, tid] = m_wait_queue.front();
+                    MYRPC_ASSERT(fb->GetStatus() == Fiber::TERMINAL);
+                    m_wait_queue.pop();
+                }
+            }
 
         private:
             std::atomic<bool> m_notify_all = {false};

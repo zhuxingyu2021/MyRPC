@@ -108,14 +108,14 @@ void ReadRingBuffer::_read_socket() {
         // RingBuffer缓冲区满
         throw NetException("read socket to ringbuffer", NetException::BUFFER);
     }else if(actual_beg_pos < actual_end_pos){ // 在ringbuffer中添加新数据
-        recv_cnt = m_sock.lock()->RecvTimeout(&m_array[actual_beg_pos], actual_end_pos - actual_beg_pos, 0, m_timeout);
+        recv_cnt = m_sock->RecvTimeout(&m_array[actual_beg_pos], actual_end_pos - actual_beg_pos, 0, m_timeout);
     }else{ // 在ringbuffer中添加新数据
         iovec _iov[2];
         _iov[0].iov_base = &m_array[actual_beg_pos];
         _iov[0].iov_len = MYRPC_RINGBUFFER_SIZE - actual_beg_pos;
         _iov[1].iov_base = m_array;
         _iov[1].iov_len = actual_end_pos;
-        recv_cnt = m_sock.lock()->ReadvTimeout(_iov, 2, m_timeout);
+        recv_cnt = m_sock->ReadvTimeout(_iov, 2, m_timeout);
     }
     m_tail_idx += recv_cnt;
 }
@@ -130,14 +130,14 @@ void WriteRingBuffer::_write_socket() {
         // RingBuffer缓冲区为空
         return;
     }else if(actual_beg_pos < actual_end_pos) {
-        send_cnt = m_sock.lock()->SendTimeout(&m_array[actual_beg_pos], actual_end_pos - actual_beg_pos, 0, m_timeout);
+        send_cnt = m_sock->SendTimeout(&m_array[actual_beg_pos], actual_end_pos - actual_beg_pos, 0, m_timeout);
     }else{
         iovec _iov[2];
         _iov[0].iov_base = &m_array[actual_beg_pos];
         _iov[0].iov_len = MYRPC_RINGBUFFER_SIZE - actual_beg_pos;
         _iov[1].iov_base = m_array;
         _iov[1].iov_len = actual_end_pos;
-        send_cnt = m_sock.lock()->WritevTimeout(_iov, 2, m_timeout);
+        send_cnt = m_sock->WritevTimeout(_iov, 2, m_timeout);
     }
     m_front_idx += send_cnt;
 }

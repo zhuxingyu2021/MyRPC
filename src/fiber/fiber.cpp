@@ -186,7 +186,9 @@ void Fiber::Reset() {
 void Fiber::Term() {
     if (m_status == EXEC) {
         MYRPC_CRITIAL_ERROR("Try to close a running fiber, id: " + std::to_string(m_fiber_id));
-    } else {
+    } else if(m_status == TERMINAL){
+        // Do Nothing
+    }else{
         // Stack Unwinding
 #if defined(__x86_64__) || defined(_M_X64)
         void** rsp = (void**)m_ctx[SUBCO_CTX_OFS + SP_CTX_OFS];

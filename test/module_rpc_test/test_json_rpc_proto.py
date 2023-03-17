@@ -2,17 +2,18 @@ import unittest
 import random
 import socket
 import json
-import time
+
+port = 4000
 
 class MyTestCase(unittest.TestCase):
     def test_json_rpc_client(self):
         id = 0
-        for i in range(1000):
+        for i in range(3000):
             params = [random.randint(0, 1000) for x in range(100)]
             host = "localhost"
 
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client.connect((host, 8000))
+            client.connect((host, port))
 
             # Example echo method
             payload = {

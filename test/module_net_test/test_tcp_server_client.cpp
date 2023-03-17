@@ -13,10 +13,11 @@ class EchoServer : public TCPServer {
 public:
     EchoServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, ms_t timeout=0)
         : TCPServer(bind_addr, fiberPool, timeout){
-        AddConnectionHandler([this](Socket::ptr sock, TCPServerConn*){return handle_connection(sock);});
+        SetConnectionClass<TCPServerConn>();
+        AddConnectionHandler([this](TCPServerConn::ptr conn){return handle_connection(conn->GetSock());});
     }
 private :
-    void handle_connection(const Socket::ptr& sock){
+    void handle_connection(Socket::unique_ptr& sock){
 
         int sock_fd = sock->GetSocketfd();
         char buf[1024];

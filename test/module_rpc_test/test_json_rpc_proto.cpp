@@ -33,9 +33,9 @@ private:
 
     inline static ms_t config_timeout;
 
-    static void JsonRPCConnHandler(Socket::ptr sock, TCPServerConn* conn){
-        ReadRingBuffer rd_buf(sock, config_timeout);
-        WriteRingBuffer wr_buf(sock, config_timeout);
+    static void JsonRPCConnHandler(TCPServerConn::ptr conn){
+        ReadRingBuffer rd_buf(conn->GetSock(), config_timeout);
+        WriteRingBuffer wr_buf(conn->GetSock(), config_timeout);
         JsonRPC::Proto proto(rd_buf, wr_buf, conn);
 
         while(true) {
@@ -70,7 +70,7 @@ private:
 };
 
 int main(){
-    FiberPool::ptr pool(new FiberPool(1));
+    FiberPool::ptr pool(new FiberPool(4));
     int port;
     cin >> port;
     SimpleJsonRPCServer server(make_shared<InetAddr>("127.0.0.1", port),pool, 0);

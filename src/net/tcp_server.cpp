@@ -69,30 +69,27 @@ void TCPServer::_do_accept() {
         }
 
         int tid = -1;
-        Socket::ptr sock = std::make_shared<Socket>(sockfd);
-        TCPServerConn* conn = nullptr;
+        TCPServerConn::ptr conn;
         if(m_conn_establish_handler) {
-            m_conn_establish_handler(&conn);
-            sock->m_destructor = [this, conn](){
-                m_conn_close_handler(conn);
-            };
+            conn = m_conn_establish_handler();
+            conn->m_sock = std::make_unique<Socket>(sockfd);
+        }else{
+            MYRPC_CRITIAL_ERROR("Unknown TCP connection class");
         }
         for(auto& func:m_conn_handler){
             if(tid == -1) {
-                auto [fiber, _tid] = m_fiber_pool->Run([func, sock, conn] { return func(sock, conn); });
+                auto [fiber, _tid] = m_fiber_pool->Run([func, conn] { return func(conn); });
                 tid = _tid;
-                if(conn)
-                    conn->m_active_handler.emplace_back(fiber);
+                conn->m_active_handler.emplace_back(fiber);
             }else{
-                auto [fiber, _tid] = m_fiber_pool->Run([func, sock, conn] { return func(sock, conn); }, tid);
-                if(conn)
-                    conn->m_active_handler.emplace_back(fiber);
+                auto [fiber, _tid] = m_fiber_pool->Run([func, conn] { return func(conn); }, tid);
+                conn->m_active_handler.emplace_back(fiber);
             }
         }
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_NET_LEVEL
-        auto clientAddr = sock->GetPeerAddr();
+        auto clientAddr = conn->m_sock->GetPeerAddr();
         Logger::info("Thread: A new connection form IP:{}, port:{}, connection fd:{}", tid,
-                     clientAddr->GetIP(), clientAddr->GetPort(), sock->GetSocketfd());
+                     clientAddr->GetIP(), clientAddr->GetPort(), conn->m_sock->GetSocketfd());
 #endif
     }
 }

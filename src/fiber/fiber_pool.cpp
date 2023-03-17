@@ -121,7 +121,7 @@ int FiberPool::_main_loop(int thread_id) {
                 auto ret_val = tsk_ptr->Resume();
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
                 Logger::debug("Thread: {}, Fiber: {} is swapped out #1, return value:{}, status:{}", thread_id,
-                              tsk_ptr->GetId(), ret_val, tsk_ptr->GetStatus());
+                              tsk_ptr->GetId(), ret_val, tsk_ptr->ToString(tsk_ptr->GetStatus()));
 #endif
                 // 任务让出CPU，等待下次被调度
                 auto status = tsk_ptr->GetStatus();

@@ -39,6 +39,11 @@ namespace MyRPC {
             m_empty.notify_all();
         }
 
+        void Clear(){
+            m_queue_mutex.Clear();
+            m_empty.Clear();
+        }
+
     private:
         std::queue<T> m_queue;
         FiberSync::Mutex m_queue_mutex;
