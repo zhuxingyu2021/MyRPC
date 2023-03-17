@@ -3,6 +3,7 @@
 #include "traits.h"
 
 #include <vector>
+#include <iostream>
 
 using namespace MyRPC;
 using namespace std;
@@ -42,12 +43,16 @@ private:
             ResultType result;
             // 解析客户端传过来的方法名
             auto error = proto.ParseMethod();
+            Logger::info("Method name is given, error:{}", JsonRPC::ToString(error));
             if(error == JsonRPC::NO_ERROR) {
                 if (proto.RequestStruct().method == "sum") {
                     // 解析客户端传过来的参数
+                    Logger::info("Method name: sum");
                     error = proto.ParseRequest(args);
+                    Logger::info("Arguments is given, error:{}", JsonRPC::ToString(error));
                     result = sum(std::get<0>(args));
                 } else {
+                    Logger::info("Method name: {}", proto.RequestStruct().method);
                     error = JsonRPC::METHOD_NOT_FOUND;
                     proto.SetError(JsonRPC::METHOD_NOT_FOUND);
                 }
@@ -66,7 +71,9 @@ private:
 
 int main(){
     FiberPool::ptr pool(new FiberPool(1));
-    SimpleJsonRPCServer server(make_shared<InetAddr>("127.0.0.1", 9998),pool, 0);
+    int port;
+    cin >> port;
+    SimpleJsonRPCServer server(make_shared<InetAddr>("127.0.0.1", port),pool, 0);
 
     pool->Start();
 

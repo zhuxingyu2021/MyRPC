@@ -71,6 +71,8 @@ void Fiber::_init_stack_and_ctx() {
 #elif defined(__aarch64__)
     m_ctx[SUBCO_CTX_OFS + RET_CTX_OFS] = (void*)&Fiber::Main;
 #endif
+    // 栈的边界，用于检测栈溢出
+    *((uint64_t*)m_stack) = 0x7F62E109A8B12815;
 }
 
 Fiber::Fiber(const std::function<void()>& func) : m_fiber_id(++fiber_count), m_func(func), m_status(READY) {
@@ -115,6 +117,7 @@ void Fiber::Suspend(int64_t return_value) {
         ptr->m_status = READY;
 
         SWAP_OUT();
+        MYRPC_ASSERT(*((uint64_t*)ptr->m_stack) == 0x7F62E109A8B12815);
         // 切换上下文
         YIELD(ptr->m_ctx);
     }
@@ -126,6 +129,7 @@ void Fiber::Block(int64_t return_value) {
         ptr->m_status = BLOCKED;
 
         SWAP_OUT();
+        MYRPC_ASSERT(*((uint64_t*)ptr->m_stack) == 0x7F62E109A8B12815);
         // 切换上下文
         YIELD(ptr->m_ctx);
     }
@@ -238,6 +242,7 @@ void Fiber::_main_func() {
         }
     }
     ptr->m_status = TERMINAL;
+    MYRPC_ASSERT(*((uint64_t*)ptr->m_stack) == 0x7F62E109A8B12815);
     SWAP_OUT();
 
     // 上下文切换
@@ -256,7 +261,7 @@ size_t Fiber::GetStackFreeSize() {
     char* stack = GET_THIS()->m_stack;
     char* rsp;
     asm volatile("movq %%rsp, %0":"=g"(rsp));
-    return (size_t)(rsp-stack);
+    return (size_t)(rsp-stack-8);
 }
 
 bool Fiber::ExtendStackCapacity() {

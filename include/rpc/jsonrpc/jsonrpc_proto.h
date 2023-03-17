@@ -14,7 +14,8 @@ namespace MyRPC{
     namespace JsonRPC {
         class Proto {
         public:
-            Proto(ReadRingBuffer &rd, WriteRingBuffer &wr, TCPServerConn* conn) : m_ser(wr), m_deser(rd), m_conn(conn){}
+            Proto(ReadRingBuffer &rd, WriteRingBuffer &wr, TCPServerConn* conn) : m_ser(wr), m_deser(rd),
+                m_rd_buf(rd), m_wr_buf(wr), m_conn(conn){}
 
             /**
              * @brief 解析客户端传过来的方法名，由服务端调用 （解析请求的第一阶段）
@@ -100,9 +101,9 @@ namespace MyRPC{
                     m_ser.Save(result);
 
                     // 让出协程，等之后的字段被写完
-                    m_request.m_sync.Push(true);
+                    m_response.m_sync.Push(true);
                     Fiber::Suspend();
-                    m_request.m_sync.Pop();
+                    m_response.m_sync.Pop();
                 }
                 return ret;
             }
@@ -131,6 +132,8 @@ namespace MyRPC{
 
             JsonSerializer m_ser;
             JsonDeserializer m_deser;
+            ReadRingBuffer &m_rd_buf;
+            WriteRingBuffer &m_wr_buf;
 
             Request m_request;
             Response m_response;

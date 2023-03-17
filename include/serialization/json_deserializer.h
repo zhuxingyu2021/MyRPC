@@ -224,7 +224,11 @@ public:
 
     template<class ...Args>
     void Load(std::tuple<Args...>& t){
-        deserialize_tuple_impl_(t, std::index_sequence_for<Args...>{});
+        if constexpr(sizeof...(Args) == 1){
+            Load(std::get<0>(t));
+        }else {
+            deserialize_tuple_impl_(t, std::index_sequence_for<Args...>{});
+        }
     }
 
     template<class Tkey, class Tval>

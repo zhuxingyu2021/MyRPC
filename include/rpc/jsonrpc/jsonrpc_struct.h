@@ -47,6 +47,7 @@ namespace MyRPC{
                     LOAD_BEGIN_READ
 
                     LOAD_ALIAS_ITEM(jsonrpc, version)
+                    LOAD_ITEM(id)
                     LOAD_ITEM(method)
 
                     LOAD_KEY_BEG(params)
@@ -58,8 +59,6 @@ namespace MyRPC{
                         return; // Placeholder部分的json解析出现了错误，那就不用继续读下去了，直接退出
 
                     LOAD_KEY_END
-
-                    LOAD_ITEM(id)
                     LOAD_END_READ
 
                     m_sync.Push(true);
@@ -139,11 +138,13 @@ namespace MyRPC{
                      SAVE_ALIAS_ITEM(jsonrpc, version)
                      if(error.err == NO_ERROR){
                          // 切换协程，以写入Placeholder部分
+                         SAVE_KEY_BEG(result)
                          m_sync.Push(true);
                          Fiber::Suspend();
                          if(!m_sync.Pop())
                              return; // Placeholder部分的json解析出现了错误，那就不用继续写下去了，直接退出
 
+                         SAVE_KEY_END
                          SAVE_ITEM(id)
                          SAVE_END_WRITE
 

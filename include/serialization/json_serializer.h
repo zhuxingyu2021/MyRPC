@@ -300,6 +300,17 @@ public:
         t.Save(*this);
     }
 
+
+    inline void serialize_key_beg_impl_(const std::string& key) {
+        buffer.Append('\"');
+        buffer.Append(key);
+        buffer.Append("\":");
+    }
+
+    inline void serialize_key_end_impl_() {
+        buffer.Append(',');
+    }
+
 };
 
 };
@@ -310,6 +321,10 @@ public:
 
 #define SAVE_ITEM(x) serializer.serialize_item_impl_(#x, x);
 #define SAVE_ALIAS_ITEM(alias, x) serializer.serialize_item_impl_(#alias, x);
+
+#define SAVE_KEY_BEG(alias) serializer.serialize_key_beg_impl_( #alias);
+
+#define SAVE_KEY_END serializer.serialize_key_end_impl_();
 
 #define SAVE_END_WRITE serializer.serialize_struct_end_impl_();
 #define SAVE_END_DEF }
