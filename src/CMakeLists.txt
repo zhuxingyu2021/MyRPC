@@ -20,7 +20,7 @@ set(SRCFILE
         net/tcp_client.cpp
 
         rpc/config.cpp
-        rpc/jsonrpc/jsonrpc_proto.cpp
+        rpc/jsonrpc/jsonrpc_server_base.cpp
         # rpc/rpc_session.cpp
         # rpc/rpc_registry_server.cpp
         # rpc/rpc_server.cpp

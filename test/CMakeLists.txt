@@ -26,6 +26,7 @@ make_test(module_net_test test_tcp_server_ringbuffer)
 
 make_test(module_rpc_test test_config)
 make_test(module_rpc_test test_json_rpc_proto)
+make_test(module_rpc_test test_json_rpc_server_base)
 make_test(module_rpc_test test_rpc_registry_server)
 make_test(module_rpc_test test_rpc_server)
 make_test(module_rpc_test test_rpc_client)

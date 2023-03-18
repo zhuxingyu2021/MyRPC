@@ -35,10 +35,10 @@ public:
 
         // 添加连接处理函数
         AddConnectionHandler([this](TCPServerConn::ptr conn){
-            return read_buffer(reinterpret_pointer_cast<EchoServerConnection>(conn));
+            return read_buffer(static_pointer_cast<EchoServerConnection>(conn));
         });
         AddConnectionHandler([this](TCPServerConn::ptr conn){
-            return write_buffer(reinterpret_pointer_cast<EchoServerConnection>(conn));
+            return write_buffer(static_pointer_cast<EchoServerConnection>(conn));
         });
     }
 private :
@@ -48,6 +48,7 @@ private :
         while(true) {
             string s;
             try {
+                // TODO BUG: 当ReadUntil读到两个连续的.时，触发该BUG
                 read_buf.ReadUntil<'.'>(s);
                 read_buf.GetChar();
                 conn->q.Push(s);

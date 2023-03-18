@@ -150,8 +150,15 @@ int FiberPool::_main_loop(int thread_id) {
                 tsk_ptr_from_q = nullptr;
                 --m_tasks_cnt;
             }else{
+                /*
                 // 该分支不应该被执行
                 MYRPC_CRITIAL_ERROR("Internal Error!");
+                 */
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
+                Logger::debug("Thread: {}, Fiber: {} is ignored", thread_id, tsk_ptr->GetId());
+#endif
+                delete tsk_ptr_from_q;
+                tsk_ptr_from_q = nullptr;
             }
         }
 
