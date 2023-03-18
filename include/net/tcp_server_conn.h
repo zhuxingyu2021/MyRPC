@@ -19,8 +19,10 @@ namespace MyRPC{
         virtual void Terminate(){
             auto current_id = Fiber::GetCurrentId();
             for(auto& fiber:m_active_handler){
-                if(fiber.lock()->GetId() != current_id){
-                    fiber.lock()->Term();
+                if(!fiber.expired()) {
+                    if (fiber.lock()->GetId() != current_id) {
+                        fiber.lock()->Term();
+                    }
                 }
             }
         }

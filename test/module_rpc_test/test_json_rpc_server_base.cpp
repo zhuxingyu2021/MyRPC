@@ -5,22 +5,36 @@
 #include <cstdio>
 #include <iostream>
 
+using namespace std;
 using namespace MyRPC;
 
-int main(int argc, char** argv){
-    JsonRPCServerBase server;
+int sum(vector<int>& v){
+    int ret_val = 0;
+    for(auto num: v)
+        ret_val += num;
+    return ret_val;
+}
 
-    if(!server.bind()){
+int main(int argc, char** argv){
+    FiberPool::ptr pool(new FiberPool(1));
+    int port;
+    cin >> port;
+
+    JsonRPC::JsonRPCServerBase::ptr server(
+            new JsonRPC::JsonRPCServerBase(make_shared<InetAddr>("127.0.0.1", port),pool, 0));
+
+    if(!server->bind()){
         Logger::error("bind error: {}", strerror(errno));
         return -1;
     }
-    server.Start();
+    server->Start();
 
 
     std::function<std::string(const std::string&)> func_echo = [](const std::string& in)->std::string{
         return in;
     };
-    server.RegisterMethod("echo", func_echo);
+    server->AddMethod("echo", func_echo);
+    server->AddMethod("sum", sum);
 
-    server.Loop();
+    server->Loop();
 }

@@ -24,7 +24,15 @@ namespace MyRPC{
 
         class JsonRPCServerBase : public RPCServerBase<JsonRPCServerBase, JsonRPC::Proto> {
         public:
+            using ptr = std::shared_ptr<JsonRPCServerBase>;
             using CTXType = JsonRPC::Proto;
+            JsonRPCServerBase(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, ms_t timeout=0)
+                    : RPCServerBase<JsonRPCServerBase, JsonRPC::Proto>(bind_addr, fiberPool, timeout){
+                SetConnectionClass<RPCServerConn>();
+                AddConnectionHandler([this](TCPServerConn::ptr conn){
+                    _jsonrpc_conn_handler(std::static_pointer_cast<RPCServerConn>(conn));
+                });
+            }
 
             template<class Args>
             Common::Errortype ParseArgs(CTXType& context, Args &&args) {
@@ -41,10 +49,6 @@ namespace MyRPC{
                     context.SetError(_common_to_jsonrpc_error.at(err));
                     return err;
                 }
-            }
-
-            void SetError(CTXType& context, Common::Errortype err) {
-                context.SetError(_common_to_jsonrpc_error.at(err));
             }
 
         private:

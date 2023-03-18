@@ -18,22 +18,31 @@ void JsonRPCServerBase::_jsonrpc_conn_handler(RPCServerConn::ptr conn) {
         if(error == JsonRPC::NO_ERROR) {
             auto p_service = FindService(proto.RequestStruct().method);
             if (p_service) {
-                Common::Errortype err_comm = (*p_service)();
+                Common::Errortype err_comm = (*p_service)(proto);
+                error = _common_to_jsonrpc_error.at(err_comm);
             } else {
+                // 查找不到对应的服务
 #ifdef MYRPC_DEBUG_JSONRPC
                 Logger::debug("Unknown Method name: {}, from sockfd: {}", proto.RequestStruct().method, conn->GetSock()->GetSocketfd());
 #endif
                 error = JsonRPC::METHOD_NOT_FOUND;
-                proto.SetError(JsonRPC::METHOD_NOT_FOUND);
             }
         }
+
+        proto.SetError(error);
+
         if(error == JsonRPC::CLIENT_CLOSE || error == JsonRPC::_OTHER_NET_ERROR){
+            conn->p_wr->Flush();
             conn->Terminate();
             return;
         }
         if(error != JsonRPC::NO_ERROR){
+            proto.SendResponse(0);
+            conn->p_wr->Flush();
             conn->Terminate();
             return;
         }
+
+        conn->p_wr->Flush();
     }
 }

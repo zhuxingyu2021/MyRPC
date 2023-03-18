@@ -3,7 +3,7 @@ import random
 import socket
 import json
 
-port = 4000
+port = 8000
 
 class MyTestCase(unittest.TestCase):
     def test_json_rpc_client(self):
