@@ -1,5 +1,5 @@
 #include "fiber/event_manager.h"
-#include "macro.h"
+#include "debug.h"
 #include <cstring>
 #include <sys/fcntl.h>
 #include <sys/epoll.h>
@@ -130,7 +130,7 @@ void EventManager::WaitEvent(int thread_id) {
                 }
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
             Logger::debug("Thread: {}, Fiber: {} is swapped out #1, return value:{}, status:{}", thread_id,
-                          read_fiber->GetId(), ret_val, read_fiber->GetStatus());
+                          read_fiber->GetId(), ret_val, read_fiber->ToString(read_fiber->GetStatus()));
 #endif
         }
         if(now_rw_event & EPOLLOUT){
@@ -145,7 +145,7 @@ void EventManager::WaitEvent(int thread_id) {
                 }
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
             Logger::debug("Thread: {}, Fiber: {} is swapped out #1, return value:{}, status:{}", thread_id,
-                          write_fiber->GetId(), ret_val, write_fiber->GetStatus());
+                          write_fiber->GetId(), ret_val, write_fiber->ToString(write_fiber->GetStatus()));
 #endif
         }
     }
@@ -186,6 +186,30 @@ int EventManager::RemoveIOEvent(int fd, EventManager::EventType event) {
         Logger::debug("Fiber: {}, call epoll_ctl({}, 0x{:x}, {}, ...), epoll events:0x{:x}", Fiber::GetCurrentId(), m_epoll_fd, op, fd, _e);
 #endif
         return epoll_ctl(m_epoll_fd, op, fd, &event_epoll);
+    }
+}
+
+int EventManager::RemoveIO(int fd) {
+    // 查找fd上是否有事件
+    auto iter = m_adder_map.find(fd);
+    if(iter == m_adder_map.end())
+    {
+        // fd上没有事件，返回
+        return 0;
+    }
+    else{
+        struct epoll_event event_epoll; // epoll_ctl 的第4个参数
+        memset(&event_epoll, 0, sizeof(epoll_event));
+        event_epoll.data.fd = fd;
+        event_epoll.events = 0;
+
+        m_adder_map.erase(fd);
+
+#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_EPOLL_LEVEL
+        auto _e = event_epoll.events;
+        Logger::debug("Fiber: {}, call epoll_ctl({}, 0x{:x}, {}, ...), epoll events:0x{:x}", Fiber::GetCurrentId(), m_epoll_fd, EPOLL_CTL_DEL, fd, _e);
+#endif
+        return epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, &event_epoll);
     }
 }
 

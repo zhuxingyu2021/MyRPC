@@ -7,8 +7,8 @@
 #include <string>
 #include <netinet/in.h>
 
-#include "net/serializer.h"
-#include "net/deserializer.h"
+#include "serialization/json_serializer.h"
+#include "serialization/json_deserializer.h"
 
 #include "noncopyable.h"
 

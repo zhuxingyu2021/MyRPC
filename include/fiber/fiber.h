@@ -4,23 +4,28 @@
 #include <memory>
 #include <functional>
 
+#include "macro.h"
 #include "noncopyable.h"
 
 namespace MyRPC {
     class Fiber : public NonCopyable, public std::enable_shared_from_this<Fiber>{
     public:
         using ptr = std::shared_ptr<Fiber>;
+        using weak_ptr = std::weak_ptr<Fiber>;
         using unique_ptr = std::unique_ptr<Fiber>;
 
-        const size_t init_stack_size = 8192;
+#ifdef INIT_STACK_SIZE
+        const size_t init_stack_size = INIT_STACK_SIZE;
+#else
+        const size_t init_stack_size = 4096;
+#endif
 
-        enum status{
-            READY = 1,
-            EXEC = 2,
-            BLOCKED = 3,
-            TERMINAL = 4,
-            ERROR
-        };
+        ENUM_DEF_2(status,
+                   (READY, 1),
+                   (EXEC, 2),
+                   (BLOCKED, 3),
+                   (TERMINAL, 4),
+                   (ERROR, -1))
 
         /**
          * @param[in] func 协程中运行的函数
@@ -55,10 +60,14 @@ namespace MyRPC {
         int64_t Resume();
 
         /**
-         * @brief 重置协程的状态
-         * @note 该方法不会发生上下文切换
+         * @brief 重置协程的状态为READY
          */
         void Reset();
+
+        /**
+         * @brief 中止协程，使其置于TERMINAL状态
+         */
+        void Term();
 
         /**
          * @brief 获得协程的状态
@@ -98,6 +107,9 @@ namespace MyRPC {
           */
          static bool ExtendStackCapacity();
 
+        // Don't use
+        void SetStatus(status s){m_status = s;}
+
     private:
         // 协程id
         int64_t m_fiber_id = 0;
@@ -125,10 +137,10 @@ namespace MyRPC {
         // 22-43: 主协程 (x19 x20) (x21 x22) (x23 x24) (x25 x26) (x27 x28) (x29 x30) (sp x30(return_address)) (d8 d9) (d10 d11) (d12 d13) (d14 d15)
         void* m_ctx[44] __attribute__((aligned (16)));
 #endif
-        void init_stack_and_ctx();
+        void _init_stack_and_ctx();
 
         // 协程的主函数
-        static void Main();
+        static void _main_func();
 
     };
 

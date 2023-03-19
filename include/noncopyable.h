@@ -5,7 +5,6 @@ namespace MyRPC{
     class NonCopyable{
     public:
         NonCopyable() = default;
-        ~NonCopyable() = default;
 
         NonCopyable(const NonCopyable& noncopyable) = delete;
         NonCopyable& operator=(const NonCopyable& noncopyable) = delete;
