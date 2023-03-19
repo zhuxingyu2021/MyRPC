@@ -19,17 +19,16 @@ set(SRCFILE
         net/tcp_server.cpp
         net/tcp_client.cpp
 
-        rpc/config.cpp
         rpc/jsonrpc/jsonrpc_server_base.cpp
-        # rpc/rpc_session.cpp
-        # rpc/rpc_registry_server.cpp
-        # rpc/rpc_server.cpp
-        # rpc/rpc_client.cpp
-        # rpc/rpc_client_connection.cpp
+
 )
 
 find_package(Threads REQUIRED)
 
 add_library(MyRPC STATIC ${SRCFILE})
 
-target_link_libraries(MyRPC spdlog dl)
+if(${WITH_ZOOKEEPER})
+    target_link_libraries(MyRPC zookeeper spdlog dl)
+else()
+    target_link_libraries(MyRPC spdlog dl)
+endif()

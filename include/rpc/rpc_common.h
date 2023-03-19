@@ -18,6 +18,8 @@ namespace MyRPC{
                    (NET_PEER_CLOSE, -2),
                    (NET_OTHER, -3)
                    )
+
+        ENUM_DEF_2(Prototype, (JSONRPC2, 0))
     }
 }
 

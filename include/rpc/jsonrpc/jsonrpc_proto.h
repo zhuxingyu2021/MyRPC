@@ -109,15 +109,10 @@ namespace MyRPC{
             }
 
             /**
-             * @brief 设置方法名，由客户端调用
-             */
-            void SetMethod(const std::string &method_name);
-
-            /**
              * @brief 向服务端发送请求，由客户端调用
              */
             template<class ArgType>
-            void SendRequest(ArgType &&content) {
+            void SendRequest(const std::string &method_name, ArgType &&content) {
 
             }
 
