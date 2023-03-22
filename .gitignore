@@ -1,5 +1,4 @@
 *.idea
 *cmake-build-*
 .VSCodeCounter
-build*
-.vscode
+build

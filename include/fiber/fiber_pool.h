@@ -7,16 +7,11 @@
 #include <unordered_map>
 #include <atomic>
 
-#include "debug.h"
+#include "macro.h"
 #include "spinlock.h"
 #include "fiber/event_manager.h"
 
 namespace MyRPC{
-    namespace FiberSync{
-        class Mutex;
-        class ConditionVariable;
-    }
-
     class FiberPool: public NonCopyable {
     public:
         using ptr = std::shared_ptr<FiberPool>;
@@ -64,22 +59,16 @@ namespace MyRPC{
          * @return
          */
         template<class Func>
-        std::pair<Fiber::ptr, int> Run(Func&& func, int thread_id = -1){
+        Fiber::ptr Run(Func&& func, int thread_id = -1){
             if(thread_id == -1)
                 thread_id = rand() % m_threads_num;
 
             Fiber::ptr* ptr = new Fiber::ptr(new Fiber(std::forward<Func>(func)));
-            _run_internal(ptr, thread_id);
+            if(!m_threads_context_ptr[thread_id]->m_task_queue.TryPush(ptr)){
+                MYRPC_CRITIAL_ERROR("Task queue is full!");
+            }
             ++m_tasks_cnt;
             Notify(thread_id);
-            return std::make_pair(*ptr, thread_id);
-        }
-
-        template<class Func>
-        Fiber::ptr AddAsyncTask(Func&& func){
-            Fiber::ptr* ptr = new Fiber::ptr(new Fiber(std::forward<Func>(func)));
-            _run_internal(ptr, GetCurrentThreadId());
-            ++m_tasks_cnt;
             return *ptr;
         }
 
@@ -100,6 +89,7 @@ namespace MyRPC{
          * @return 当前协程的事件管理器
          */
         static EventManager* GetEventManager();
+
     private:
         int m_threads_num; // 线程数量
 
@@ -108,7 +98,7 @@ namespace MyRPC{
         std::vector<std::shared_future<int>> m_threads_future;
 
         // 协程池主循环
-        int _main_loop(int thread_id);
+        int MainLoop(int thread_id);
 
         // 当有新的任务到来时，可以通过event_fd来唤醒协程池中的所有主协程
         int m_global_event_fd;
@@ -120,14 +110,6 @@ namespace MyRPC{
         std::atomic<bool> m_stopping{false};
 
         std::atomic<int> m_tasks_cnt {0}; // 当前任务数量
-
-        friend FiberSync::Mutex;
-        friend FiberSync::ConditionVariable;
-        void _run_internal(Fiber::ptr* ptr, int thread_id){
-            if(!m_threads_context_ptr[thread_id]->m_task_queue.TryPush(ptr)){
-                MYRPC_CRITIAL_ERROR("Task queue is full!");
-            }
-        }
     };
 
 }

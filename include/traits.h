@@ -18,13 +18,13 @@ namespace MyRPC{
         using result_type = R;
 
         template<class Callable>
-        static R apply(Callable&& func, arg_type& arg){
+        static R apply(Callable&& func, const arg_type& arg){
             return apply_impl_(std::forward<Callable>(func), arg, std::index_sequence_for<Ts...>{});
         }
 
     private:
         template<class Callable, size_t... Is>
-        static R apply_impl_(Callable&& func, arg_type& arg, std::index_sequence<Is...>){
+        static R apply_impl_(Callable&& func, const arg_type& arg, std::index_sequence<Is...>){
             return func(std::get<Is>(arg)...);
         }
     };

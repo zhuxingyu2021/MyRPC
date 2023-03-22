@@ -7,10 +7,10 @@
 #include <queue>
 
 #include "noncopyable.h"
-#include "debug.h"
+#include "macro.h"
 #include "spinlock.h"
 
-#include "debug.h"
+#include "macro.h"
 
 #include "fiber/fiber.h"
 
@@ -37,20 +37,13 @@ namespace MyRPC{
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_LOCK_LEVEL
             int64_t _debug_lock_owner = -10; // 锁持有者的Fiber id
 #endif
-            // 清空等待队列，但需要确保等待队列中的所有协程都处于停止的状态
-            void Clear(){
-                while(!m_wait_queue.empty()){
-                    auto [fb, tid] = m_wait_queue.front();
-                    MYRPC_ASSERT(fb->GetStatus() == Fiber::TERMINAL);
-                    m_wait_queue.pop();
-                }
-            }
-
         private:
             std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
 
+            std::atomic<int64_t> m_lock_id = {0};
+
             int m_mutex_id;
-            std::queue<std::pair<Fiber::ptr, int>> m_wait_queue; // Fiber ThreadID
+            std::queue<std::pair<int64_t, int>> m_wait_queue; // FiberID ThreadID
             SpinLock m_wait_queue_lock;
         };
 
@@ -93,11 +86,6 @@ namespace MyRPC{
                 }
                 read_lock.unlock();
             }
-
-            void Clear(){
-                write_lock.Clear();
-                read_lock.Clear();
-            }
         private:
             Mutex write_lock;
             Mutex read_lock;
@@ -107,30 +95,46 @@ namespace MyRPC{
             std::atomic<bool> reader_blocked = {false};
         };
 
+        // TODO: Semaphore ConditionVariable
+
+        template <class MutexType>
         class ConditionVariable : public NonCopyable{
         public:
-            ~ConditionVariable();
+            void wait(MutexType& mutex) {
+                m_wait_queue_lock.lock();
+                m_wait_queue.push(std::make_pair(Fiber::GetCurrentId(), FiberPool::GetCurrentThreadId()));
 
-            void wait(Mutex& mutex);
+                do{
+                    m_wait_queue_lock.unlock();
+                    mutex.unlock();
+                    Fiber::Suspend();
+                    mutex.lock();
+                    m_wait_queue_lock.lock();
+                }while((m_wait_queue.front().first != Fiber::GetCurrentId()) && (!m_notify_all));
 
-            void notify_one();
-
-            void notify_all();
-
-            // 清空等待队列，但需要确保等待队列中的所有协程都处于停止的状态
-            void Clear(){
-                // 清空等待队列，但需要确保等待队列中的所有协程都处于停止的状态
-                while(!m_wait_queue.empty()){
-                    auto [fb, tid] = m_wait_queue.front();
-                    MYRPC_ASSERT(fb->GetStatus() == Fiber::TERMINAL);
-                    m_wait_queue.pop();
+                m_wait_queue.pop();
+                if(m_notify_all && m_wait_queue.empty()){
+                    m_notify_all = false;
                 }
+                m_wait_queue_lock.unlock();
+            }
+            void notify_one(){
+                m_wait_queue_lock.lock();
+                if(!m_wait_queue.empty()) {
+                    FiberPool::GetThis()->Notify(m_wait_queue.front().second);
+                }
+                m_wait_queue_lock.unlock();
+            }
+            void notify_all(){
+                //TODO Implementation
+                m_notify_all = true;
+                FiberPool::GetThis()->NotifyAll();
             }
 
         private:
             std::atomic<bool> m_notify_all = {false};
 
-            std::queue<std::pair<Fiber::ptr, int>> m_wait_queue; // Fiber ThreadID
+            std::queue<std::pair<int64_t, int>> m_wait_queue; // FiberID ThreadID
             SpinLock m_wait_queue_lock;
         };
     }

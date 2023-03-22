@@ -1,5 +1,5 @@
 #include "fiber/fiber_pool.h"
-#include "debug.h"
+#include "macro.h"
 #include <fcntl.h>
 #include <chrono>
 #include <mutex>
@@ -22,11 +22,6 @@ FiberPool::FiberPool(int thread_num) : m_threads_num(thread_num) {
     // 创建event_fd
     m_global_event_fd = eventfd(0, O_NONBLOCK);
     MYRPC_ASSERT(m_global_event_fd > 0);
-
-    // 初始化Eventmanager
-    for(int i = 0; i < thread_num; ++i){
-        m_threads_context_ptr.push_back(new EventManager);
-    }
 }
 
 FiberPool::~FiberPool() {
@@ -42,9 +37,10 @@ void FiberPool::Start() {
         Logger::info("FiberPool::Start() - start");
 #endif
         for (int i = 0; i < m_threads_num; i++) {
+            m_threads_context_ptr.push_back(new EventManager);
             // 添加读eventfd事件，用以唤醒线程
             m_threads_context_ptr[i]->AddWakeupEventfd(m_global_event_fd);
-            m_threads_future.push_back(std::async(std::launch::async, &FiberPool::_main_loop, this, i));
+            m_threads_future.push_back(std::async(std::launch::async, &FiberPool::MainLoop, this, i));
         }
         m_running = true;
     }
@@ -96,7 +92,7 @@ EventManager* FiberPool::GetEventManager() {
     return nullptr;
 }
 
-int FiberPool::_main_loop(int thread_id) {
+int FiberPool::MainLoop(int thread_id) {
     now_thread_id = thread_id;
     p_fiber_pool = this;
 
@@ -123,7 +119,7 @@ int FiberPool::_main_loop(int thread_id) {
                 auto ret_val = tsk_ptr->Resume();
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
                 Logger::debug("Thread: {}, Fiber: {} is swapped out #1, return value:{}, status:{}", thread_id,
-                              tsk_ptr->GetId(), ret_val, tsk_ptr->ToString(tsk_ptr->GetStatus()));
+                              tsk_ptr->GetId(), ret_val, tsk_ptr->GetStatus());
 #endif
                 // 任务让出CPU，等待下次被调度
                 auto status = tsk_ptr->GetStatus();
@@ -152,15 +148,8 @@ int FiberPool::_main_loop(int thread_id) {
                 tsk_ptr_from_q = nullptr;
                 --m_tasks_cnt;
             }else{
-                /*
                 // 该分支不应该被执行
                 MYRPC_CRITIAL_ERROR("Internal Error!");
-                 */
-#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_FIBER_POOL_LEVEL
-                Logger::debug("Thread: {}, Fiber: {} is ignored", thread_id, tsk_ptr->GetId());
-#endif
-                delete tsk_ptr_from_q;
-                tsk_ptr_from_q = nullptr;
             }
         }
 

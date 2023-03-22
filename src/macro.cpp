@@ -1,4 +1,4 @@
-#include "debug.h"
+#include "macro.h"
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_ON_LEVEL
 

@@ -1,4 +1,4 @@
-#include "buffer/stringbuffer.h"
+#include "stringbuffer.h"
 #include <unistd.h>
 #include <cstring>
 #include "logger.h"
@@ -13,6 +13,11 @@ void StringBuilder::Append(StringBuffer &&sb) {
 void StringBuilder::Append(unsigned char c) {
     ++m_total_size;
     build_buf.emplace_back(c);
+}
+
+void StringBuilder::Append(std::string&& str) {
+    m_total_size += str.size();
+    build_buf.emplace_back(std::forward<std::string>(str));
 }
 
 void StringBuilder::Append(const std::string& str) {
@@ -56,35 +61,33 @@ void StringBuilder::Clear() {
 
 
 void StringBuffer::Backward(size_t sz) {
-    if(m_read_idx - sz >= 0) m_read_idx -= sz;
+    if(m_read_offset - sz >= 0) m_read_offset -= sz;
 }
 
 void StringBuffer::Forward(size_t sz) {
-    if(m_read_idx + sz <= size) m_read_idx += sz;
+    if(m_read_offset + sz <= size) m_read_offset += sz;
 }
 
-unsigned char StringBuffer::GetChar(){
-    if(m_read_idx < size) {
-        char c = data[m_read_idx++];
+char StringBuffer::GetChar(){
+    if(m_read_offset < size) {
+        char c = data[m_read_offset++];
         return c;
     }
     return '\0';
 }
 
-unsigned char StringBuffer::PeekChar() {
-    if(m_read_idx < size) {
-        return data[m_read_idx];
+unsigned char StringBuffer::PeekChar() const {
+    if(m_read_offset < size) {
+        return data[m_read_offset];
     }
     return '\0';
 }
 
-void StringBuffer::PeekString(std::string& s, size_t N){
-    if(m_read_idx + N <= size){
-        std::string str((char*)(data + m_read_idx), N);
-        s = str;
+std::string StringBuffer::PeekString(size_t N) const {
+    if(m_read_offset + N <= size){
+        std::string str((char*)(data + m_read_offset), N);
+        return str;
     }
-}
-
-void StringBuffer::_read_to_str(std::string &s, unsigned long begin, unsigned long end) {
-    s = std::string((char*)(data + begin), end - begin);
+    std::string str;
+    return str;
 }

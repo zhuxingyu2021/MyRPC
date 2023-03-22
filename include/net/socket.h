@@ -3,60 +3,48 @@
 
 #include <memory>
 #include <unistd.h>
-#include <mutex>
-#include <sys/uio.h>
 
 #include "fiber/timeout_io.h"
-#include "fiber/fiber_sync.h"
 #include "net/exception.h"
+
+#include "macro.h"
+
+#include "noncopyable.h"
+
+#include "fiber/fiber_sync.h"
+#include <mutex>
+
 #include "net/inetaddr.h"
-
-#include "debug.h"
-#include "fd_raii.h"
-
 
 namespace MyRPC{
     // RAII Socket对象
     template<class MutexType>
-    class MutexSocket: public FdRAIIWrapper{
+    class MutexSocket: public NonCopyable{
     public:
         using ptr = std::shared_ptr<MutexSocket<MutexType>>;
         using unique_ptr = std::unique_ptr<MutexSocket<MutexType>>;
         using weak_ptr = std::weak_ptr<MutexSocket<MutexType>>;
 
-        MutexSocket(int sockfd): FdRAIIWrapper(sockfd){}
+        MutexSocket(int sockfd):m_socketfd(sockfd){}
 
         ~MutexSocket(){
-            bool close_flag = false;
-            if(m_destructor){
-                close_flag = Closefd(m_destructor);
-            }else{
-                close_flag = Closefd();
-            }
-            if(close_flag){
+            if(m_socketfd != -1){
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_NET_LEVEL
-                Logger::debug("socket fd:{} closed", m_fd);
+                Logger::debug("socket fd:{} closed", m_socketfd);
 #endif
+                close(m_socketfd);
             }
         }
 
-        inline int GetSocketfd() const{
-            return m_fd;
+        int GetSocketfd() const{
+            return m_socketfd;
         }
 
         ssize_t Send(const void *buf, size_t len, int flags){
             std::unique_lock<MutexType> lock(m_send_mutex);
 
             ssize_t ret;
-            MYRPC_ASSERT_EXCEPTION((ret = send(m_fd, buf,len,flags))>=0, throw NetException("TCP send", NetException::SYS));
-            return ret;
-        }
-
-        ssize_t SendTimeout(const void *buf, size_t len, int flags, ms_t timeout){
-            std::unique_lock<MutexType> lock(m_send_mutex);
-
-            ssize_t ret;
-            MYRPC_ASSERT_EXCEPTION((ret = send_timeout(m_fd, buf,len,flags, timeout))!=-1, throw NetException("TCP send timeout", NetException::SYS));
+            MYRPC_ASSERT_EXCEPTION((ret = send(m_socketfd, buf,len,flags))>=0, throw SocketException("TCP send"));
             return ret;
         }
 
@@ -64,68 +52,27 @@ namespace MyRPC{
             std::unique_lock<MutexType> lock(m_recv_mutex);
 
             ssize_t ret;
-            MYRPC_ASSERT_EXCEPTION((ret = recv(m_fd, buf,len,flags))>=0, throw NetException("TCP recv", NetException::SYS));
-            if(ret == 0) throw NetException("TCP recv", NetException::CONN_CLOSE);
+            MYRPC_ASSERT_EXCEPTION((ret = recv(m_socketfd, buf,len,flags))>=0, throw SocketException("TCP recv"));
             return ret;
         }
 
-        ssize_t RecvTimeout(void *buf, size_t len, int flags, ms_t timeout){
+        ssize_t RecvTimeout(void *buf, size_t len, int flags, useconds_t timeout){
             std::unique_lock<MutexType> lock(m_recv_mutex);
 
             ssize_t ret;
-            MYRPC_ASSERT_EXCEPTION((ret = recv_timeout(m_fd, buf,len,flags, timeout))!=-1, throw NetException("TCP recv timeout", NetException::SYS));
-            if(ret == MYRPC_ERR_TIMEOUT_FLAG)
-                throw NetException("TCP recv timeout", NetException::TIMEOUT);
-            if(ret == 0) throw NetException("TCP recv timeout", NetException::CONN_CLOSE);
+            MYRPC_ASSERT_EXCEPTION((ret = recv_timeout(m_socketfd, buf,len,flags, timeout))!=-1, throw SocketException("TCP recv timeout"));
             return ret;
         }
 
-        ssize_t Readv(const struct iovec *iov, int iovcnt){
-            std::unique_lock<MutexType> lock(m_recv_mutex);
-
-            ssize_t ret;
-            MYRPC_ASSERT_EXCEPTION((ret = readv(m_fd, iov, iovcnt))>=0, throw NetException("TCP readv", NetException::SYS));
-            if(ret == 0) throw NetException("TCP readv", NetException::CONN_CLOSE);
-            return ret;
-        }
-
-        ssize_t ReadvTimeout(const struct iovec *iov, int iovcnt, ms_t timeout){
-            std::unique_lock<MutexType> lock(m_recv_mutex);
-
-            ssize_t ret;
-            MYRPC_ASSERT_EXCEPTION((ret = readv_timeout(m_fd, iov, iovcnt, timeout))!=-1, throw NetException("TCP readv timeout", NetException::SYS));
-            if(ret == MYRPC_ERR_TIMEOUT_FLAG)
-                throw NetException("TCP readv timeout", NetException::TIMEOUT);
-            if(ret == 0) throw NetException("TCP readv timeout", NetException::CONN_CLOSE);
-            return ret;
-        }
-
-        ssize_t Writev(const struct iovec *iov, int iovcnt){
-            std::unique_lock<MutexType> lock(m_send_mutex);
-
-            ssize_t ret;
-            MYRPC_ASSERT_EXCEPTION((ret = writev(m_fd, iov, iovcnt))>=0, throw NetException("TCP writev", NetException::SYS));
-            return ret;
-        }
-
-        ssize_t WritevTimeout(const struct iovec *iov, int iovcnt, ms_t timeout){
-            std::unique_lock<MutexType> lock(m_send_mutex);
-
-            ssize_t ret;
-            MYRPC_ASSERT_EXCEPTION((ret = writev_timeout(m_fd, iov, iovcnt, timeout))!=-1, throw NetException("TCP send timeout", NetException::SYS));
-            return ret;
-        }
-
-        ssize_t SendAll(const void *buf, size_t len, int flags){
+        void SendAll(const void *buf, size_t len, int flags){
             std::unique_lock<MutexType> lock(m_send_mutex);
 
             size_t send_sz = 0;
             ssize_t ret;
             do{
-                MYRPC_ASSERT_EXCEPTION((ret = send(m_fd, (const char*)buf+send_sz,len-send_sz,flags))>=0, throw NetException("TCP sendall", NetException::SYS));
+                MYRPC_ASSERT_EXCEPTION((ret = send(m_socketfd, (const char*)buf+send_sz,len-send_sz,flags))>=0, throw SocketException("TCP send"));
                 send_sz += ret;
             }while(send_sz < len);
-            return ret;
         }
 
         /**
@@ -133,16 +80,17 @@ namespace MyRPC{
          * @param buf 缓冲区
          * @param len 接收的字节数
          * @param flags
+         * @return 若接收成功，返回len；若对方已关闭连接，返回0；若recv系统调用失败，则抛出SocketException异常
          */
-        void RecvAll(void *buf, ssize_t len, int flags){
+        ssize_t RecvAll(void *buf, ssize_t len, int flags){
             std::unique_lock<MutexType> lock(m_recv_mutex);
 
             size_t recv_sz = 0;
             ssize_t ret;
             MYRPC_ASSERT(len >= 0);
             do{
-                MYRPC_ASSERT_EXCEPTION((ret = recv(m_fd, (const char*)buf+recv_sz,len-recv_sz,flags))>=0, throw NetException("TCP recvall", NetException::SYS));
-                if(ret == 0) throw NetException("TCP recvall", NetException::CONN_CLOSE); // 对方已关闭连接
+                MYRPC_ASSERT_EXCEPTION((ret = recv(m_socketfd, buf,len,flags))>=0, throw SocketException("TCP recv"));
+                if(ret == 0) return 0; // 对方已关闭连接
                 recv_sz += ret;
             }while(recv_sz < len);
         }
@@ -153,66 +101,49 @@ namespace MyRPC{
          * @param len 接收的字节数
          * @param flags
          * @param timeout 超时时间
+         * @return 若接收成功，返回len；若超时，返回负数；若对方已关闭连接，返回0；若recv系统调用失败，则抛出SocketException异常；若第一次已接收到数据后，还发生超时，则抛出SocketNotSysCallException异常
          */
-        void RecvAllTimeout(void *buf, ssize_t len, int flags, ms_t timeout){
+        ssize_t RecvAllTimeout(void *buf, ssize_t len, int flags, useconds_t timeout){
             std::unique_lock<MutexType> lock(m_recv_mutex);
 
             size_t recv_sz = 0;
             ssize_t ret;
             MYRPC_ASSERT(len >= 0);
             do{
-                MYRPC_ASSERT_EXCEPTION((ret = recv_timeout(m_fd, (const char*)buf+recv_sz,len-recv_sz,flags, timeout))!=-1, throw NetException("TCP recvall timeout", NetException::SYS));
+                MYRPC_ASSERT_EXCEPTION((ret = recv_timeout(m_socketfd, buf,len,flags, timeout))!=-1, throw SocketException("TCP recv timeout"));
 
-                if(ret == 0) throw NetException("TCP recvall timeout", NetException::CONN_CLOSE); // 对方已关闭连接
+                if(ret == 0) return 0; // 对方已关闭连接
                 if(ret == MYRPC_ERR_TIMEOUT_FLAG){
                     // 超时
-                    throw NetException("TCP recvall timeout", NetException::TIMEOUT);
+                    if(recv_sz == 0) return MYRPC_ERR_TIMEOUT_FLAG; // 第一次接收超时
+                    else throw SocketNotSysCallException(1);
                 }
                 recv_sz += ret;
             }while(recv_sz < len);
+            return true;
         }
 
-        void SendAllTimeout(const void *buf, size_t len, int flags){
-            std::unique_lock<MutexType> lock(m_send_mutex);
-
-            size_t send_sz = 0;
-            ssize_t ret;
-            MYRPC_ASSERT(len >= 0);
-            do{
-                MYRPC_ASSERT_EXCEPTION((ret = send(m_fd, (const char*)buf+send_sz,len-send_sz,flags))>=0, throw NetException("TCP sendall timeout", NetException::SYS));
-                MYRPC_ASSERT(ret != 0);
-
-                if(ret == MYRPC_ERR_TIMEOUT_FLAG){
-                    // 超时
-                    throw NetException("TCP sendall timeout", NetException::TIMEOUT);
-                }
-                send_sz += ret;
-            }while(send_sz < len);
-        }
-
-        static MutexSocket<MutexType>::ptr Connect(const InetAddr::ptr& addr, ms_t conn_timeout=0){
+        static MutexSocket<MutexType>::ptr Connect(const InetAddr::ptr& addr, useconds_t conn_timeout=0){
             auto sock_fd = socket(addr->IsIPv6() ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
-            MYRPC_ASSERT_EXCEPTION(sock_fd >= 0, throw NetException("TCP connect", NetException::SYS));
+            MYRPC_ASSERT_EXCEPTION(sock_fd >= 0, throw SocketException("TCP connect"));
 
             auto err = connect_timeout(sock_fd, addr->GetAddr(), addr->GetAddrLen(), conn_timeout);
             if(err >= 0){
                 return std::make_shared<MutexSocket<MutexType>>(sock_fd);
             }else if(err == MYRPC_ERR_TIMEOUT_FLAG){ // 超时
-                throw NetException("TCP connect", NetException::TIMEOUT);
+                return nullptr;
             }else{
-                throw NetException("TCP connect", NetException::SYS);
+                throw SocketException("socket connect");
             }
         }
 
-        inline InetAddr::ptr GetPeerAddr() const{return InetAddr::GetPeerAddr(m_fd);}
+        inline InetAddr::ptr GetPeerAddr() const{return InetAddr::GetPeerAddr(m_socketfd);}
 
     private:
+        int m_socketfd = -1;
+
         MutexType m_send_mutex;
         MutexType m_recv_mutex;
-
-        friend class TCPClient;
-        friend class TCPServer;
-        std::function<void()> m_destructor;
     };
 
     using Socket = MutexSocket<FiberSync::Mutex>;

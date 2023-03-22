@@ -46,14 +46,6 @@ namespace MyRPC{
         int RemoveIOEvent(int fd, EventType event);
 
         /**
-         * @brief 删除fd上的所有IO事件，包括读事件和写事件，该方法必须由协程调用
-         * @param fd[in] 文件描述符
-         * @param event[in] IO事件类型
-         * @return 0表示成功, -1表示失败。如果fd不存在，也会返回0
-         */
-        int RemoveIO(int fd);
-
-        /**
          * @brief 检查是否在等待IO事件的发生
          * @param fd[in] 文件描述符
          * @param event[in] IO事件类型

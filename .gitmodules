@@ -2,6 +2,3 @@
 	path = 3rdparty/spdlog
 	url = https://github.com/gabime/spdlog
 
-[submodule "3rdparty/zookeeper"]
-	path = 3rdparty/zookeeper
-	url = https://github.com/apache/zookeeper

@@ -4,42 +4,35 @@
 #include <iostream>
 #include <string>
 
-#define TIME_OUT 2000 // 2秒
+#define TIME_OUT 2000000 // 2秒
 
 using namespace MyRPC;
 using namespace std;
 
 class EchoServer : public TCPServer {
 public:
-    EchoServer(const InetAddr::ptr& bind_addr, FiberPool::ptr& fiberPool, ms_t timeout=0)
-        : TCPServer(bind_addr, fiberPool, timeout){
-        SetConnectionClass<TCPServerConn>();
-        AddConnectionHandler([this](TCPServerConn::ptr conn){return handle_connection(conn->GetSock());});
-    }
-private :
-    void handle_connection(Socket::unique_ptr& sock){
+    using TCPServer::TCPServer;
+protected:
+    void handleConnection(const Socket::ptr& sock) override {
+        TCPServer::handleConnection(sock);
 
         int sock_fd = sock->GetSocketfd();
         char buf[1024];
-        while(true) {
-            try {
+        try {
+            while (true) {
                 int recv_sz = sock->RecvTimeout(buf, sizeof(buf), 0, TIME_OUT);
                 if (recv_sz > 0) {
                     sock->SendAll(buf, recv_sz, 0);
+                } else if (recv_sz < 0) {
+                    //Logger::info("recv timeout, retrying...");
+                } else{
+                    Logger::info("socket fd:{}, client close connection", sock->GetSocketfd());
+                    break;
                 }
             }
-            catch (const NetException &e) {
-                switch (e.GetErrType()) {
-                    case NetException::CONN_CLOSE:
-                        Logger::info("socket fd:{}, client close connection", sock->GetSocketfd());
-                        return;
-                    case NetException::TIMEOUT:
-                        Logger::info("socket fd:{}, client time out", sock->GetSocketfd());
-                        continue;
-                    default:
-                        Logger::error(e.what());
-                }
-            }
+        }
+        catch (const std::exception& e){
+            Logger::error(e.what());
         }
     }
 };
@@ -79,17 +72,13 @@ private:
 };
 
 int main(){
-    FiberPool::ptr pool(new FiberPool(8));
-    EchoServer server(make_shared<InetAddr>("127.0.0.1", 9998),pool, TIME_OUT);
-
-    pool->Start();
+    EchoServer server(make_shared<InetAddr>("127.0.0.1", 9999),8, TIME_OUT);
 
     if(!server.bind()){
         Logger::error("bind error");
         return -1;
     }
     server.Start();
-    sleep(1);
 
     EchoClient client(make_shared<InetAddr>("127.0.0.1", 9999));
 

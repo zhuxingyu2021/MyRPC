@@ -10,6 +10,9 @@ using namespace MyRPC::FiberSync;
 
 static std::atomic<int> mutex_count = 0;
 
+// Mutex id  同一个线程中是否有协程在等待获得锁
+static thread_local std::unordered_set<int> wait_for_acquire_mutex_set;
+
 
 Mutex::Mutex(){
 
@@ -21,20 +24,6 @@ Mutex::Mutex(){
 }
 
 Mutex::~Mutex() {
-    // 删除所有阻塞的协程
-    auto fp_this = FiberPool::GetThis();
-    m_wait_queue_lock.lock();
-    while(!m_wait_queue.empty()){
-        auto& val = m_wait_queue.front();
-        Fiber::ptr p_fib = val.first;
-
-        fp_this->Run([p_fib]{
-            p_fib->Term();
-        }, val.second);
-
-        m_wait_queue.pop();
-    }
-    m_wait_queue_lock.unlock();
 
 #if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_LOCK_LEVEL
     Logger::debug("Mutex id: {} closed", m_mutex_id);
@@ -45,15 +34,15 @@ void Mutex::lock() {
     // 以trylock方式尝试获得锁，如果获得锁失败，则阻塞等待
     while(!tryLock()){ // trylock失败
         // 在成功获得锁之前阻塞自己
-        auto current_id = Fiber::GetCurrentId();
         m_wait_queue_lock.lock();
-        m_wait_queue.emplace(Fiber::GetSharedFromThis(), FiberPool::GetCurrentThreadId());
+        auto lock_id = m_lock_id.fetch_add(1);
+        m_wait_queue.push(std::make_pair(lock_id, FiberPool::GetCurrentThreadId()));
 
-        m_wait_queue_lock.unlock();
-        Fiber::Block();
-        m_wait_queue_lock.lock();
-
-        MYRPC_ASSERT(m_wait_queue.front().first->GetId() == current_id);
+        do{
+            m_wait_queue_lock.unlock();
+            Fiber::Suspend(); // 切换到其他协程
+            m_wait_queue_lock.lock();
+        }while(m_wait_queue.front().first != lock_id);
 
         m_wait_queue.pop();
 
@@ -79,87 +68,8 @@ void Mutex::unlock() {
     m_wait_queue_lock.lock();
 
     if(!m_wait_queue.empty()) {
-        auto fp_this = FiberPool::GetThis();
-        auto current_thread_id = FiberPool::GetCurrentThreadId();
-        auto& [fiber, wake_thread_id] = m_wait_queue.front();
-        fiber->SetStatus(Fiber::READY);
-
-        fp_this->_run_internal(new Fiber::ptr(fiber), wake_thread_id);
-        if(current_thread_id != wake_thread_id){
-            fp_this->Notify(wake_thread_id);
-        }
+        FiberPool::GetThis()->Notify(m_wait_queue.front().second);
     }
 
     m_wait_queue_lock.unlock();
-}
-
-ConditionVariable::~ConditionVariable() {
-    // 删除所有阻塞的协程
-    auto fp_this = FiberPool::GetThis();
-    m_wait_queue_lock.lock();
-    while(!m_wait_queue.empty()){
-        auto& val = m_wait_queue.front();
-        Fiber::ptr p_fib = val.first;
-
-        fp_this->Run([p_fib]{
-            p_fib->Term();
-        }, val.second);
-
-        m_wait_queue.pop();
-    }
-    m_wait_queue_lock.unlock();
-}
-
-void ConditionVariable::wait(Mutex &mutex) {
-    m_wait_queue_lock.lock();
-    m_wait_queue.emplace(Fiber::GetSharedFromThis(), FiberPool::GetCurrentThreadId());
-
-    m_wait_queue_lock.unlock();
-    mutex.unlock();
-    Fiber::Block();
-    m_wait_queue_lock.lock();
-
-    if(!m_notify_all){
-        MYRPC_ASSERT(m_wait_queue.front().first->GetId() == Fiber::GetCurrentId());
-    }
-
-    m_wait_queue.pop();
-    if(m_notify_all && m_wait_queue.empty()){
-        m_notify_all = false;
-    }
-    m_wait_queue_lock.unlock();
-
-    // 从等待队列出来后再加锁
-    mutex.lock();
-}
-
-void ConditionVariable::notify_one() {
-    m_wait_queue_lock.lock();
-    if(!m_wait_queue.empty()) {
-        auto fp_this = FiberPool::GetThis();
-        auto current_thread_id = FiberPool::GetCurrentThreadId();
-        auto& [fiber, wake_thread_id] = m_wait_queue.front();
-        fiber->SetStatus(Fiber::READY);
-
-        fp_this->_run_internal(new Fiber::ptr(fiber), wake_thread_id);
-        if(current_thread_id != wake_thread_id){
-            fp_this->Notify(wake_thread_id);
-        }
-    }
-    m_wait_queue_lock.unlock();
-}
-
-void ConditionVariable::notify_all() {
-    m_wait_queue_lock.lock();
-    auto fp_this = FiberPool::GetThis();
-
-    m_notify_all = true;
-    while(!m_wait_queue.empty()){
-        auto& [fiber, wake_thread_id] = m_wait_queue.front();
-        fiber->SetStatus(Fiber::READY);
-
-        fp_this->_run_internal(new Fiber::ptr(fiber), wake_thread_id);
-    }
-    m_wait_queue_lock.unlock();
-    FiberPool::GetThis()->NotifyAll();
 }

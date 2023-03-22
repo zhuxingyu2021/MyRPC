@@ -3,7 +3,7 @@
 
 #include <atomic>
 #include "arch.h"
-#include "debug.h"
+#include "macro.h"
 
 namespace MyRPC{
     // Multi Producer Multi Consumer lock-free queue

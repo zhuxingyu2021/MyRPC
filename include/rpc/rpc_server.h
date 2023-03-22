@@ -1,55 +1,94 @@
 #ifndef MYRPC_RPC_SERVER_H
 #define MYRPC_RPC_SERVER_H
 
-#include "rpc/rpc_common.h"
-#include "rpc/jsonrpc/jsonrpc_server_base.h"
+#include "traits.h"
+#include "stringbuffer.h"
+#include "spinlock.h"
+
+#include "net/tcp_server.h"
+#include "net/tcp_client.h"
+#include "rpc/rpc_session.h"
+#include "rpc/config.h"
+
+#include <memory>
+#include <unordered_map>
+#include <functional>
+#include <exception>
+#include <list>
 
 namespace MyRPC{
-    class RPCServer{
+    class RPCServer:public TCPServer{
     public:
-        RPCServer(const InetAddr::ptr& bind_addr,Common::Prototype proto_type, int thread_count = 1, ms_t timeout=0){
-            m_proto_type = proto_type;
-            m_fiber_pool = std::make_shared<FiberPool>(thread_count);
-            switch(proto_type){
-                case Common::JSONRPC2:
-                    m_server = new JsonRPC::JsonRPCServerBase(bind_addr, m_fiber_pool,timeout);
-                    break;
-                default:
-                    MYRPC_ASSERT(false);
-            }
+        using ptr = std::shared_ptr<RPCServer>;
+        explicit RPCServer(InetAddr::ptr bind_addr, Config::ptr config);
+
+        bool bind() noexcept override{
+            m_registry.m_port = m_bind_addr->GetPort();
+            return TCPServer::bind();
         }
 
         template<class Func>
-        void AddMethod(const std::string& service_name,Func&& func) {
-            switch(m_proto_type) {
-                case Common::JSONRPC2:
-                    return static_cast<JsonRPC::JsonRPCServerBase*>(m_server)->AddMethod(service_name,
-                                                                                         std::forward<Func>(func));
-                default:
-                    MYRPC_ASSERT(false);
-            }
+        void RegisterMethod(const std::string& service_name,Func&& func){
+            auto register_func = [this](std::string service_name, Func func){
+                {
+                    std::unique_lock<FiberSync::RWMutex> lock(m_service_table_mutex);
+                    m_service_table.emplace(service_name, [func](RPCSession &proto) -> StringBuffer {
+                        using func_traits = function_traits<std::decay_t<Func>>;
+
+                        typename func_traits::arg_type args;
+                        proto.ParseContent(args);
+                        try {
+                            auto ret_val = func_traits::apply(func, args);
+                            return proto.Prepare(MESSAGE_RESPOND_OK, ret_val);
+                        } catch (std::exception &e) {
+                            std::string msg(e.what());
+                            return proto.Prepare(MESSAGE_RESPOND_EXCEPTION, msg);
+                        }
+                    });
+                }
+                m_registry.Update(service_name);
+            };
+            m_fiber_pool-> Run(std::bind(register_func, service_name, std::forward<Func>(func)));
         }
 
-        bool bind(){
-            return m_server->bind();
-        }
+        bool ConnectToRegistryServer(){return m_registry.Connect();}
 
-        void Start(){
-            return m_server->Start();
-        }
-
-        void Loop(){
-            return m_server->Loop();
-        }
-        ~RPCServer(){
-            delete m_server;
-        }
+    protected:
+        void handleConnection(const Socket::ptr& sock) override;
 
     private:
-        FiberPool::ptr m_fiber_pool = nullptr;
+        int m_keepalive;
 
-        Common::Prototype m_proto_type;
-        TCPServer* m_server = nullptr;
+        // 服务表，用于记录及查询服务对应的函数
+        std::unordered_map<std::string, std::function<StringBuffer(RPCSession&)>> m_service_table;
+
+        FiberSync::RWMutex m_service_table_mutex;
+
+        class RegistryClientSession: public TCPClient{
+        public:
+            RegistryClientSession(InetAddr::ptr server_addr, FiberPool::ptr& fiberPool, useconds_t timeout, int keep_alive):
+                                                        TCPClient(server_addr, fiberPool, timeout),m_keepalive(keep_alive){}
+            void Update(std::string_view service_name);
+
+            uint16_t m_port = 0; // 服务器端口
+        private:
+            int m_keepalive;
+
+            // 需要更新到注册服务器的新服务
+            std::list<std::string> m_service_queue;
+            SpinLock m_service_queue_mutex;
+
+            std::atomic<bool> m_connection_closed = {true};
+
+            int m_connection_handler_thread_id = -1;
+
+        protected:
+
+            virtual void handleConnect() override;
+        };
+        RegistryClientSession m_registry;
+
+        void handleMessageRequestRPC(RPCSession&);
     };
 }
 

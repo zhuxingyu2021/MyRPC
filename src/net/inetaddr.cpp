@@ -3,7 +3,7 @@
 #include <arpa/inet.h>
 
 #include "logger.h"
-#include "debug.h"
+#include "macro.h"
 
 #include "net/exception.h"
 
