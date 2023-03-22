@@ -7,59 +7,58 @@
 
 #include "noncopyable.h"
 #include <memory>
+#include <vector>
 
 namespace MyRPC{
     class TCPClient: public NonCopyable{
     public:
         using ptr = std::shared_ptr<TCPClient>;
 
-        TCPClient(InetAddr::ptr& server_addr, FiberPool::ptr& fiberPool, useconds_t timeout=0):
+        TCPClient(InetAddr::ptr& server_addr, FiberPool::ptr& fiberPool, ms_t timeout=0):
                 m_server_addr(server_addr), m_fiber_pool(fiberPool), m_timeout(timeout){}
 
-        virtual ~TCPClient(){disConnect();}
+        virtual ~TCPClient(){DisConnect();}
 
-        virtual bool Connect(){
-            m_closing = false;
-            if(m_connection_closed) {
-                m_sock = Socket::Connect(m_server_addr, m_timeout);
-                if (m_sock) {
-                    m_fiber_pool->Run(std::bind(&TCPClient::handleConnect, this));
-                    m_connection_closed = false;
-                    return true;
-                }
-                return false;
-            }
-            return true;
-        };
+        bool Connect();
 
-        virtual void disConnect(){
-            m_closing = true;
-        }
+        void DisConnect();
 
         const InetAddr::ptr& GetServerAddr() const{return m_server_addr;}
 
-        bool IsClosed() const{return m_connection_closed.load();}
-        bool IsClosing() const{return m_closing.load();}
+        bool IsClosed() const{return m_conn_handler_array.empty();}
 
     protected:
-        virtual void handleConnect(){
-#if MYRPC_DEBUG_LEVEL >= MYRPC_DEBUG_NET_LEVEL
-            Logger::info("Thread: {}, Fiber: {}: A new connection to server IP:{}, port:{}, connection fd:{}", FiberPool::GetCurrentThreadId(),
-                         Fiber::GetCurrentId(), m_server_addr->GetIP(), m_server_addr->GetPort(), m_sock->GetSocketfd());
-#endif
+        template <class Func>
+        void AddConnectionHandler(Func&& func){
+            m_conn_handler.push_back(std::forward<Func>(func));
+        }
+
+        template <class Func>
+        void SetCloseHandler(Func&& func){
+            m_close_handler(std::forward<Func>(func));
+        }
+
+        void DisableConnectionHandler(){
+            m_conn_handler.clear();
+        }
+
+        void UnsetCloseHandler(){
+            m_close_handler = nullptr;
         }
 
         InetAddr::ptr m_server_addr;
-        Socket::ptr m_sock;
 
-        useconds_t m_timeout;
+        ms_t m_timeout;
         FiberPool::ptr m_fiber_pool;
 
-        std::atomic<bool> m_connection_closed = {true};
     private:
-        bool m_ipv6;
+        std::vector<std::function<void(Socket::ptr)>> m_conn_handler;
+        std::vector<Fiber::ptr> m_conn_handler_array;
+        std::function<void()> m_close_handler;
 
-        std::atomic<bool> m_closing = {false};
+        int m_conn_thread_id = -1;
+
+        bool m_ipv6;
     };
 }
 

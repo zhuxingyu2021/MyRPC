@@ -1,5 +1,4 @@
 include_directories(${PROJECT_SOURCE_DIR}/include)
-include_directories(${PROJECT_SOURCE_DIR}/3rdparty/cereal/include)
 
 macro(make_test subdir fname)
     add_executable(${fname} ${subdir}/${fname}.cpp)
@@ -22,8 +21,10 @@ make_test(module_net_test test_deserializer)
 make_test(module_net_test test_utils_byteorder)
 make_test(module_net_test test_json_file_parser)
 make_test(module_net_test test_tcp_server_client)
+make_test(module_net_test test_tcp_server_ringbuffer)
 
 make_test(module_rpc_test test_config)
-make_test(module_rpc_test test_rpc_registry_server)
-make_test(module_rpc_test test_rpc_server)
-make_test(module_rpc_test test_rpc_client)
+make_test(module_rpc_test test_json_rpc_proto)
+make_test(module_rpc_test test_json_rpc_server_base)
+
+make_test(module_other_test test_zk)

@@ -1,6 +1,6 @@
 #include "fiber/fiber.h"
 #include "logger.h"
-#include "macro.h"
+#include "debug.h"
 #include "fiber/hook_sleep.h"
 #include "fiber/hook_io.h"
 
@@ -60,31 +60,33 @@ enable_hook = false;}
 #define RESUME(ctx_addr) myrpc_ctx_switch((ctx_addr) + MAINCO_CTX_OFS, (ctx_addr) + SUBCO_CTX_OFS);
 #define YIELD(ctx_addr) myrpc_ctx_switch((ctx_addr) + SUBCO_CTX_OFS, (ctx_addr) + MAINCO_CTX_OFS);
 
-void Fiber::init_stack_and_ctx() {
+void Fiber::_init_stack_and_ctx() {
     memset(m_ctx, 0, 26 * sizeof(void*));
     m_ctx[SUBCO_CTX_OFS + SP_CTX_OFS] = STACK_BOTTOM_ADDR; // 子协程的rsp指向协程栈的栈底
     m_ctx[SUBCO_CTX_OFS + FP_CTX_OFS] = m_ctx[SUBCO_CTX_OFS + SP_CTX_OFS]; // 设置子协程的rbp = rsp
 
     // 第一次切换到协程时，需要跳转到Fiber::Main位置
 #if defined(__x86_64__) || defined(_M_X64)
-    STACK_BOTTOM = (void*)&Fiber::Main;
+    STACK_BOTTOM = (void*) &Fiber::_main_func;
 #elif defined(__aarch64__)
     m_ctx[SUBCO_CTX_OFS + RET_CTX_OFS] = (void*)&Fiber::Main;
 #endif
+    // 栈的边界，用于检测栈溢出
+    *((uint64_t*)m_stack) = 0x7F62E109A8B12815;
 }
 
 Fiber::Fiber(const std::function<void()>& func) : m_fiber_id(++fiber_count), m_func(func), m_status(READY) {
     m_stack_size = init_stack_size;
     m_stack = (char*) aligned_alloc(64, sizeof(char) * init_stack_size);
     if(m_stack)
-        init_stack_and_ctx();
+        _init_stack_and_ctx();
 }
 
 Fiber::Fiber(std::function<void()>&& func) : m_fiber_id(++fiber_count), m_func(std::move(func)), m_status(READY) {
     m_stack_size = init_stack_size;
     m_stack = (char*) aligned_alloc(64, sizeof(char) * init_stack_size);;
     if(m_stack)
-        init_stack_and_ctx();
+        _init_stack_and_ctx();
 }
 
 Fiber::~Fiber() {
@@ -115,6 +117,7 @@ void Fiber::Suspend(int64_t return_value) {
         ptr->m_status = READY;
 
         SWAP_OUT();
+        MYRPC_ASSERT(*((uint64_t*)ptr->m_stack) == 0x7F62E109A8B12815);
         // 切换上下文
         YIELD(ptr->m_ctx);
     }
@@ -126,6 +129,7 @@ void Fiber::Block(int64_t return_value) {
         ptr->m_status = BLOCKED;
 
         SWAP_OUT();
+        MYRPC_ASSERT(*((uint64_t*)ptr->m_stack) == 0x7F62E109A8B12815);
         // 切换上下文
         YIELD(ptr->m_ctx);
     }
@@ -158,7 +162,7 @@ int64_t Fiber::Resume() {
 void Fiber::Reset() {
     if (m_status == TERMINAL || m_status == ERROR) {
         m_status = READY;
-        init_stack_and_ctx();
+        _init_stack_and_ctx();
     } else {
         // Stack Unwinding
 #if defined(__x86_64__) || defined(_M_X64)
@@ -174,6 +178,33 @@ void Fiber::Reset() {
 
         // 切换上下文
         RESUME(m_ctx);
+        m_status = READY;
+        _init_stack_and_ctx();
+    }
+}
+
+void Fiber::Term() {
+    if (m_status == EXEC) {
+        MYRPC_CRITIAL_ERROR("Try to close a running fiber, id: " + std::to_string(m_fiber_id));
+    } else if(m_status == TERMINAL){
+        // Do Nothing
+    }else{
+        // Stack Unwinding
+#if defined(__x86_64__) || defined(_M_X64)
+        void** rsp = (void**)m_ctx[SUBCO_CTX_OFS + SP_CTX_OFS];
+
+        // push (void**)&unwind
+        --rsp;
+        *rsp = (void**)&unwind;
+        m_ctx[SUBCO_CTX_OFS + SP_CTX_OFS] = (char*)rsp;
+#elif defined(__aarch64__)
+        m_ctx[SUBCO_CTX_OFS + RET_CTX_OFS] = (void**)&unwind;
+#endif
+
+        // 切换上下文
+        RESUME(m_ctx);
+
+        MYRPC_ASSERT(m_status == TERMINAL);
     }
 }
 
@@ -193,7 +224,7 @@ int64_t Fiber::GetCurrentId() {
     return 0;
 }
 
-void Fiber::Main() {
+void Fiber::_main_func() {
     auto ptr = GET_THIS();
     {
         try {
@@ -213,6 +244,7 @@ void Fiber::Main() {
         }
     }
     ptr->m_status = TERMINAL;
+    MYRPC_ASSERT(*((uint64_t*)ptr->m_stack) == 0x7F62E109A8B12815);
     SWAP_OUT();
 
     // 上下文切换
@@ -231,7 +263,7 @@ size_t Fiber::GetStackFreeSize() {
     char* stack = GET_THIS()->m_stack;
     char* rsp;
     asm volatile("movq %%rsp, %0":"=g"(rsp));
-    return (size_t)(rsp-stack);
+    return (size_t)(rsp-stack-8);
 }
 
 bool Fiber::ExtendStackCapacity() {

@@ -1,11 +1,7 @@
-#ifndef MYRPC_SERIALIZER_H
-#define MYRPC_SERIALIZER_H
-
-#define Serializer JsonSerializer
+#ifndef MYRPC_JSON_SERIALIZER_H
+#define MYRPC_JSON_SERIALIZER_H
 
 #include <type_traits>
-#include "stringbuffer.h"
-
 #include <array>
 #include <vector>
 #include <deque>
@@ -22,6 +18,10 @@
 #include <memory>
 
 #include "utils.h"
+#include "buffer/buffer.h"
+#include "buffer/stringbuffer.h"
+
+#include "serialization/placeholder.h"
 
 namespace MyRPC {
 /**
@@ -40,7 +40,7 @@ namespace MyRPC {
  */
 class JsonSerializer {
 public:
-    JsonSerializer(StringBuilder& s): buffer(s){}
+    JsonSerializer(WriteBuffer& s): buffer(s){}
 
     template<class T>
     using arithmetic_type =  typename std::enable_if_t<std::is_arithmetic_v<std::decay_t<T>>,void>;
@@ -267,19 +267,9 @@ public:
             buffer.Append("null");
     }
 
-    template<class T>
-    static std::string ToString(T&& t){
-        StringBuilder sb;
-        JsonSerializer ser(sb);
-        ser.Save(std::forward<T>(t));
-        StringBuffer buf = std::move(sb.Concat());
-        std::string return_val((char*)buf.data, buf.size);
-        return return_val;
-    }
-
 private:
 
-    StringBuilder& buffer;
+    WriteBuffer& buffer;
 
 public:
     /**
@@ -310,15 +300,34 @@ public:
         t.Save(*this);
     }
 
-};
+
+    inline void serialize_key_beg_impl_(const std::string& key) {
+        buffer.Append('\"');
+        buffer.Append(key);
+        buffer.Append("\":");
+    }
+
+    inline void serialize_key_end_impl_() {
+        buffer.Append(',');
+    }
 
 };
 
-#define SAVE_BEGIN void Save(MyRPC::JsonSerializer& serializer) const{ \
-                   serializer.serialize_struct_begin_impl_();
+};
+
+#define SAVE_BEGIN_DEF void Save(MyRPC::JsonSerializer& serializer) const{
+#define SAVE_BEGIN_WRITE serializer.serialize_struct_begin_impl_();
+#define SAVE_BEGIN SAVE_BEGIN_DEF SAVE_BEGIN_WRITE
 
 #define SAVE_ITEM(x) serializer.serialize_item_impl_(#x, x);
 #define SAVE_ALIAS_ITEM(alias, x) serializer.serialize_item_impl_(#alias, x);
-#define SAVE_END serializer.serialize_struct_end_impl_();}
 
-#endif //MYRPC_SERIALIZER_H
+#define SAVE_KEY_BEG(alias) serializer.serialize_key_beg_impl_( #alias);
+
+#define SAVE_KEY_END serializer.serialize_key_end_impl_();
+
+#define SAVE_END_WRITE serializer.serialize_struct_end_impl_();
+#define SAVE_END_DEF }
+#define SAVE_END SAVE_END_WRITE SAVE_END_DEF
+
+#endif //MYRPC_JSON_SERIALIZER_H
